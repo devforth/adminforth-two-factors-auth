@@ -10,8 +10,8 @@
   },
   "type": "module",
   "scripts": {
-    "rollout": "tsc && rsync -av --exclude 'node_modules' custom dist/ && npm version patch && npm publish --access public",
-    "prepare": "npm link adminforth"
+    "prepare": "npm link adminforth",
+    "build": "tsc"
   },
   "keywords": [
     "adminforth",
