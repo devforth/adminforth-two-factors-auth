@@ -4,14 +4,53 @@
   "description": "AdminForth plugin for two factors authentication",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/devforth/adminforth-two-factors-auth.git"
+  },
   "type": "module",
   "scripts": {
     "rollout": "tsc && rsync -av --exclude 'node_modules' custom dist/ && npm version patch && npm publish --access public",
     "prepare": "npm link adminforth"
   },
+  "keywords": [
+    "adminforth",
+    "two-factors-auth",
+    "2fa"
+  ],
   "author": "devforth",
   "license": "ISC",
   "dependencies": {
     "node-2fa": "^2.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.7",
+    "semantic-release": "^24.2.1",
+    "semantic-release-slack-bot": "^4.0.2",
+    "typescript": "^5.7.3"
+  },
+  "release": {
+    "plugins": [
+      "@semantic-release/commit-analyzer",
+      "@semantic-release/release-notes-generator",
+      "@semantic-release/npm",
+      "@semantic-release/github",
+      [
+        "semantic-release-slack-bot",
+        {
+          "notifyOnSuccess": true,
+          "notifyOnFail": true,
+          "slackIcon": ":package:",
+          "markdownReleaseNotes": true
+        }
+      ]
+    ],
+    "branches": [
+      "main",
+      {
+        "name": "next",
+        "prerelease": true
+      }
+    ]
   }
 }
