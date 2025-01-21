@@ -11,7 +11,7 @@
   "type": "module",
   "scripts": {
     "prepare": "npm link adminforth",
-    "build": "tsc"
+    "build": "tsc && rsync -av --exclude 'node_modules' custom dist/"
   },
   "keywords": [
     "adminforth",
