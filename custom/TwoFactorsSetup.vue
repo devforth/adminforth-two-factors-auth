@@ -39,6 +39,7 @@
                       input-classes="bg-gray-50 text-center flex justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
                       :conditionalClass="['one', 'two', 'three', 'four', 'five', 'six']"
                       inputType="number"
+                      inputmode="numeric"
                       :num-inputs="6"
                       :should-auto-focus="true"
                       :should-focus-order="true"
