@@ -53,7 +53,9 @@
   import { LinkButton } from '@/afcl';
   import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
   import VOtpInput from "vue3-otp-input";
+  import { useI18n } from 'vue-i18n';
 
+  const { t } = useI18n();
   const code = ref(null);
 
   const handleOnComplete = (value) => {
@@ -118,7 +120,7 @@
     if (resp.allowedLogin){
       await user.finishLogin();
     } else {
-      showErrorTost('Invalid code');
+      showErrorTost(t('Invalid code'));
     }
   }
 

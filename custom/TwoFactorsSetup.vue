@@ -78,7 +78,9 @@ import { Button, LinkButton } from '@/afcl';
 import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
 import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
+import { useI18n } from 'vue-i18n';
 
+const { t } = useI18n();
 
 const code = ref(null);
 const handleOnComplete = (value) => {
@@ -125,7 +127,7 @@ function parseJwt(token) {
 
 function onCopyClick(){
   navigator.clipboard.writeText(totp.value.newSecret);
-  adminforth.alert({message: 'Copied to clipboard', variant: 'success'})
+  adminforth.alert({message: t('Copied to clipboard'), variant: 'success'})
 }
 
 onMounted(async () => {
@@ -170,7 +172,7 @@ async function sendCode (value) {
   if (resp.allowedLogin){
     await user.finishLogin()
   } else {
-    showErrorTost('Invalid code');
+    showErrorTost(t('Invalid code'));
   }
 }
 
@@ -197,7 +199,7 @@ const handleSkip = async () => {
   if (resp.allowedLogin){
     await user.finishLogin()
   } else {
-    showErrorTost('Something went wrong');
+    showErrorTost(t('Something went wrong'));
   }
 }
 </script>
