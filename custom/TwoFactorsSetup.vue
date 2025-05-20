@@ -12,10 +12,10 @@
       <div class="relative p-4 w-full max-w-md max-h-full">
           <!-- Modal content -->
           <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
-              <div class="p-8 w-full max-w-md max-h-full" >
+              <div class="p-10 w-full max-w-md max-h-full" >
                   <div class="m-3" >{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
-                      <img :src="totpQrCode" alt="QR code" />
+                      <img :src="totpQrCode" class="min-w-[200px], min-h-[200px]" alt="QR code" />
                   </div>
                   <div class="m-3 ">
                       <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
@@ -36,7 +36,7 @@
                   <div class="my-4 flex justify-center items-center">
                     <v-otp-input
                       ref="code"
-                      input-classes="bg-gray-50 text-center flex justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
+                      input-classes="bg-gray-50 text-center flex justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-11 h-11 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
                       :conditionalClass="['one', 'two', 'three', 'four', 'five', 'six']"
                       inputType="number"
                       inputmode="numeric"
@@ -47,11 +47,11 @@
                     />
                   </div>
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
-                   <div class="flex flex-row gap-2.5">
+                   <div class="flex flex-row gap-2.5 pl-3 pr-3 h-12">
                   <LinkButton to="/login" class="w-full">
                     {{$t('Back to login')}}
                   </LinkButton>
-                  <Button v-if="skipAllowed" @click="handleSkip" class="w-full">
+                  <Button @click="handleSkip" class="w-full">
                     {{$t('Skip for now')}}
                   </Button>
                 </div>
