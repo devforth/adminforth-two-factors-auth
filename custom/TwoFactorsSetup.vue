@@ -51,7 +51,7 @@
                   <LinkButton to="/login" class="w-full">
                     {{$t('Back to login')}}
                   </LinkButton>
-                  <Button @click="handleSkip" class="w-full">
+                  <Button v-if="skipAllowed" @click="handleSkip" class="w-full">
                     {{$t('Skip for now')}}
                   </Button>
                 </div>
