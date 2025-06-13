@@ -54,7 +54,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if(!this.authResource.columns.some((col)=>col.name === this.options.twoFaSecretFieldName)){
       throw new Error(`Column ${this.options.twoFaSecretFieldName} not found in ${this.authResource.label}`)
     }
-    (this.adminforth.config.auth.beforeLoginConfirmation as BeforeLoginConfirmationFunction[]).push(
+
+    const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
+    const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
+    beforeLoginConfirmationArray.push(
       async({ adminUser, response }: { adminUser: AdminUser, response: IAdminForthHttpResponse} )=> {
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
