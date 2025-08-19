@@ -12,14 +12,14 @@
       <div class="relative p-4 w-full max-w-md max-h-full">
           <!-- Modal content -->
           <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
-              <div class="p-10 w-full max-w-md max-h-full" >
+              <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
                   <div class="m-3" >{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
                       <img :src="totpQrCode" class="min-w-[200px], min-h-[200px]" alt="QR code" />
                   </div>
                   <div class="m-3 ">
                       <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
-                      <div class="w-full max-w-[46rem]">
+                      <div class="w-full">
                           <div class="relative">
                               <label for="npm-install-copy-text" class="sr-only">{{$t('Label')}}</label>
                               <input id="npm-install-copy-text" type="text" class="col-span-10 bg-gray-50 border border-gray-300 text-gray-500 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full px-2.5 py-4 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500 pr-12" :value="totp.newSecret" readonly>
@@ -33,21 +33,22 @@
                           </div>
                       </div>
                   </div>
-                  <div class="my-4 flex justify-center items-center">
+                  <div class="my-4 w-full flex justify-center p-2" ref="otpRoot">
                     <v-otp-input
                       ref="code"
-                      input-classes="bg-gray-50 text-center flex justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-11 h-11 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500" 
-                      :conditionalClass="['one', 'two', 'three', 'four', 'five', 'six']"
-                      inputType="number"
-                      inputmode="numeric"
+                      container-class="grid grid-cols-6 gap-3 w-full"
+                      input-classes="otp-input bg-gray-50 text-center border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block h-[43.33px] w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                       :num-inputs="6"
+                      inputType="number" 
+                      inputmode="numeric"
                       :should-auto-focus="true"
                       :should-focus-order="true"
+                      v-model:value="bindValue"
                       @on-complete="handleOnComplete"
                     />
                   </div>
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
-                   <div class="flex flex-row gap-2.5 pl-3 pr-3 h-12">
+                   <div class="flex flex-row gap-2.5 px-3 h-12">
                   <LinkButton to="/login" class="w-full">
                     {{$t('Back to login')}}
                   </LinkButton>
@@ -67,7 +68,7 @@
 
 <script setup lang="ts">
 
-import { onMounted, onBeforeUnmount,  ref, watchEffect,computed,watch } from 'vue';
+import { onMounted, onBeforeUnmount, nextTick, ref, watchEffect,computed,watch } from 'vue';
 import { useCoreStore } from '@/stores/core';
 import { useUserStore } from '@/stores/user';
 import { IconEyeSolid, IconEyeSlashSolid } from '@iconify-prerendered/vue-flowbite';
@@ -89,6 +90,7 @@ const handleOnComplete = (value) => {
 
 const router = useRouter();
 const inProgress = ref(false);
+const otpRoot = ref(null);
 
 const coreStore = useCoreStore();
 const user = useUserStore();
@@ -151,11 +153,26 @@ onMounted(async () => {
   }
 
   window.addEventListener('paste', handlePaste);
+  await nextTick();
+  tagOtpInputs();
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('paste', handlePaste);
 });
+
+function tagOtpInputs() {
+    const root = otpRoot.value;
+    if (!root) return;
+    const inputs = root.querySelectorAll('input.otp-input');
+    inputs.forEach((el, idx) => {
+      el.setAttribute('name', 'mfaCode');
+      el.setAttribute('id', `mfaCode-${idx + 1}`);
+      el.setAttribute('autocomplete', 'one-time-code');
+      el.setAttribute('inputmode', 'numeric');
+      el.setAttribute('aria-labelledby', 'mfaCode-label');
+    });
+  }
 
 async function sendCode (value) {
   inProgress.value = true;
@@ -206,5 +223,5 @@ const handleSkip = async () => {
 <style>
 .otp-input {
   margin: 0 5px;
-}
+} 
 </style>
