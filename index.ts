@@ -55,7 +55,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       throw new Error(`Column ${this.options.twoFaSecretFieldName} not found in ${this.authResource.label}`)
     }
     (this.adminforth.config.auth.beforeLoginConfirmation as BeforeLoginConfirmationFunction[]).push(
-      async({ adminUser, response }: { adminUser: AdminUser, response: IAdminForthHttpResponse} )=> {
+      async({ adminUser, response, extra }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any} )=> {
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
         const brandName = adminforth.config.customization.brandName;
@@ -63,6 +63,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const authResource = adminforth.config.resources.find((res)=>res.resourceId === adminforth.config.auth.usersResourceId )
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
+        const rememberMe = extra?.body?.rememberMe || false;
+        const rememberMeDays = rememberMe ? adminforth.config.auth.rememberMeDays || 30 : process.env.ADMINFORTH_REMEMBER_ME_DAYS || 1;
         let newSecret = null;
 
         const userNeeds2FA = this.options.usersFilterToApply ? this.options.usersFilterToApply(adminUser) : true;
@@ -76,7 +78,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           const tempSecret = twofactor.generateSecret({name: brandName,account: userName})
           newSecret = tempSecret.secret
         } else {
-          const value = this.adminforth.auth.issueJWT({userName,  issuer:brandName, pk:userPk, userCanSkipSetup }, 'tempTotp', '2h');
+          const value = this.adminforth.auth.issueJWT({userName, issuer:brandName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
           response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
 
           return {
@@ -87,7 +89,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             ok: true
           }
         }
-        const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:brandName, pk:userPk, userCanSkipSetup }, 'tempTotp', '2h');
+        const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:brandName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
         response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${totpTemporaryJWT}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; Expires=${new Date(Date.now() + '1h').toUTCString() } `);
 
         return {
@@ -124,7 +126,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
         const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempTotp');
-
         if (!decoded)
           return {status:'error',message:'Invalid token'}
 
@@ -137,7 +138,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               await connector.updateRecord({resource:this.authResource, recordId:decoded.pk, newValues:{[this.options.twoFaSecretFieldName]: decoded.newSecret}})
             }
             this.adminforth.auth.removeCustomCookie({response, name:'totpTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Wrong or expired OTP code'}
@@ -150,7 +151,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           const verified = twofactor.verifyToken(user[this.options.twoFaSecretFieldName], body.code, this.options.timeStepWindow);
           if (verified) {
             this.adminforth.auth.removeCustomCookie({response, name:'totpTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Wrong or expired OTP code'}
