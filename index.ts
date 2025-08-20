@@ -33,6 +33,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path:'/setup2fa',
       component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true }}
     })
+    const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
+    everyPageBottomInjections.push({ file: this.componentPath('TwoFaModal.vue'), meta: {} })
     this.activate( resourceConfig, adminforth )
   }
 
@@ -187,6 +189,26 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           };
         }
       },
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/twofa/verify`,
+      noAuth: false,
+      handler: async ({ adminUser, body }) => {
+        if (!body?.code) return { error: 'Code is required' };
+    
+        const authRes = this.adminforth.config.resources
+          .find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
+        const connector = this.adminforth.connectors[authRes.dataSource];
+        const pkName = authRes.columns.find(c => c.primaryKey).name;
+        const user = await connector.getRecordByPrimaryKey(authRes, adminUser.dbUser[pkName]);
+    
+        const secret = user[this.options.twoFaSecretFieldName];
+        if (!secret) return { error: '2FA is not set up for this user' };
+    
+        const verified = twofactor.verifyToken(secret, body.code, this.options.timeStepWindow);
+        return verified ? { ok: true } : { error: 'Wrong or expired OTP code' };
+      }
     });
   }
 }
