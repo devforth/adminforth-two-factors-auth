@@ -57,14 +57,15 @@
   let resolveFn: ((code: string) => void) | null = null;
   let verifyingCallback: ((code: string) => boolean) | null = null;
   let verifyFn: null | ((code: string) => Promise<boolean> | boolean) = null;
+  let rejectFn: ((err?: any) => void) | null = null;
 
   window.adminforthTwoFaModal = {
-    getCode: (verifyingCallback?: () => Promise<boolean>) => new Promise((resolve) => {
-      if (modelShow.value) {
-        throw new Error('Modal is already open');
-      }
+    getCode: (verifyingCallback?: (code: string) => Promise<boolean>) =>
+      new Promise((resolve, reject) => {
+      if (modelShow.value) throw new Error('Modal is already open');
       modelShow.value = true;
       resolveFn = resolve;
+      rejectFn = reject;
       verifyFn = verifyingCallback ?? null;
     }),
   };
@@ -106,17 +107,16 @@
   }
   
   async function sendCode(value: string) {
-    if (!resolveFn) {
-      throw new Error('Modal is not initialized properly');
-    }
-
+    if (!resolveFn) throw new Error('Modal is not initialized properly');
     if (verifyFn) {
       try {
         const ok = await verifyFn(value);
         if (!ok) {
+          rejectFn?.(new Error('Invalid code'));
           return;
         }
-      } catch {
+      } catch (err) {
+        rejectFn?.(err);
         return;
       }
     }

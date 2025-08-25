@@ -19,6 +19,34 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
+  public async verify(
+    code: string,
+    opts?: { adminUser?: AdminUser; userPk?: string }
+  ): Promise<{ ok: true } | { error: string }> {
+    if (!code) return { error: "Code is required" };
+
+    const authRes = this.adminforth.config.resources
+      .find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
+
+    if (!authRes) return { error: "Auth resource not found" };
+
+    const connector = this.adminforth.connectors[authRes.dataSource];
+    const pkName = authRes.columns.find(c => c.primaryKey)?.name;
+    if (!pkName) return { error: "Primary key not found on auth resource" };
+
+    const pk = opts?.userPk ?? opts?.adminUser?.dbUser?.[pkName];
+    if (!pk) return { error: "User PK is required" };
+
+    const user = await connector.getRecordByPrimaryKey(authRes, pk);
+    if (!user) return { error: "User not found" };
+
+    const secret = user[this.options.twoFaSecretFieldName];
+    if (!secret) return { error: "2FA is not set up for this user" };
+
+    const verified = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
+    return verified ? { ok: true } : { error: "Wrong or expired OTP code" };
+  }
+
   modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
