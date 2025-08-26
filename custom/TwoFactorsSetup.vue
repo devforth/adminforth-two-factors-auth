@@ -15,29 +15,27 @@
               <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
                   <div class="m-3" >{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
-                      <img :src="totpQrCode" class="min-w-[200px], min-h-[200px]" alt="QR code" />
+                      <img :src="totpQrCode" class="min-w-[200px] min-h-[200px]" alt="QR code" />
                   </div>
-                  <div class="m-3 ">
-                      <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
-                      <div class="w-full">
-                          <div class="relative">
-                              <label for="npm-install-copy-text" class="sr-only">{{$t('Label')}}</label>
-                              <input id="npm-install-copy-text" type="text" class="col-span-10 bg-gray-50 border border-gray-300 text-gray-500 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full px-2.5 py-4 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500 pr-12" :value="totp.newSecret" readonly>
-                              <button @click="onCopyClick" data-copy-to-clipboard-target="npm-install-copy-text" class="absolute end-2.5 top-1/2 -translate-y-1/2 text-gray-900 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 rounded-lg py-2 px-2.5 inline-flex items-center justify-center bg-white border-gray-200 border">
-                                  <span id="default-message" class="inline-flex items-center">
-                                      <svg class="w-3 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
-                                          <path d="M16 1h-3.278A1.992 1.992 0 0 0 11 0H7a1.993 1.993 0 0 0-1.722 1H2a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2Zm-3 14H5a1 1 0 0 1 0-2h8a1 1 0 0 1 0 2Zm0-4H5a1 1 0 0 1 0-2h8a1 1 0 1 1 0 2Zm0-5H5a1 1 0 0 1 0-2h2V2h4v2h2a1 1 0 1 1 0 2Z"/>
-                                      </svg>
-                                  </span>
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-                  <div class="my-4 w-full flex justify-center p-2" ref="otpRoot">
+                    <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
+                    <div class="w-full">
+                        <div class="relative">
+                            <label for="npm-install-copy-text" class="sr-only">{{$t('Label')}}</label>
+                            <input id="npm-install-copy-text" type="text" class="col-span-10 bg-gray-50 border border-gray-300 text-gray-500 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full px-2.5 py-4 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500 pr-12" :value="totp.newSecret" readonly>
+                            <button @click="onCopyClick" data-copy-to-clipboard-target="npm-install-copy-text" class="absolute end-2.5 top-1/2 -translate-y-1/2 text-gray-900 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 rounded-lg py-2 px-2.5 inline-flex items-center justify-center bg-white border-gray-200 border">
+                                <span id="default-message" class="inline-flex items-center">
+                                    <svg class="w-3 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
+                                        <path d="M16 1h-3.278A1.992 1.992 0 0 0 11 0H7a1.993 1.993 0 0 0-1.722 1H2a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2Zm-3 14H5a1 1 0 0 1 0-2h8a1 1 0 0 1 0 2Zm0-4H5a1 1 0 0 1 0-2h8a1 1 0 1 1 0 2Zm0-5H5a1 1 0 0 1 0-2h2V2h4v2h2a1 1 0 1 1 0 2Z"/>
+                                    </svg>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                  <div class="my-4 w-full flex justify-center" ref="otpRoot">
                     <v-otp-input
                       ref="code"
                       container-class="grid grid-cols-6 gap-3 w-full"
-                      input-classes="otp-input bg-gray-50 text-center border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block h-[43.33px] w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                      input-classes="otp-input bg-gray-50 text-center border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block h-[46px] w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                       :num-inputs="6"
                       inputType="number" 
                       inputmode="numeric"
@@ -48,7 +46,7 @@
                     />
                   </div>
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
-                   <div class="flex flex-row gap-2.5 px-3 h-12">
+                   <div class="flex flex-row gap-2.5 h-12">
                   <LinkButton to="/login" class="w-full">
                     {{$t('Back to login')}}
                   </LinkButton>
@@ -220,8 +218,9 @@ const handleSkip = async () => {
   }
 }
 </script>
-<style>
-.otp-input {
-  margin: 0 5px;
-} 
+<style scoped>
+:deep(.otp-input-container) {
+  display: flex;
+  gap: 0.75rem;
+}
 </style>

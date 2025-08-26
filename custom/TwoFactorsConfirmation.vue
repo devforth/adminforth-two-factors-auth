@@ -18,7 +18,7 @@
                       <v-otp-input
                         ref="code"
                         container-class="grid grid-cols-6 gap-3 w-full"
-                        input-classes="bg-gray-50 text-center flex justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                        input-classes="bg-gray-50 text-center justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                         :num-inputs="6"
                         inputType="number"
                         inputmode="numeric"
@@ -31,7 +31,7 @@
                       <div class="mt-6 flex justify-center">
                         <LinkButton
                           to="/login"
-                          class="w-[290px] mx-4"
+                          class="w-full"
                         >
                           {{$t('Back to login')}}
                         </LinkButton>
@@ -130,15 +130,16 @@
   }
   </script>
 
-  <style lang='scss'>
+  <style scoped lang='scss'>
     .vue3-2fa-code-input {
       display: flex;
       justify-content: center;
       gap: 1rem;
       margin-bottom: 1rem;
     }
-    .otp-input {
-      margin: 0 5px;
+    :deep(.otp-input-container) {
+      display: flex;
+      gap: 0.75rem;
     }
     .vue3-2fa-code-input-box {
         &[type='text'] {
