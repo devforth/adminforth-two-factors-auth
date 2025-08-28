@@ -136,10 +136,8 @@
   if (open) {
     await nextTick();
     tagOtpInputs();
-    console.log('adding paste listener');
     window.addEventListener('paste', handlePaste);
   } else {
-    console.log('re paste listener');
     window.removeEventListener('paste', handlePaste);
   }
 });
