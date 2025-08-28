@@ -13,9 +13,9 @@
           <!-- Modal content -->
           <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
               <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
-                  <div class="m-3" >{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
+                  <div>{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
-                      <img :src="totpQrCode" class="min-w-[200px] min-h-[200px]" alt="QR code" />
+                      <img :src="totpQrCode" class="af-qr-code min-w-[200px] min-h-[200px]" alt="QR code" />
                   </div>
                     <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
                     <div class="w-full">
