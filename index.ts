@@ -93,6 +93,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
         const brandName = adminforth.config.customization.brandName;
         const brandNameSlug = adminforth.config.customization.brandNameSlug;
+        const issuerName = (this.options.customBrendPrefix && this.options.customBrendPrefix.trim())
+        ? this.options.customBrendPrefix.trim()
+        : brandName;
         const authResource = adminforth.config.resources.find((res)=>res.resourceId === adminforth.config.auth.usersResourceId )
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
@@ -108,10 +111,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const userCanSkipSetup = this.options.usersFilterToAllowSkipSetup ? this.options.usersFilterToAllowSkipSetup(adminUser) : false;
 
         if (!secret){
-          const tempSecret = twofactor.generateSecret({name: brandName,account: userName})
+          const tempSecret = twofactor.generateSecret({name: issuerName,account: userName})
           newSecret = tempSecret.secret
         } else {
-          const value = this.adminforth.auth.issueJWT({userName, issuer:brandName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
+          const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
           response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
 
           return {
@@ -122,7 +125,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             ok: true
           }
         }
-        const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:brandName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
+        const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
         response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${totpTemporaryJWT}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; Expires=${new Date(Date.now() + '1h').toUTCString() } `);
 
         return {

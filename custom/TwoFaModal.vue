@@ -34,7 +34,7 @@
   
   <script setup lang="ts">
   import VOtpInput from 'vue3-otp-input';
-  import { ref, nextTick, onMounted, onBeforeUnmount } from 'vue';
+  import { ref, nextTick, watch } from 'vue';
   import { useUserStore } from '@/stores/user';
   import { useI18n } from 'vue-i18n';
   declare global {
@@ -131,15 +131,19 @@
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
-  
-  onMounted(async () => {
+
+  watch(modelShow, async (open) => {
+  if (open) {
     await nextTick();
     tagOtpInputs();
-    window.addEventListener('paste', handlePaste as any);
-  });
-  onBeforeUnmount(() => {
-    window.removeEventListener('paste', handlePaste as any);
-  });
+    console.log('adding paste listener');
+    window.addEventListener('paste', handlePaste);
+  } else {
+    console.log('re paste listener');
+    window.removeEventListener('paste', handlePaste);
+  }
+});
+
   </script>
   
 <style scoped>

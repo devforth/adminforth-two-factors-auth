@@ -16,6 +16,8 @@ export type PluginOptions = {
      */
     timeStepWindow?: number;
 
+    customBrendPrefix?: string;
+
     /**
      * Optional function to filter users to apply 2FA.
      * Should return true if 2FA should be applied to the user and false if AdminForth should not challenge the user with 2FA.
