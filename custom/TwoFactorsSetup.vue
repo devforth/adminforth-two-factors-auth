@@ -17,7 +17,7 @@
                   <div class="flex justify-center m-3" >
                       <img :src="totpQrCode" class="af-qr-code min-w-[200px] min-h-[200px]" alt="QR code" />
                   </div>
-                    <div class="m-1">{{$t('Or copy this code to app manually:')}}</div>
+                    <div>{{$t('Or copy this code to app manually:')}}</div>
                     <div class="w-full">
                         <div class="relative">
                             <label for="npm-install-copy-text" class="sr-only">{{$t('Label')}}</label>
