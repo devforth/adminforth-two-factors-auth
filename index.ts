@@ -62,7 +62,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true }}
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
-    everyPageBottomInjections.push({ file: this.componentPath('TwoFaModal.vue'), meta: {} })
+    everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
     this.activate( resourceConfig, adminforth )
   }
 
