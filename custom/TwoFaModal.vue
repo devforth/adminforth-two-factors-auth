@@ -97,11 +97,6 @@
     }
   }
   
-  async function submit() {
-    if (bindValue.value.length !== 6) return;
-    await sendCode(bindValue.value);
-  }
-  
   async function handleOnComplete(value: string) {
     await sendCode(value);
   }
@@ -128,6 +123,7 @@
   
   function onCancel() {
     modelShow.value = false;
+    bindValue.value = '';
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
@@ -135,10 +131,19 @@
   watch(modelShow, async (open) => {
   if (open) {
     await nextTick();
+    const htmlRef = document.querySelector('html');
+    if (htmlRef) {
+      htmlRef.style.overflow = 'hidden';
+    }
     tagOtpInputs();
     window.addEventListener('paste', handlePaste);
   } else {
     window.removeEventListener('paste', handlePaste);
+    const htmlRef = document.querySelector('html');
+    if (htmlRef) {
+      htmlRef.style.overflow = '';
+    }
+    bindValue.value = '';
   }
 });
 
