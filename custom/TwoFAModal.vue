@@ -80,13 +80,16 @@
   function tagOtpInputs() {
     const root = otpRoot.value;
     if (!root) return;
-    root.querySelectorAll('input.otp-input').forEach((el, idx) => {
+    const inputs = root.querySelectorAll('input.otp-input');
+    inputs.forEach((el, idx) => {
       el.setAttribute('name', 'mfaCode');
       el.setAttribute('id', `mfaCode-${idx + 1}`);
       el.setAttribute('autocomplete', 'one-time-code');
       el.setAttribute('inputmode', 'numeric');
       el.setAttribute('aria-labelledby', 'mfaCode-label');
     });
+    (inputs[0] as HTMLInputElement)?.focus();
+
   }
   
   function handlePaste(event: ClipboardEvent) {
