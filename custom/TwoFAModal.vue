@@ -124,6 +124,7 @@
   function onCancel() {
     modelShow.value = false;
     bindValue.value = '';
+    code.value?.clearInput();
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
@@ -144,6 +145,7 @@
       htmlRef.style.overflow = '';
     }
     bindValue.value = '';
+    code.value?.clearInput();
   }
 });
 
