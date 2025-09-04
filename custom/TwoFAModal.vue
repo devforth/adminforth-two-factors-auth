@@ -1,5 +1,5 @@
 <template>
-    <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
+    <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
     v-if ="modelShow">
       <div class="relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
