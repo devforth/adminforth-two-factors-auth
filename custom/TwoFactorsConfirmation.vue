@@ -63,6 +63,14 @@
   const otpRoot = ref(null);
   const bindValue = ref('');
 
+  const props = defineProps({
+    meta: {
+      type: Object,
+      required: true,
+      default: () => ({ suggestionPeriod: 1000 }) 
+    }
+  });
+
   const handleOnComplete = (value) => {
     sendCode(value);
   };
@@ -106,6 +114,17 @@
       }
     })
     if (resp.allowedLogin){
+      const lastLogin = window.localStorage.getItem('lastLogin');
+      const currentDate = Date.now();
+      const suggestPasskey = window.localStorage.getItem('suggestPasskey');
+      if (suggestPasskey !== 'false' && !suggestPasskey && suggestPasskey !== 'never') {
+        if (lastLogin && currentDate - parseInt(lastLogin) > props.meta.suggestionPeriod) {
+          window.localStorage.removeItem('suggestPasskey');
+          window.localStorage.setItem('suggestPasskey', 'true');
+        }
+      }
+      window.localStorage.removeItem('lastLogin');
+      window.localStorage.setItem('lastLogin', currentDate.toString());
       await user.finishLogin();
     } else {
       showErrorTost(t('Invalid code'));

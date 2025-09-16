@@ -81,6 +81,15 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+const props = defineProps({
+  meta: {
+    type: Object,
+    required: true,
+    default: () => ({ suggestionPeriod: 1000 }) 
+  }
+});
+
+
 const code = ref(null);
 const handleOnComplete = (value) => {
   sendCode(value);
@@ -184,7 +193,18 @@ async function sendCode (value) {
       secret: totp.value.newSecret,
     }
   })
-  if (resp.allowedLogin){
+  if (resp.allowedLogin) {
+    const lastLogin = window.localStorage.getItem('lastLogin') || 0;
+    const currentDate = Date.now();
+    const suggestPasskey = window.localStorage.getItem('suggestPasskey');
+      if (suggestPasskey !== 'false' && !suggestPasskey && suggestPasskey !== 'never') {
+      if (lastLogin && currentDate - parseInt(lastLogin) > props.meta.suggestionPeriod) {
+        window.localStorage.removeItem('suggestPasskey');
+        window.localStorage.setItem('suggestPasskey', 'true');
+      }
+    }
+    window.localStorage.removeItem('lastLogin');
+    window.localStorage.setItem('lastLogin', currentDate.toString());
     await user.finishLogin()
   } else {
     showErrorTost(t('Invalid code'));

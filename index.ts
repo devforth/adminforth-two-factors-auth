@@ -47,19 +47,38 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return verified ? { ok: true } : { error: "Wrong or expired OTP code" };
   }
 
+  public parsePeriod(period?: string): number {
+    if (!period) return 0;
+
+    const match = /^(\d+)([dhm])$/.exec(period.trim());
+    if (!match) throw new Error(`Invalid suggestionPeriod format: ${period}`);
+
+    const value = parseInt(match[1], 10);
+    const unit = match[2];
+
+    switch (unit) {
+      case 'd': return value * 24 * 60 * 60 * 1000; // дни в мс
+      case 'h': return value * 60 * 60 * 1000;      // часы в мс
+      case 'm': return value * 60 * 1000;           // минуты в мс
+      default: return value;
+    }
+  }
+
   modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
+    const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
+    console.log('Suggestion period in ms:', suggestionPeriod);
 
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
       path:'/confirm2fa',
-      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true }}
+      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod } }
     })
     customPages.push({
       path:'/setup2fa',
-      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true }}
+      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod } }
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
