@@ -85,7 +85,7 @@ const props = defineProps({
   meta: {
     type: Object,
     required: true,
-    default: () => ({ suggestionPeriod: 1000 }) 
+    default: () => ({ suggestionPeriod: 1000 * 60 * 60 * 24 * 5 }) // 5 days
   }
 });
 
@@ -194,17 +194,32 @@ async function sendCode (value) {
     }
   })
   if (resp.allowedLogin) {
-    const lastLogin = window.localStorage.getItem('lastLogin') || 0;
     const currentDate = Date.now();
-    const suggestPasskey = window.localStorage.getItem('suggestPasskey');
-      if (suggestPasskey !== 'false' && !suggestPasskey && suggestPasskey !== 'never') {
-      if (lastLogin && currentDate - parseInt(lastLogin) > props.meta.suggestionPeriod) {
-        window.localStorage.removeItem('suggestPasskey');
-        window.localStorage.setItem('suggestPasskey', 'true');
+    window.localStorage.removeItem('suggestionPeriod');
+    window.localStorage.setItem('suggestionPeriod', props.meta.suggestionPeriod);
+    let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
+    let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    let suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    if ( !lastSuggestionDate ) { 
+      window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
+      lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    }
+    if ( !suggestPasskey ) {
+      window.localStorage.setItem('suggestPasskey', 'true');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    }
+    console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
+    if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
+      console.log('suggesting passkey');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+      if (suggestPasskey !== 'true'){
+        if ( suggestPasskey === 'false' || !suggestPasskey ) {
+          window.localStorage.setItem('suggestPasskey', 'true');
+        } else if ( suggestPasskey !== 'never' ) {
+          window.localStorage.setItem('suggestPasskey', 'false');
+        }
       }
     }
-    window.localStorage.removeItem('lastLogin');
-    window.localStorage.setItem('lastLogin', currentDate.toString());
     await user.finishLogin()
   } else {
     showErrorTost(t('Invalid code'));

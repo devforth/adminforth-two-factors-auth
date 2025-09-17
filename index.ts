@@ -50,16 +50,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   public parsePeriod(period?: string): number {
     if (!period) return 0;
 
-    const match = /^(\d+)([dhm])$/.exec(period.trim());
+    const match = /^(\d+)([dhms])$/.exec(period.trim());
     if (!match) throw new Error(`Invalid suggestionPeriod format: ${period}`);
 
     const value = parseInt(match[1], 10);
     const unit = match[2];
 
     switch (unit) {
-      case 'd': return value * 24 * 60 * 60 * 1000; // дни в мс
-      case 'h': return value * 60 * 60 * 1000;      // часы в мс
-      case 'm': return value * 60 * 1000;           // минуты в мс
+      case 'd': return value * 24 * 60 * 60 * 1000; 
+      case 'h': return value * 60 * 60 * 1000; 
+      case 'm': return value * 60 * 1000;
+      case 's': return value * 1000;
       default: return value;
     }
   }
