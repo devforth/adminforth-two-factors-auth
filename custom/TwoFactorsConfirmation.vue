@@ -140,6 +140,22 @@
           }
         }
       }
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+
+      if ( suggestPasskey === 'true' ) {
+        adminforth.alert({
+          message: 'Do you want to add passkey?', 
+          variant: 'info', 
+          buttons: [
+            { value: 'yes', label: 'Add passkey' },
+            { value: 'later', label: 'Later' },
+            { value: 'never', label: 'Never' },
+          ],
+          timeout: 'unlimited'
+        }).then((value) => {
+          console.log('alert resolved with value=', value);
+        });
+      }
       await user.finishLogin();
     } else {
       showErrorTost(t('Invalid code'));
