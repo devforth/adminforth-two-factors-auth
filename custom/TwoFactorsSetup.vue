@@ -81,6 +81,15 @@ import { useI18n } from 'vue-i18n';
 
 const { t } = useI18n();
 
+const props = defineProps({
+  meta: {
+    type: Object,
+    required: true,
+    default: () => ({ suggestionPeriod: 1000 * 60 * 60 * 24 * 5 }) // 5 days
+  }
+});
+
+
 const code = ref(null);
 const handleOnComplete = (value) => {
   sendCode(value);
@@ -184,7 +193,49 @@ async function sendCode (value) {
       secret: totp.value.newSecret,
     }
   })
-  if (resp.allowedLogin){
+  if (resp.allowedLogin) {
+    const currentDate = Date.now();
+    window.localStorage.removeItem('suggestionPeriod');
+    window.localStorage.setItem('suggestionPeriod', props.meta.suggestionPeriod);
+    let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
+    let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    let suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    if ( !lastSuggestionDate ) { 
+      window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
+      lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    }
+    if ( !suggestPasskey ) {
+      window.localStorage.setItem('suggestPasskey', 'true');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    }
+    console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
+    if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
+      console.log('suggesting passkey');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+      if (suggestPasskey !== 'true'){
+        if ( suggestPasskey === 'false' || !suggestPasskey ) {
+          window.localStorage.setItem('suggestPasskey', 'true');
+        } else if ( suggestPasskey !== 'never' ) {
+          window.localStorage.setItem('suggestPasskey', 'false');
+        }
+      }
+    }
+    suggestPasskey = window.localStorage.getItem('suggestPasskey');
+
+    if ( suggestPasskey === 'true' ) {
+      adminforth.alert({
+        message: 'Do you want to add passkey?', 
+        variant: 'info', 
+        buttons: [
+          { value: 'yes', label: 'Add passkey' },
+          { value: 'later', label: 'Later' },
+          { value: 'never', label: 'Never' },
+        ],
+        timeout: 'unlimited'
+      }).then((value) => {
+        console.log('alert resolved with value=', value);
+      });
+    }
     await user.finishLogin()
   } else {
     showErrorTost(t('Invalid code'));
