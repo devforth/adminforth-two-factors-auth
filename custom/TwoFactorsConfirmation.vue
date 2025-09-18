@@ -28,14 +28,15 @@
                         @on-complete="handleOnComplete"
                       />
                     </div>
-                      <div class="mt-6 flex justify-center">
-                        <LinkButton
-                          to="/login"
-                          class="w-full"
-                        >
-                          {{$t('Back to login')}}
-                        </LinkButton>
-                      </div>
+                    <ErrorMessage :error="codeError" />
+                    <div class="mt-6 flex justify-center">
+                      <LinkButton
+                        to="/login"
+                        class="w-full"
+                      >
+                        {{$t('Back to login')}}
+                      </LinkButton>
+                    </div>
                 </div>
             </div>
         </div>
@@ -57,11 +58,13 @@
   import { LinkButton } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
+  import ErrorMessage from '@/components/ErrorMessage.vue';
 
   const { t } = useI18n();
   const code = ref(null);
   const otpRoot = ref(null);
   const bindValue = ref('');
+  const codeError = ref(null);
 
   const handleOnComplete = (value) => {
     sendCode(value);
@@ -108,7 +111,7 @@
     if (resp.allowedLogin){
       await user.finishLogin();
     } else {
-      showErrorTost(t('Invalid code'));
+      codeError.value = 'Invalid code';
     }
   }
 

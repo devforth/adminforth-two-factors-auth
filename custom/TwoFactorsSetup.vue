@@ -45,6 +45,7 @@
                       @on-complete="handleOnComplete"
                     />
                   </div>
+                  <ErrorMessage :error="codeError" />
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
                    <div class="flex flex-row gap-2.5 h-12">
                   <LinkButton to="/login" class="w-full">
@@ -78,10 +79,12 @@ import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
 import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
 import { useI18n } from 'vue-i18n';
+import ErrorMessage from '@/components/ErrorMessage.vue';
 
 const { t } = useI18n();
 
 const code = ref(null);
+const codeError = ref(null);
 const handleOnComplete = (value) => {
   sendCode(value);
 };
@@ -187,7 +190,7 @@ async function sendCode (value) {
   if (resp.allowedLogin){
     await user.finishLogin()
   } else {
-    showErrorTost(t('Invalid code'));
+    codeError.value = 'Invalid code';
   }
 }
 
@@ -214,7 +217,7 @@ const handleSkip = async () => {
   if (resp.allowedLogin){
     await user.finishLogin()
   } else {
-    showErrorTost(t('Something went wrong'));
+    codeError.value = 'Something went wrong';
   }
 }
 </script>
