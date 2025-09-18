@@ -1,6 +1,6 @@
 <template>
-    <div class="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
-    v-if ="modelShow">
+    <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
+    v-show ="modelShow">
       <div class="relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
           {{ $t('Please enter your authenticator code') }}
@@ -80,13 +80,16 @@
   function tagOtpInputs() {
     const root = otpRoot.value;
     if (!root) return;
-    root.querySelectorAll('input.otp-input').forEach((el, idx) => {
+    const inputs = root.querySelectorAll('input.otp-input');
+    inputs.forEach((el, idx) => {
       el.setAttribute('name', 'mfaCode');
       el.setAttribute('id', `mfaCode-${idx + 1}`);
       el.setAttribute('autocomplete', 'one-time-code');
       el.setAttribute('inputmode', 'numeric');
       el.setAttribute('aria-labelledby', 'mfaCode-label');
     });
+    (inputs[0] as HTMLInputElement)?.focus();
+
   }
   
   function handlePaste(event: ClipboardEvent) {
@@ -95,11 +98,6 @@
     if (pastedText.length === 6) {
       code.value?.fillInput(pastedText);
     }
-  }
-  
-  async function submit() {
-    if (bindValue.value.length !== 6) return;
-    await sendCode(bindValue.value);
   }
   
   async function handleOnComplete(value: string) {
@@ -128,6 +126,8 @@
   
   function onCancel() {
     modelShow.value = false;
+    bindValue.value = '';
+    code.value?.clearInput();
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
@@ -135,10 +135,20 @@
   watch(modelShow, async (open) => {
   if (open) {
     await nextTick();
+    const htmlRef = document.querySelector('html');
+    if (htmlRef) {
+      htmlRef.style.overflow = 'hidden';
+    }
     tagOtpInputs();
     window.addEventListener('paste', handlePaste);
   } else {
     window.removeEventListener('paste', handlePaste);
+    const htmlRef = document.querySelector('html');
+    if (htmlRef) {
+      htmlRef.style.overflow = '';
+    }
+    bindValue.value = '';
+    code.value?.clearInput();
   }
 });
 
