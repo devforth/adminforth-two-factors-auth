@@ -92,10 +92,17 @@
   onMounted(async () => {
     await nextTick();
     tagOtpInputs();
+    document.addEventListener('focusin', handleGlobalFocusIn, true);
+    focusFirstAvailableOtpInput();
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   });
 
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);
+    document.removeEventListener('focusin', handleGlobalFocusIn, true);
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
   });
   
   async function sendCode (value) {
@@ -130,6 +137,42 @@
     if (pastedText.length === 6) { 
       code.value?.fillInput(pastedText);
     }
+  }
+
+  function getOtpInputs() {
+    const root = otpRoot.value;
+    if (!root) return [];
+    return Array.from(root.querySelectorAll('input.otp-input'));
+  }
+
+  function focusFirstAvailableOtpInput() {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const firstEmpty = inputs.find((i) => !i.value);
+    (firstEmpty || inputs[0]).focus();
+  }
+
+  function handleGlobalFocusIn(event) {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const target = event.target;
+    if (!target) return;
+    if (!inputs.includes(target)) {
+      requestAnimationFrame(() => {
+        focusFirstAvailableOtpInput();
+      });
+    }
+  }
+
+  function handleFocusOut() {
+    requestAnimationFrame(() => {
+      const inputs = getOtpInputs();
+      if (!inputs.length) return;
+      const active = document.activeElement;
+      if (!active || !inputs.includes(active)) {
+        focusFirstAvailableOtpInput();
+      }
+    });
   }
   </script>
 
