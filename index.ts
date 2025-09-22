@@ -309,6 +309,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           displayName: "Yarik",
         };
         const excludeCredentials = [];
+        const temp = await this.adminforth.resource('passkeys').list( [Filters.EQ("user_id", adminUser.pk)] );
+        for (const rec of temp) {
+          if (rec.credential_id && rec.credential_id.length > 0) {
+            excludeCredentials.push({
+              id: rec.credential_id,
+              type: "public-key",
+              transports: JSON.parse(rec.transports || '[]')
+            });
+          }
+        }
         const options = await generateRegistrationOptions({
           rpName: rp.name,
           rpID: rp.id,
@@ -347,7 +357,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const expectedOrigin = body.origin;
         const expectedRPID = this.options.passkeys?.rpId || 'localhost';
         const response = JSON.parse(body.credential);
-        console.log("Finishing registering passkey for user", adminUser.pk, "with response:", response)
          try {
           // Verify the credential
           const { verified, registrationInfo } = await verifyRegistrationResponse({
@@ -373,16 +382,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
           const base64CredentialID = credentialID;
           const base64PublicKey = isoBase64URL.fromBuffer(credentialPublicKey);
-          console.log("We are about to store:", {
-            credential_id           : base64CredentialID,
-            passkey_id              : response.id,
-            passkey_raw_id          : response.rawId,
-            public_key              : base64PublicKey,
-            public_key_algorithm    : response.response.publicKeyAlgorithm,
-            transports              : response.response.transports,
-            last_used_at            : new Date().toISOString(),
-            aaguid                  : aaguid
-          })
+          // console.log("We are about to store:", {
+          //   credential_id           : base64CredentialID,
+          //   passkey_id              : response.id,
+          //   passkey_raw_id          : response.rawId,
+          //   public_key              : base64PublicKey,
+          //   public_key_algorithm    : response.response.publicKeyAlgorithm,
+          //   transports              : response.response.transports,
+          //   last_used_at            : new Date().toISOString(),
+          //   aaguid                  : aaguid
+          // })
 
           await this.adminforth.resource('passkeys').update(newRecordId, { 
             credential_id           : base64CredentialID,

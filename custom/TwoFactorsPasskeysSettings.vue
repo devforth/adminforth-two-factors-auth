@@ -27,12 +27,15 @@
 <script setup lang="ts">
     import { Table } from '@/afcl'
     import { callAdminForthApi } from '@/utils';
-
+    import adminforth from '@/adminforth';
 
     async function addPasskey() {
         checkForCompatibility();
         const { options, newRecordId } = await fetchInformationFromTheBackend();
         const creationResult = await callWebAuthn(options);
+        if (!creationResult) {
+            return;
+        }
         finishRegisteringPasskey(creationResult, newRecordId);
     }
 
@@ -66,15 +69,20 @@
         }
         const _options = response.data;
         const newRecordId = response.newRecordId;
-        //_options.challenge = base64urlToBuffer(_options.challenge);
         const options = PublicKeyCredential.parseCreationOptionsFromJSON(_options);
         return { options, newRecordId };
     }
 
     async function callWebAuthn(options: any) {
-        const credential = await navigator.credentials.create({
-            publicKey: options
-        });
+        let credential;
+        try {
+            credential = await navigator.credentials.create({
+                publicKey: options
+            });
+        } catch (error) {
+            adminforth.alert({message: 'Error creating credential. Probably already registered.', variant: 'warning'});
+            return;
+        }
         const _result = (credential as PublicKeyCredential).toJSON();
         const result = JSON.stringify(_result);
         return result;
