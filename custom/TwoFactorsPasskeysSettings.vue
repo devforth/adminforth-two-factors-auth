@@ -15,12 +15,20 @@
                 { name: 'Colin', lastUsed: '2022-01-04', delete: 'Delete' },
             ]"
         ></Table>
-        <button
-            class="text-md font-medium mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-            @click="addPasskey"
-        >
-            Add Passkey
-        </button>
+        <div class="flex space-x-4">
+            <button
+                class="text-md font-medium mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                @click="addPasskey"
+            >
+                Add Passkey
+            </button>
+            <button
+                class="text-md font-medium mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                @click="checkMyPasskey"
+            >
+                Check my passkey
+            </button>
+        </div> 
     </div>
 </template>
 
@@ -37,6 +45,11 @@
             return;
         }
         finishRegisteringPasskey(creationResult, newRecordId);
+    }
+
+    async function checkMyPasskey() {
+        checkForCompatibility();
+        // To be implemented
     }
 
     function checkForCompatibility() {

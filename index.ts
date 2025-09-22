@@ -412,5 +412,23 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/finishRegisteringPasskey`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        try {
+          const options = await generateAuthenticationOptions({
+            rpID: process.env.HOSTNAME,
+            allowCredentials: [],
+          });
+          console.log("Generated options:", options);
+          return { ok: true, data: options };
+        } catch (error) {
+          console.error("Error generating authentication options:", error);
+          return { ok: false, error: 'Error generating authentication options: ' + error.message };
+        }
+      }
+    });
   }
 }
