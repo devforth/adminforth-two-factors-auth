@@ -70,20 +70,29 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
     const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
-    console.log('Suggestion period in ms:', suggestionPeriod);
 
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
       path:'/confirm2fa',
-      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod } }
+      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod } }
     })
     customPages.push({
       path:'/setup2fa',
-      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod } }
+      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod } }
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
     this.activate( resourceConfig, adminforth )
+
+    if( !this.adminforth.config.auth.userMenuSettingsPages ){
+      this.adminforth.config.auth.userMenuSettingsPages = [];
+    }
+    this.adminforth.config.auth.userMenuSettingsPages.push({
+      icon: 'flowbite:lock-solid',
+      pageLabel: 'Passkeys',
+      slug: 'passkeys',
+      component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
+    });
   }
 
   activate ( resourceConfig: AdminForthResource, adminforth: IAdminForth ){

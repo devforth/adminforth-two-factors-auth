@@ -18,8 +18,8 @@ export type PluginOptions = {
 
     customBrendPrefix?: string;
 
-    passkeys: {
-        suggestionPeriod: string; // e.g. '30d', '12h', '15m'
+    passkeys?: {
+        suggestionPeriod?: string; // e.g. '30d', '12h', '15m'
     };
 
     /**

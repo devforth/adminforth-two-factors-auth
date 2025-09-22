@@ -78,8 +78,10 @@ import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
 import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
 
 const { t } = useI18n();
+const route = useRoute()
 
 const props = defineProps({
   meta: {
@@ -196,7 +198,7 @@ async function sendCode (value) {
   if (resp.allowedLogin) {
     const currentDate = Date.now();
     window.localStorage.removeItem('suggestionPeriod');
-    window.localStorage.setItem('suggestionPeriod', props.meta.suggestionPeriod);
+    window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
     let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
     let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
     let suggestPasskey = window.localStorage.getItem('suggestPasskey');
@@ -233,7 +235,20 @@ async function sendCode (value) {
         ],
         timeout: 'unlimited'
       }).then((value) => {
-        console.log('alert resolved with value=', value);
+        switch (value) {
+          case 'yes':
+            router.push({ name: 'settings', params: { page: 'passkeys' } });
+            break;
+          case 'later':
+            window.localStorage.setItem('suggestPasskey', 'false');
+            break;
+          case 'never':
+            window.localStorage.setItem('suggestPasskey', 'never');
+            break;
+          default:
+            window.localStorage.setItem('suggestPasskey', 'false');
+            break;
+        }
       });
     }
     await user.finishLogin()

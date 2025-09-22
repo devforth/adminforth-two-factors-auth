@@ -57,17 +57,20 @@
   import { LinkButton } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
+  import { useRoute } from 'vue-router'
+  import { useRouter } from 'vue-router';
 
   const { t } = useI18n();
   const code = ref(null);
   const otpRoot = ref(null);
   const bindValue = ref('');
+  const route = useRoute();
+  const router = useRouter();
 
   const props = defineProps({
     meta: {
       type: Object,
       required: true,
-      default: () => ({ suggestionPeriod: 1000}) // 5 days
     }
   });
 
@@ -116,7 +119,7 @@
     if ( resp.allowedLogin ) {
       const currentDate = Date.now();
       window.localStorage.removeItem('suggestionPeriod');
-      window.localStorage.setItem('suggestionPeriod', props.meta.suggestionPeriod);
+      window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
       let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
       let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
       let suggestPasskey = window.localStorage.getItem('suggestPasskey');
@@ -153,7 +156,20 @@
           ],
           timeout: 'unlimited'
         }).then((value) => {
-          console.log('alert resolved with value=', value);
+          switch (value) {
+            case 'yes':
+              router.push({ name: 'settings', params: { page: 'passkeys' } });
+              break;
+            case 'later':
+              window.localStorage.setItem('suggestPasskey', 'false');
+              break;
+            case 'never':
+              window.localStorage.setItem('suggestPasskey', 'never');
+              break;
+            default:
+              window.localStorage.setItem('suggestPasskey', 'false');
+              break;
+          }
         });
       }
       await user.finishLogin();
