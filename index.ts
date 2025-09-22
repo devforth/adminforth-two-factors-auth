@@ -2,6 +2,7 @@ import {  AdminForthPlugin, Filters } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
+import crypto from 'crypto';
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -63,6 +64,18 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       case 's': return value * 1000;
       default: return value;
     }
+  }
+
+  public bufferToBase64url(buffer) {
+    const bytes = new Uint8Array(buffer);
+    let str = "";
+    for (let i = 0; i < bytes.byteLength; i++) {
+      str += String.fromCharCode(bytes[i]);
+    }
+    return btoa(str)
+      .replace(/\+/g, "-")
+      .replace(/\//g, "_")
+      .replace(/=/g, "");
   }
 
   modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
@@ -268,6 +281,58 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     
         const verified = twofactor.verifyToken(secret, body.code, this.options.timeStepWindow);
         return verified ? { ok: true } : { error: 'Wrong or expired OTP code' };
+      }
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/registerPasskeyRequest`,
+      noAuth: false,
+      handler: async ({ adminUser, response }) => {
+        const challenge = crypto.randomBytes(32);
+        const challengeB64 = this.bufferToBase64url(challenge);
+        const rp = {
+          name: this.options.passkeys?.rpName || this.adminforth.config.customization.brandName || 'AdminForth',
+          id: this.options.passkeys?.rpId || 'localhost',
+        };
+        const userResourceId = this.adminforth.config.auth.usersResourceId;
+        const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
+        const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
+        const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
+        const userInfo = await this.adminforth.resource(userResourceId).get( [Filters.EQ(usersPrimaryKeyFieldName, adminUser.pk)] );
+        const user = {
+          id: adminUser.pk,
+          name: userInfo.email,
+          displayName: "Yarik",
+        };
+        const pubKeyCredParams = [{
+          alg: -7, type: "public-key"
+        },{
+          alg: -257, type: "public-key"
+        }];
+        const excludeCredentials = [];
+        const authenticatorSelection = {
+          authenticatorAttachment: "platform",
+          requireResidentKey: true,
+          userVerification: "required"
+        };
+        const passkeyResponse = {
+          challenge: challengeB64,
+          rp: rp,
+          user: user,
+          pubKeyCredParams: pubKeyCredParams,
+          excludeCredentials: excludeCredentials,
+          authenticatorSelection: authenticatorSelection
+        };
+        return { ok: true, data: passkeyResponse };
+      }
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/finishRegisteringPasskey`,
+      noAuth: false,
+      handler: async ({body, adminUser, response }) => {
+        console.log(body);
+        return { ok: true };
       }
     });
   }
