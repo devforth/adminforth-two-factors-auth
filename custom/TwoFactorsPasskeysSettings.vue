@@ -31,9 +31,9 @@
 
     async function addPasskey() {
         checkForCompatibility();
-        const options = await fetchInformationFromTheBackend();
-        const creationResult = callWebAuthn(options);
-        finishRegisteringPasskey(creationResult);
+        const { options, newRecordId } = await fetchInformationFromTheBackend();
+        const creationResult = await callWebAuthn(options);
+        finishRegisteringPasskey(creationResult, newRecordId);
     }
 
     function checkForCompatibility() {
@@ -65,31 +65,31 @@
             return;
         }
         const _options = response.data;
+        const newRecordId = response.newRecordId;
         //_options.challenge = base64urlToBuffer(_options.challenge);
         const options = PublicKeyCredential.parseCreationOptionsFromJSON(_options);
-        console.log('Parsed options:', options);
-        return options;
+        return { options, newRecordId };
     }
 
     async function callWebAuthn(options: any) {
-        console.log('Calling webAuthn');
         const credential = await navigator.credentials.create({
             publicKey: options
         });
-        // Encode and serialize the `PublicKeyCredential`.
         const _result = (credential as PublicKeyCredential).toJSON();
         const result = JSON.stringify(_result);
-        console.log('Credential:', result);
         return result;
     }
 
-    async function finishRegisteringPasskey(credential: any) {
+    async function finishRegisteringPasskey(credential: any, newRecordId: string) {
         let res 
         try {
         res = await callAdminForthApi({
             path: `/plugin/passkeys/finishRegisteringPasskey`,
             method: 'POST',
             body: {
+                credential: credential,
+                origin: window.location.origin,
+                newRecordId: newRecordId
             },
         });
         } catch (error) {

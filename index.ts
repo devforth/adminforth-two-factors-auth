@@ -3,7 +3,13 @@ import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminFor
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
 import crypto from 'crypto';
-
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse
+} from '@simplewebauthn/server';
+import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
   adminforth: IAdminForth;
@@ -288,8 +294,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
       handler: async ({ adminUser, response }) => {
-        const challenge = crypto.randomBytes(32);
-        const challengeB64 = this.bufferToBase64url(challenge);
         const rp = {
           name: this.options.passkeys?.rpName || this.adminforth.config.customization.brandName || 'AdminForth',
           id: this.options.passkeys?.rpId || 'localhost',
@@ -304,34 +308,98 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           name: userInfo.email,
           displayName: "Yarik",
         };
-        const pubKeyCredParams = [{
-          alg: -7, type: "public-key"
-        },{
-          alg: -257, type: "public-key"
-        }];
         const excludeCredentials = [];
-        const authenticatorSelection = {
-          authenticatorAttachment: "platform",
-          requireResidentKey: true,
-          userVerification: "required"
-        };
-        const passkeyResponse = {
-          challenge: challengeB64,
-          rp: rp,
-          user: user,
-          pubKeyCredParams: pubKeyCredParams,
-          excludeCredentials: excludeCredentials,
-          authenticatorSelection: authenticatorSelection
-        };
-        return { ok: true, data: passkeyResponse };
+        const options = await generateRegistrationOptions({
+          rpName: rp.name,
+          rpID: rp.id,
+          userID: isoUint8Array.fromUTF8String(user.id),
+          userName: user.name,
+          userDisplayName: user.displayName || '',
+          attestationType: 'none',
+          excludeCredentials,
+          authenticatorSelection: {
+            authenticatorAttachment: 'platform',
+            requireResidentKey: true,
+            userVerification: "required"
+          },
+        });
+        const newRecordId = crypto.randomUUID();
+        await this.adminforth.resource("passkeys").create({
+          id                       : newRecordId,
+          user_id                  : adminUser.pk,
+          sign_count               : 0,
+          created_at               : new Date().toISOString(),
+          challenge                : options.challenge,
+        });
+        return { ok: true, data: options, newRecordId: newRecordId };
       }
     });
     server.endpoint({
       method: 'POST',
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
-      handler: async ({body, adminUser, response }) => {
-        console.log(body);
+      handler: async ({body, adminUser }) => {
+        const newRecordId = body.newRecordId;
+        let record = await this.adminforth.resource('passkeys').get(
+          [Filters.EQ('id', newRecordId)]
+        );
+        const expectedChallenge = record.challenge;
+        const expectedOrigin = body.origin;
+        const expectedRPID = this.options.passkeys?.rpId || 'localhost';
+        const response = JSON.parse(body.credential);
+        console.log("Finishing registering passkey for user", adminUser.pk, "with response:", response)
+         try {
+          // Verify the credential
+          const { verified, registrationInfo } = await verifyRegistrationResponse({
+            response,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID,
+            requireUserVerification: false,
+          });
+
+          if (!verified) {
+            throw new Error('Verification failed.');
+          }
+
+          const {
+            aaguid,
+            credential,
+            credentialBackedUp
+          } = registrationInfo;
+          
+          const credentialPublicKey = credential.publicKey;
+          const credentialID = credential.id;
+
+          const base64CredentialID = credentialID;
+          const base64PublicKey = isoBase64URL.fromBuffer(credentialPublicKey);
+          console.log("We are about to store:", {
+            credential_id           : base64CredentialID,
+            passkey_id              : response.id,
+            passkey_raw_id          : response.rawId,
+            public_key              : base64PublicKey,
+            public_key_algorithm    : response.response.publicKeyAlgorithm,
+            transports              : response.response.transports,
+            last_used_at            : new Date().toISOString(),
+            aaguid                  : aaguid
+          })
+
+          await this.adminforth.resource('passkeys').update(newRecordId, { 
+            credential_id           : base64CredentialID,
+            passkey_id              : response.id,
+            passkey_raw_id          : response.rawId,
+            public_key              : base64PublicKey,
+            public_key_algorithm    : response.response.publicKeyAlgorithm,
+            transports              : JSON.stringify(response.response.transports),
+            last_used_at            : new Date().toISOString(),
+            aaguid                  : aaguid
+          });
+
+
+        } catch (error) {
+          console.error(error);
+          return { error: 'Error registering passkey: ' + error.message };
+        }
         return { ok: true };
       }
     });
