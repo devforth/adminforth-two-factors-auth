@@ -18,8 +18,65 @@ export type PluginOptions = {
 
     customBrendPrefix?: string;
 
+    /**
+     * Passkeys (WebAuthn) configuration.
+     */
     passkeys?: {
-        suggestionPeriod?: string; // e.g. '30d', '12h', '15m'
+        /**
+         *  Period between showing alert suggesting to set up Passkeys if not set up yet.
+         */
+        suggestionPeriod?: string; // e.g. '30d', '12h', '15m'. Default is '5d'
+        /**
+         *  Passkeys settings for WebAuthn API.
+         */
+        settings: {
+            rp: {
+                /**
+                 * The Relying Party name.
+                 */
+                name: string;
+                /**
+                 * The Relying Party ID. A domain or subdomain (e.g. example.com or login.example.com).
+                 */
+                id: string;
+            },
+            user: {
+                /**
+                 * Field in users resource, that user will recognize as unique user ID.(e.g. email or username)
+                 */
+                nameField: string;
+                /**
+                 * Field in users resource, that user will recognize as display name.(e.g. full name)
+                 */
+                displayNameField?: string;
+            },
+            /**
+             * Specifies the RP (relying party) supported public-key algorithms.
+             * default to [{alg: -7, type: "public-key"},{alg: -257, type: "public-key"}]
+             */
+            pubKeyCredParams: {
+                alg: number;
+                type: string;
+            }[],
+            authenticatorSelection: {
+                /**
+                 * The preferred authenticator attachment. It can be either "platform" or "cross-platform".
+                 * Default to "platform".
+                 */
+                authenticatorAttachment?: 'platform' | 'cross-platform';
+                /**
+                 * Set it to a boolean true. A discoverable credential (resident key) 
+                 * stores user information to the passkey and lets users select the account upon authentication.
+                 * Default to "True".
+                 */
+                requireResidentKey?: boolean;
+                /**
+                 * Indicates whether a user verification using the device screen lock is "required", "preferred" or "discouraged". 
+                 * The default is "required".
+                 */
+                userVerification?: 'required' | 'preferred' | 'discouraged';
+            }
+        };
     };
 
     /**
