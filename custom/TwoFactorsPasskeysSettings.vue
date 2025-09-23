@@ -116,7 +116,12 @@
     }
 
     async function checkMyPasskey() {
-        // To be implemented
+        const { _options, challengeId } = await createSignInRequest();
+        const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+        const credential = await authenticate(options);
+        const result = JSON.stringify(credential);
+        const user = await authenticateBackend(result, challengeId);
+        console.log("Authenticated user:", user);
     }
 
     async function getPasskeys() {
@@ -254,6 +259,61 @@
             getPasskeys();
         } else {
             adminforth.alert({message: 'Error registering passkey.', variant: 'warning'});
+        }
+    }
+
+    async function createSignInRequest() {
+        let response;
+        try {
+            response = await callAdminForthApi({
+                path: `/plugin/passkeys/signInRequest`,
+                method: 'GET',
+            });
+        } catch (error) {
+            console.error('Error creating sign-in request:', error);
+            return;
+        }
+        if (response.ok === true) {
+            return { _options: response.data, challengeId: response.challengeId };
+        } else {
+            adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+        }
+    }
+
+    async function authenticate(options: any) {
+        const abortController = new AbortController();
+        const credential = await navigator.credentials.get({
+            publicKey: options,
+            signal: abortController.signal,
+            mediation: 'required'
+        });
+        return credential;
+    }
+
+    async function authenticateBackend(response: any, challengeId: string) {
+        let res;
+        try {
+            res = await callAdminForthApi({
+                path: `/plugin/passkeys/signInResponse`,
+                method: 'POST',
+                body: {
+                    response: response,
+                    challengeId: challengeId,
+                    origin: window.location.origin,
+                }
+            });
+        } catch (error) {
+            console.error('Error authenticating passkey:', error);
+            return;
+        }
+        if (res) {
+            if (res.ok === true) {
+                adminforth.alert({message: 'Passkey authenticated successfully!', variant: 'success'});
+                return res;
+            } else {
+                console.error('Error authenticating passkey:', res.error);
+                adminforth.alert({message: 'Error authenticating passkey.', variant: 'warning'});
+            }
         }
     }
 

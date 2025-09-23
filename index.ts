@@ -436,6 +436,77 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       }
     });
     server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/signInResponse`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        const challengeId = body.challengeId;
+        const expectedChallenge = challenges.get(challengeId);
+        const expectedOrigin = body.origin;
+        const expectedRPID = this.options.passkeys?.settings.rp.id;
+        const response = JSON.parse(body.response);
+
+        console.log("Sign-in with:", {expectedChallenge: expectedChallenge, expectedOrigin: expectedOrigin, expectedRPID: expectedRPID, response: response});
+        // return { ok: true, data: response };
+
+        try {
+          // Find the credential stored to the database by the credential ID
+          const cred = await this.adminforth.resource('passkeys').get([Filters.EQ('credential_id', response.id)]);
+          if (!cred) {
+            throw new Error('Credential not found.');
+          }
+          // Find the user - Here alternatively we could look up the user directly
+          // in the Users table via userHandle
+          const userResourceId = this.adminforth.config.auth.usersResourceId;
+          const user = await this.adminforth.resource(userResourceId).get([Filters.EQ('id', cred.user_id)]);
+          if (!user) {
+            throw new Error('User not found.');
+          }
+          console.log("Verifying with data:", {
+            response: response,
+            expectedChallenge: expectedChallenge,
+            expectedOrigin: expectedOrigin,
+            expectedRPID: expectedRPID,
+            credential: {
+              id: cred.id,
+              publicKey: cred.public_key,
+              counter: cred.sign_count,
+              transports: JSON.parse(cred.transports || '[]'),
+            },
+            requireUserVerification: false,
+          });
+
+          // Verify the credential
+          const { verified, authenticationInfo } = await verifyAuthenticationResponse({
+            response,
+            expectedChallenge,
+            expectedOrigin,
+            expectedRPID,
+            credential: {
+              id: cred.id,
+              publicKey: isoBase64URL.toBuffer(cred.public_key),
+              counter: cred.counter,
+              transports: cred.transports,
+            },
+            requireUserVerification: false,
+          });
+
+          if (!verified) {
+            //throw new Error('User verification failed.');
+            return { ok: false, error: 'User verification failed.' };
+          }
+
+          // req.session.username = user.username;
+          // req.session['signed-in'] = 'yes';
+
+          return { ok: true, data: user };
+        } catch (e) {
+          console.error(e);
+          return { ok: false, error: 'Error authenticating passkey: ' + e };
+        }
+      }
+    });
+    server.endpoint({
       method: 'GET',
       path: `/plugin/passkeys/getPasskeys`,
       noAuth: false,
