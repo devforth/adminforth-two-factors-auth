@@ -39,12 +39,12 @@
 
     async function addPasskey() {
         checkForCompatibility();
-        const { options, newRecordId } = await fetchInformationFromTheBackend();
+        const { options, challengeId } = await fetchInformationFromTheBackend();
         const creationResult = await callWebAuthn(options);
         if (!creationResult) {
             return;
         }
-        finishRegisteringPasskey(creationResult, newRecordId);
+        finishRegisteringPasskey(creationResult, challengeId);
     }
 
     async function checkMyPasskey() {
@@ -81,9 +81,9 @@
             return;
         }
         const _options = response.data;
-        const newRecordId = response.newRecordId;
+        const challengeId = response.challengeId;
         const options = PublicKeyCredential.parseCreationOptionsFromJSON(_options);
-        return { options, newRecordId };
+        return { options, challengeId };
     }
 
     async function callWebAuthn(options: any) {
@@ -93,6 +93,7 @@
                 publicKey: options
             });
         } catch (error) {
+            console.error('Error creating credential:', error);
             adminforth.alert({message: 'Error creating credential. Probably already registered.', variant: 'warning'});
             return;
         }
@@ -101,21 +102,27 @@
         return result;
     }
 
-    async function finishRegisteringPasskey(credential: any, newRecordId: string) {
+    async function finishRegisteringPasskey(credential: any, challengeId: string) {
         let res 
         try {
-        res = await callAdminForthApi({
-            path: `/plugin/passkeys/finishRegisteringPasskey`,
-            method: 'POST',
-            body: {
-                credential: credential,
-                origin: window.location.origin,
-                newRecordId: newRecordId
+            res = await callAdminForthApi({
+                path: `/plugin/passkeys/finishRegisteringPasskey`,
+                method: 'POST',
+                body: {
+                    credential: credential,
+                    origin: window.location.origin,
+                    challengeId: challengeId,
+                    passkeyName: navigator.userAgent
             },
         });
         } catch (error) {
             console.error('Error finishing registering passkey:', error);
             return;
+        }
+        if (res.ok === true) {
+            adminforth.alert({message: 'Passkey registered successfully!', variant: 'success'});
+        } else {
+            adminforth.alert({message: 'Error registering passkey.', variant: 'warning'});
         }
     }
 </script>

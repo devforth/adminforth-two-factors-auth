@@ -10,6 +10,8 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
+
+const challenges = new Map();
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
   adminforth: IAdminForth;
@@ -88,6 +90,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
+    const isPasskeysEnabled = this.options.passkeys ? true : false;
     const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
 
     const customPages = this.adminforth.config.customization.customPages
@@ -103,15 +106,31 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
     this.activate( resourceConfig, adminforth )
 
-    if( !this.adminforth.config.auth.userMenuSettingsPages ){
-      this.adminforth.config.auth.userMenuSettingsPages = [];
+    if ( this.options.passkeys ) {
+      if( !this.adminforth.config.auth.userMenuSettingsPages ){
+        this.adminforth.config.auth.userMenuSettingsPages = [];
+      }
+      this.adminforth.config.auth.userMenuSettingsPages.push({
+        icon: 'flowbite:lock-solid',
+        pageLabel: 'Passkeys',
+        slug: 'passkeys',
+        component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
+      });
     }
-    this.adminforth.config.auth.userMenuSettingsPages.push({
-      icon: 'flowbite:lock-solid',
-      pageLabel: 'Passkeys',
-      slug: 'passkeys',
-      component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
-    });
+  }
+
+  validateConfigAfterDiscover(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
+    if (this.options.passkeys) {
+      if (!this.options.passkeys.settings) {
+        throw new Error('Passkeys settings are required when passkeys option is enabled');
+      }
+      if (!this.options.passkeys.settings.rp) {
+        throw new Error('Passkeys settings.rp is required');
+      }
+      if (!this.options.passkeys.settings.user.nameField) {
+        throw new Error('Passkeys settings.user.nameField is required');
+      }
+    }
   }
 
   activate ( resourceConfig: AdminForthResource, adminforth: IAdminForth ){
@@ -294,9 +313,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
       handler: async ({ adminUser, response }) => {
+        console.log("Passkey registration request for user:", adminUser);
         const rp = {
-          name: this.options.passkeys?.rpName || this.adminforth.config.customization.brandName || 'AdminForth',
-          id: this.options.passkeys?.rpId || 'localhost',
+          name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
+          id: this.options.passkeys?.settings.rp.id,
         };
         const userResourceId = this.adminforth.config.auth.usersResourceId;
         const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
@@ -305,8 +325,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const userInfo = await this.adminforth.resource(userResourceId).get( [Filters.EQ(usersPrimaryKeyFieldName, adminUser.pk)] );
         const user = {
           id: adminUser.pk,
-          name: userInfo.email,
-          displayName: "Yarik",
+          name: userInfo[this.options.passkeys?.settings.user.nameField],
+          displayName: userInfo[this.options.passkeys?.settings.user.displayNameField],
         };
         const excludeCredentials = [];
         const temp = await this.adminforth.resource('passkeys').list( [Filters.EQ("user_id", adminUser.pk)] );
@@ -328,20 +348,15 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           attestationType: 'none',
           excludeCredentials,
           authenticatorSelection: {
-            authenticatorAttachment: 'platform',
-            requireResidentKey: true,
-            userVerification: "required"
+            authenticatorAttachment: this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment || 'platform',
+            requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey || true,
+            userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           },
         });
-        const newRecordId = crypto.randomUUID();
-        await this.adminforth.resource("passkeys").create({
-          id                       : newRecordId,
-          user_id                  : adminUser.pk,
-          sign_count               : 0,
-          created_at               : new Date().toISOString(),
-          challenge                : options.challenge,
-        });
-        return { ok: true, data: options, newRecordId: newRecordId };
+        const challengeId = crypto.randomUUID();
+        challenges.set(challengeId, options.challenge);
+        setTimeout(() => challenges.delete(challengeId), 600_000);
+        return { ok: true, data: options, challengeId: challengeId};
       }
     });
     server.endpoint({
@@ -349,13 +364,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
-        const newRecordId = body.newRecordId;
-        let record = await this.adminforth.resource('passkeys').get(
-          [Filters.EQ('id', newRecordId)]
-        );
-        const expectedChallenge = record.challenge;
+        const challengeId = body.challengeId;
+        const expectedChallenge = challenges.get(challengeId);
         const expectedOrigin = body.origin;
-        const expectedRPID = this.options.passkeys?.rpId || 'localhost';
+        const expectedRPID = this.options.passkeys?.settings.rp.id;
         const response = JSON.parse(body.credential);
          try {
           // Verify the credential
@@ -370,7 +382,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           if (!verified) {
             throw new Error('Verification failed.');
           }
-
           const {
             aaguid,
             credential,
@@ -382,52 +393,25 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
           const base64CredentialID = credentialID;
           const base64PublicKey = isoBase64URL.fromBuffer(credentialPublicKey);
-          // console.log("We are about to store:", {
-          //   credential_id           : base64CredentialID,
-          //   passkey_id              : response.id,
-          //   passkey_raw_id          : response.rawId,
-          //   public_key              : base64PublicKey,
-          //   public_key_algorithm    : response.response.publicKeyAlgorithm,
-          //   transports              : response.response.transports,
-          //   last_used_at            : new Date().toISOString(),
-          //   aaguid                  : aaguid
-          // })
 
-          await this.adminforth.resource('passkeys').update(newRecordId, { 
+          await this.adminforth.resource('passkeys').create({
+            id                      : crypto.randomUUID(),
+            user_id                 : adminUser.pk,
             credential_id           : base64CredentialID,
-            passkey_id              : response.id,
-            passkey_raw_id          : response.rawId,
             public_key              : base64PublicKey,
             public_key_algorithm    : response.response.publicKeyAlgorithm,
+            sign_count              : 0,
             transports              : JSON.stringify(response.response.transports),
+            created_at              : new Date().toISOString(),
             last_used_at            : new Date().toISOString(),
-            aaguid                  : aaguid
+            aaguid                  : aaguid,
+            name                    : `Passkey ${adminUser.username}`,
           });
-
-
         } catch (error) {
           console.error(error);
           return { error: 'Error registering passkey: ' + error.message };
         }
         return { ok: true };
-      }
-    });
-    server.endpoint({
-      method: 'POST',
-      path: `/plugin/passkeys/finishRegisteringPasskey`,
-      noAuth: false,
-      handler: async ({body, adminUser }) => {
-        try {
-          const options = await generateAuthenticationOptions({
-            rpID: process.env.HOSTNAME,
-            allowCredentials: [],
-          });
-          console.log("Generated options:", options);
-          return { ok: true, data: options };
-        } catch (error) {
-          console.error("Error generating authentication options:", error);
-          return { ok: false, error: 'Error generating authentication options: ' + error.message };
-        }
       }
     });
   }

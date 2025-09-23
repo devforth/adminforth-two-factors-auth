@@ -50,15 +50,7 @@ export type PluginOptions = {
                  */
                 displayNameField?: string;
             },
-            /**
-             * Specifies the RP (relying party) supported public-key algorithms.
-             * default to [{alg: -7, type: "public-key"},{alg: -257, type: "public-key"}]
-             */
-            pubKeyCredParams: {
-                alg: number;
-                type: string;
-            }[],
-            authenticatorSelection: {
+            authenticatorSelection?: {
                 /**
                  * The preferred authenticator attachment. It can be either "platform" or "cross-platform".
                  * Default to "platform".
