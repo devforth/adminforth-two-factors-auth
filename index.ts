@@ -416,6 +416,27 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     });
     server.endpoint({
       method: 'GET',
+      path: `/plugin/passkeys/signInRequest`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        try {
+          const options = await generateAuthenticationOptions({
+            rpID: process.env.HOSTNAME,
+            allowCredentials: [],
+            userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
+          });
+          const challengeId = crypto.randomUUID();
+          challenges.set(challengeId, options.challenge);
+          setTimeout(() => challenges.delete(challengeId), 600_000);
+          return { ok: true, data: options, challengeId: challengeId };
+        } catch (e) {
+          console.error(e);
+          return { ok: false, error: e };
+        }
+      }
+    });
+    server.endpoint({
+      method: 'GET',
       path: `/plugin/passkeys/getPasskeys`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
