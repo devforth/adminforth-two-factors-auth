@@ -414,5 +414,76 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     });
+    server.endpoint({
+      method: 'GET',
+      path: `/plugin/passkeys/getPasskeys`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        let passkeys;
+        try {
+          passkeys = await this.adminforth.resource('passkeys').list( [Filters.EQ("user_id", adminUser.pk)] );
+        } catch (error) {
+          return { ok: false, error: 'Error fetching passkeys: ' + error.message };
+        }
+        const dataToReturn = passkeys.map((pk) => ({
+          name: pk.name,
+          created_at: pk.created_at,
+          last_used_at: pk.last_used_at,
+          id: pk.id,
+        }));
+        return { ok: true, data: dataToReturn };
+      }
+    });
+    server.endpoint({
+      method: 'DELETE',
+      path: `/plugin/passkeys/deletePasskey`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        const passkeyId = body.passkeyId;
+        if (!passkeyId) {
+          return { ok: false, error: 'Passkey ID is required' };
+        }
+
+        const passkeyRecord = await this.adminforth.resource('passkeys').get([Filters.EQ('id', passkeyId), Filters.EQ('user_id', adminUser.pk)]);
+        if (!passkeyRecord) {
+          return { ok: false, error: 'Passkey not found' };
+        }
+
+        try {
+          await this.adminforth.resource('passkeys').delete(passkeyId);
+        } catch (error) {
+          return { ok: false, error: 'Error deleting passkey: ' + error.message };
+        }
+
+        return { ok: true };
+      }
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/renamePasskey`,
+      noAuth: false,
+      handler: async ({body, adminUser }) => {
+        const passkeyId = body.passkeyId;
+        const newName = body.newName;
+        if (!passkeyId) {
+          return { ok: false, error: 'Passkey ID is required' };
+        }
+        if (!newName) {
+          return { ok: false, error: 'New name is required' };
+        }
+
+        const passkeyRecord = await this.adminforth.resource('passkeys').get([Filters.EQ('id', passkeyId), Filters.EQ('user_id', adminUser.pk)]);
+        if (!passkeyRecord) {
+          return { ok: false, error: 'Passkey not found' };
+        }
+
+        try {
+          await this.adminforth.resource('passkeys').update( passkeyId,{ name: newName } );
+        } catch (error) {
+          return { ok: false, error: 'Error renaming passkey: ' + error.message };
+        }
+        return { ok: true };
+      }
+    });
   }
 }

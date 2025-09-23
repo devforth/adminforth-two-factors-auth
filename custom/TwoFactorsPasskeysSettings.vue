@@ -2,32 +2,81 @@
     <div class="text-3xl text-gray-900 font-semibold mt-2 w-full flex-col justify-center items-center">
         <p>Passkeys</p>
         <Table
-        class="mr-12"
+        class="mt-4 max-w-2xl"
             :columns="[
                 { label: 'Passkey name', fieldName: 'name' },
-                { label: 'Last used', fieldName: 'lastUsed' },
-                { label: 'Delete', fieldName: 'delete' },
+                { label: 'Last used', fieldName: 'last_used_at' },
+                { label: 'Actions', fieldName: 'actions'}
             ]"
-            :data="[
-                { name: 'John', lastUsed: '2022-01-01', delete: 'Delete' },
-                { name: 'Rick', lastUsed: '2022-01-02', delete: 'Delete' },
-                { name: 'Alice', lastUsed: '2022-01-03', delete: 'Delete' },
-                { name: 'Colin', lastUsed: '2022-01-04', delete: 'Delete' },
-            ]"
-        ></Table>
-        <div class="flex space-x-4">
-            <button
-                class="text-md font-medium mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            :data="passkeys"
+        >
+        <template #cell:actions="{item}">
+            <div class="flex items-center justify-start space-x-2">
+                <Dialog 
+                    class="w-96"
+                    :buttons="[
+                        { label: 'Save', onclick: (dialog) => { renamePasskey(item.id, passkeysNewName); dialog.hide(); } },
+                        { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
+                    ]"
+                    header="Edit Passkey"
+                >
+                    <template #trigger>
+                        <div 
+                            @click="passkeysNewName = ''"
+                            class="w-7 h-7 flex items-center justify-center hover:border rounded-md hover:shadow-md text-blue-500 hover:text-blue-700 cursor-pointer"
+                        >
+                            <IconPenSolid class="w-5 h-5" />
+                        </div>
+                    </template>
+                    <div>
+                        <p>Enter new passkey name:</p>
+                        <input 
+                            v-model="passkeysNewName" 
+                            type="text" 
+                            class="w-full mt-2 p-2 border rounded-md"
+                            placeholder="Enter new passkey name"
+                        />
+                    </div>
+                </Dialog>
+                <Dialog 
+                    class="w-96"
+                    :buttons="[
+                        { label: 'Delete', options: {class: 'bg-red-500 !text-white hover:!bg-red-900'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
+                        { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200'}, onclick: (dialog) => dialog.hide() },
+                    ]"
+                    header="Delete Passkey"
+                >
+                    <template #trigger>
+                        <div class="w-7 h-7 flex items-center justify-center hover:border rounded-md hover:shadow-md text-red-500 hover:text-red-700 cursor-pointer">
+                            <IconTrashBinSolid 
+                                class="w-5 h-5" 
+                            />
+                        </div>
+                    </template>
+                    <div>
+                        <p>Are you sure you want to delete this passkey?</p>
+                    </div>
+                </Dialog>
+            </div>  
+        </template>
+        <template #cell:last_used_at="{item}">
+            <span v-if="item.last_used_at">{{ formatDateTime(item.last_used_at) }}</span>
+            <span v-else class="text-gray-400">Never</span>
+        </template>
+        </Table>
+        <div class="flex space-x-4 mt-4">
+            <Button
                 @click="addPasskey"
+                :disabled="!isPasskeySupported"
             >
                 Add Passkey
-            </button>
-            <button
-                class="text-md font-medium mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            </Button>
+            <Button
                 @click="checkMyPasskey"
+                :disabled="!isPasskeySupported"
             >
                 Check my passkey
-            </button>
+            </Button>
         </div> 
     </div>
 </template>
@@ -36,9 +85,28 @@
     import { Table } from '@/afcl'
     import { callAdminForthApi } from '@/utils';
     import adminforth from '@/adminforth';
+    import { onMounted, ref } from 'vue';
+    import { Button, Dialog, Input } from '@/afcl'
+    import { IconTrashBinSolid, IconPenSolid } from '@iconify-prerendered/vue-flowbite';
+    import dayjs from 'dayjs';
+    import utc from 'dayjs/plugin/utc';
+    import timezone from 'dayjs/plugin/timezone';
+    import { useCoreStore } from '@/stores/core';
+
+
+    dayjs.extend(utc);
+    dayjs.extend(timezone);
+    const coreStore = useCoreStore();
+    const passkeys = ref([]);
+    const isPasskeySupported = ref(false);
+    const passkeysNewName = ref('');
+
+    onMounted(() => {
+        getPasskeys();
+        checkForCompatibility();
+    });
 
     async function addPasskey() {
-        checkForCompatibility();
         const { options, challengeId } = await fetchInformationFromTheBackend();
         const creationResult = await callWebAuthn(options);
         if (!creationResult) {
@@ -48,8 +116,67 @@
     }
 
     async function checkMyPasskey() {
-        checkForCompatibility();
         // To be implemented
+    }
+
+    async function getPasskeys() {
+        try {
+            const response = await callAdminForthApi({
+                path: `/plugin/passkeys/getPasskeys`,
+                method: 'GET',
+            });
+            passkeys.value = response.data;
+        } catch (error) {
+            console.error('Error fetching passkeys:', error);
+            adminforth.alert({message: 'Error fetching passkeys.', variant: 'warning'});
+        }
+    }
+
+    async function deletePasskey(passkeyId: string) {
+        let response;
+        try {
+            response = await callAdminForthApi({
+                path: `/plugin/passkeys/deletePasskey`,
+                method: 'DELETE',
+                body: {
+                    passkeyId: passkeyId
+                }
+            })
+        } catch (error) {
+            console.error('Error deleting passkey:', error);
+            adminforth.alert({message: 'Error deleting passkey.', variant: 'warning'});
+        }
+        if (response.ok === true) {
+            adminforth.alert({message: 'Passkey deleted successfully!', variant: 'success'});
+            getPasskeys();
+        } else {
+            console.error('Error deleting passkey:', response?.error);
+            adminforth.alert({message: 'Error deleting passkey.', variant: 'warning'});
+        }
+    }
+
+    async function renamePasskey(passkeyId: string, name: string) {
+        let response;
+        try {
+            response = await callAdminForthApi({ 
+                path: `/plugin/passkeys/renamePasskey`,
+                method: 'POST',
+                body: {
+                    passkeyId: passkeyId,
+                    newName: name
+                }
+             })
+        } catch (error) {
+            console.error('Error updating passkey:', error);
+            adminforth.alert({message: 'Error updating passkey.', variant: 'warning'});
+        }
+        if (response.ok === true) {
+            adminforth.alert({message: 'Passkey updated successfully!', variant: 'success'});
+            getPasskeys();
+        } else {
+            console.error('Error updating passkey:', response.error);
+            adminforth.alert({message: 'Error updating passkey.', variant: 'warning'});
+        }
     }
 
     function checkForCompatibility() {
@@ -61,7 +188,10 @@
             PublicKeyCredential.isConditionalMediationAvailable(),  
         ]).then(results => {  
             if (results.every(r => r === true)) {  
-                //console.log("Platform authenticator is available");  
+                isPasskeySupported.value = true;  
+            } else {  
+                adminforth.alert({message: 'Passkeys are not supported on this device or browser.', variant: 'warning'});
+                isPasskeySupported.value = false;
             }  
         });  
         }  
@@ -94,7 +224,7 @@
             });
         } catch (error) {
             console.error('Error creating credential:', error);
-            adminforth.alert({message: 'Error creating credential. Probably already registered.', variant: 'warning'});
+            adminforth.alert({message: 'Error creating passkey.', variant: 'warning'});
             return;
         }
         const _result = (credential as PublicKeyCredential).toJSON();
@@ -121,8 +251,14 @@
         }
         if (res.ok === true) {
             adminforth.alert({message: 'Passkey registered successfully!', variant: 'success'});
+            getPasskeys();
         } else {
             adminforth.alert({message: 'Error registering passkey.', variant: 'warning'});
         }
+    }
+
+    function formatDateTime(date: string) {
+        if (!date) return '';
+        return dayjs.utc(date).local().format(`${coreStore.config?.datesFormat} ${coreStore.config?.timeFormat}` || 'YYYY-MM-DD HH:mm:ss');
     }
 </script>
