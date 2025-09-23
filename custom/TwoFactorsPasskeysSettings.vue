@@ -309,6 +309,7 @@
         if (res) {
             if (res.ok === true) {
                 adminforth.alert({message: 'Passkey authenticated successfully!', variant: 'success'});
+                getPasskeys();
                 return res;
             } else {
                 console.error('Error authenticating passkey:', res.error);

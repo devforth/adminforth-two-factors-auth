@@ -313,7 +313,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
       handler: async ({ adminUser, response }) => {
-        console.log("Passkey registration request for user:", adminUser);
         const rp = {
           name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
           id: this.options.passkeys?.settings.rp.id,
@@ -370,7 +369,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const expectedRPID = this.options.passkeys?.settings.rp.id;
         const response = JSON.parse(body.credential);
          try {
-          // Verify the credential
           const { verified, registrationInfo } = await verifyRegistrationResponse({
             response,
             expectedChallenge,
@@ -445,38 +443,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const expectedOrigin = body.origin;
         const expectedRPID = this.options.passkeys?.settings.rp.id;
         const response = JSON.parse(body.response);
-
-        console.log("Sign-in with:", {expectedChallenge: expectedChallenge, expectedOrigin: expectedOrigin, expectedRPID: expectedRPID, response: response});
-        // return { ok: true, data: response };
-
         try {
-          // Find the credential stored to the database by the credential ID
           const cred = await this.adminforth.resource('passkeys').get([Filters.EQ('credential_id', response.id)]);
           if (!cred) {
             throw new Error('Credential not found.');
           }
-          // Find the user - Here alternatively we could look up the user directly
-          // in the Users table via userHandle
           const userResourceId = this.adminforth.config.auth.usersResourceId;
           const user = await this.adminforth.resource(userResourceId).get([Filters.EQ('id', cred.user_id)]);
           if (!user) {
             throw new Error('User not found.');
           }
-          console.log("Verifying with data:", {
-            response: response,
-            expectedChallenge: expectedChallenge,
-            expectedOrigin: expectedOrigin,
-            expectedRPID: expectedRPID,
-            credential: {
-              id: cred.id,
-              publicKey: cred.public_key,
-              counter: cred.sign_count,
-              transports: JSON.parse(cred.transports || '[]'),
-            },
-            requireUserVerification: false,
-          });
-
-          // Verify the credential
           const { verified, authenticationInfo } = await verifyAuthenticationResponse({
             response,
             expectedChallenge,
@@ -492,13 +468,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           });
 
           if (!verified) {
-            //throw new Error('User verification failed.');
             return { ok: false, error: 'User verification failed.' };
           }
-
-          // req.session.username = user.username;
-          // req.session['signed-in'] = 'yes';
-
+          await this.adminforth.resource('passkeys').update(cred.id, { last_used_at: new Date().toISOString() });
           return { ok: true, data: user };
         } catch (e) {
           console.error(e);
