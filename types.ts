@@ -22,6 +22,10 @@ export type PluginOptions = {
      * Passkeys (WebAuthn) configuration.
      */
     passkeys?: {
+        credentialResourceID: string,
+        credentialIdFieldName: string,
+        credentialMetaFieldName: string,
+        credentialUserIdFieldName: string,
         /**
          *  Period between showing alert suggesting to set up Passkeys if not set up yet.
          */

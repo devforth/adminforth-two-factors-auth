@@ -41,7 +41,7 @@
                 <Dialog 
                     class="w-96"
                     :buttons="[
-                        { label: 'Delete', options: {class: 'bg-red-500 !text-white hover:!bg-red-900'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
+                        { label: 'Delete', options: {class: 'bg-red-800 !text-white hover:!bg-red-600 focus:ring-2 focus:ring-red-500'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
                         { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200'}, onclick: (dialog) => dialog.hide() },
                     ]"
                     header="Delete Passkey"
@@ -92,7 +92,6 @@
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import { useCoreStore } from '@/stores/core';
-
 
     dayjs.extend(utc);
     dayjs.extend(timezone);
