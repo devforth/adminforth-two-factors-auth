@@ -457,19 +457,27 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           const base64CredentialID = credentialID;
           const base64PublicKey = isoBase64URL.fromBuffer(credentialPublicKey);
 
-          await this.adminforth.resource(this.options.passkeys.credentialResourceID).create({
-            [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
-            [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
-            meta                    : JSON.stringify({
-              public_key              : base64PublicKey,
-              public_key_algorithm    : response.response.publicKeyAlgorithm,
-              sign_count              : 0,
-              transports              : JSON.stringify(response.response.transports),
-              created_at              : new Date().toISOString(),
-              last_used_at            : new Date().toISOString(),
-              aaguid                  : aaguid,
-              name                    : `Passkey ${adminUser.username}`,
-            }),
+          const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
+          if (!credResource) {
+            throw new Error('Credential resource not found.');
+          }
+          await this.adminforth.createResourceRecord({
+            resource: credResource, 
+            record: {
+              [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
+              [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
+              meta                    : JSON.stringify({
+                public_key              : base64PublicKey,
+                public_key_algorithm    : response.response.publicKeyAlgorithm,
+                sign_count              : 0,
+                transports              : JSON.stringify(response.response.transports),
+                created_at              : new Date().toISOString(),
+                last_used_at            : new Date().toISOString(),
+                aaguid                  : aaguid,
+                name                    : `Passkey ${adminUser.username}`,
+              }),
+            },
+            adminUser: adminUser
           });
         } catch (error) {
           return { error: 'Error registering passkey: ' + error.message };
@@ -536,7 +544,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { ok: false, error: 'Passkey not found' };
         }
         try {
-          await this.adminforth.resource(this.options.passkeys.credentialResourceID).delete(passkeyId);
+          const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
+          if (!credResource) {
+            throw new Error('Credential resource not found.');
+          }
+          await this.adminforth.deleteResourceRecord({
+            resource: credResource,
+            recordId: passkeyId,
+            record: passkeyRecord,
+            adminUser: adminUser,
+          });
         } catch (error) {
           return { ok: false, error: 'Error deleting passkey: ' + error.message };
         }
@@ -564,8 +581,19 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         const meta = JSON.parse(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
         meta.name = newName;
+        const newRecord = { ...passkeyRecord, [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(meta) };
         try {
-          await this.adminforth.resource(this.options.passkeys.credentialResourceID).update( passkeyId,{ [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(meta) } );
+          const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
+          if (!credResource) {
+            throw new Error('Credential resource not found.');
+          }
+          await this.adminforth.updateResourceRecord({
+            resource: credResource,
+            recordId: passkeyId,
+            oldRecord: passkeyRecord,
+            record: newRecord,
+            adminUser: adminUser
+          });
         } catch (error) {
           return { ok: false, error: 'Error renaming passkey: ' + error.message };
         }
