@@ -15,7 +15,7 @@
                 <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
                   <div  v-if="confirmationMode === 'code'">
                     <div id="mfaCode-label" class="m-4">{{$t('Please enter your authenticator code')}} </div>
-                    <div class="my-4 w-full flex justify-center" ref="otpRoot">
+                    <div class="my-4 w-full flex flex-col gap-4 justify-center" ref="otpRoot">
                       <v-otp-input
                         ref="code"
                         container-class="grid grid-cols-6 gap-3 w-full"
@@ -28,25 +28,41 @@
                         v-model:value="bindValue"
                         @on-complete="handleOnComplete"
                       />
-                    </div>
-                  </div>
-                  <div v-else class="flex flex-col items-center justify-center px-16 py-4">
-                    <Button @click="selectPasskeyButtonClickHandler" class="w-full">
-                      Select passkey
-                    </Button>
-                  </div>
-                      <div class="mt-6 flex justify-center">
-                        <LinkButton
+                      <div class="flex items-center justify-between w-full">
+                        <p v-if="confirmationMode === 'code' && doesUserHavePasskeys" @click="confirmationMode = 'passkey'" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</p>
+                        <Link
+                          v-if="confirmationMode === 'code'"
                           to="/login"
-                          class="w-full"
+                          class="w-max"
                         >
                           {{$t('Back to login')}}
-                        </LinkButton>
+                        </Link>
                       </div>
-                      <div v-if="doesUserHavePasskeys" class="mt-4 flex justify-end cursor-pointer" >
-                        <p v-if="confirmationMode === 'code'" @click="confirmationMode = 'passkey'" class="hover:underline">Use passkey</p>
-                        <p v-if="confirmationMode === 'passkey'" @click="confirmationMode = 'code'" class="hover:underline">Use TOTP</p>
-                      </div>
+                    </div>
+                  </div>
+                  <div v-else class="flex flex-col items-center justify-center py-4 gap-6">
+                    <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
+                    <p class="text-4xl font-semibold mb-4">Passkey</p>
+                    <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
+                    <Button @click="selectPasskeyButtonClickHandler" class="w-full mx-16">
+                      Use passkey
+                    </Button>
+                    <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                      <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+                        Have issues with passkey?
+                        <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
+                          <p v-if="confirmationMode === 'passkey'" @click="confirmationMode = 'code'" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</p>
+                          <p> or </p>
+                          <Link
+                            to="/login"
+                            class="w-full"
+                          >
+                            {{$t('back to login')}}
+                          </Link> 
+                        </div>
+                      </p>
+                     </div>
+                  </div>
                 </div>
             </div>
         </div>
@@ -65,11 +81,12 @@
   import { useUserStore } from '@/stores/user';
   import { callAdminForthApi, loadFile } from '@/utils';
   import { showErrorTost } from '@/composables/useFrontendApi';
-  import { LinkButton, Button } from '@/afcl';
+  import { LinkButton, Button, Link } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router'
   import { useRouter } from 'vue-router';
+  import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
 
   const { t } = useI18n();
   const code = ref(null);
@@ -77,13 +94,6 @@
   const bindValue = ref('');
   const route = useRoute();
   const router = useRouter();
-
-  const props = defineProps({
-    meta: {
-      type: Object,
-      required: true,
-    }
-  });
 
   const handleOnComplete = (value) => {
     sendCode(value, false, null);
@@ -137,7 +147,11 @@
       }
       await user.finishLogin();
     } else {
-      showErrorTost(t('Invalid code'));
+      if (usePasskey) {
+        showErrorTost(t('Invalid passkey'));
+      } else {
+        showErrorTost(t('Invalid code'));
+      }
     }
   }
 
@@ -184,9 +198,7 @@
       window.localStorage.setItem('suggestPasskey', 'true');
       suggestPasskey = window.localStorage.getItem('suggestPasskey');
     }
-    console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
     if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
-      console.log('suggesting passkey');
       suggestPasskey = window.localStorage.getItem('suggestPasskey');
       if (suggestPasskey !== 'true'){
         if ( suggestPasskey === 'false' || !suggestPasskey ) {

@@ -83,14 +83,6 @@ import { useRoute } from 'vue-router';
 const { t } = useI18n();
 const route = useRoute()
 
-const props = defineProps({
-  meta: {
-    type: Object,
-    required: true,
-    default: () => ({ suggestionPeriod: 1000 * 60 * 60 * 24 * 5 }) // 5 days
-  }
-});
-
 
 const code = ref(null);
 const handleOnComplete = (value) => {
@@ -232,9 +224,7 @@ function handlePasskeyAlert() {
     window.localStorage.setItem('suggestPasskey', 'true');
     suggestPasskey = window.localStorage.getItem('suggestPasskey');
   }
-  console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
   if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
-    console.log('suggesting passkey');
     suggestPasskey = window.localStorage.getItem('suggestPasskey');
     if (suggestPasskey !== 'true'){
       if ( suggestPasskey === 'false' || !suggestPasskey ) {

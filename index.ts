@@ -74,18 +74,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  public bufferToBase64url(buffer) {
-    const bytes = new Uint8Array(buffer);
-    let str = "";
-    for (let i = 0; i < bytes.byteLength; i++) {
-      str += String.fromCharCode(bytes[i]);
-    }
-    return btoa(str)
-      .replace(/\+/g, "-")
-      .replace(/\//g, "_")
-      .replace(/=/g, "");
-  }
-
   public async verifyPasskeyResponse(body: any, user_id: string) {
     const challengeId = body.challengeId;
     const expectedChallenge = challenges.get(challengeId);
@@ -120,7 +108,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           counter: credMeta.counter,
           transports: credMeta.transports,
         },
-        requireUserVerification: false,
+        requireUserVerification: true,
       });
 
       if (!verified) {
@@ -131,7 +119,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       await this.adminforth.resource(this.options.passkeys.credentialResourceID).update(cred[this.options.passkeys.credentialIdFieldName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
       return { ok: true, passkeyConfirmed: true };
     } catch (e) {
-      //console.error(e);
       return { ok: false, error: 'Error authenticating passkey: ' + e };
     }
   }
@@ -140,17 +127,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
-    const isPasskeysEnabled = this.options.passkeys ? true : false;
     const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
 
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
       path:'/confirm2fa',
-      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled } }
+      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod } }
     })
     customPages.push({
       path:'/setup2fa',
-      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled } }
+      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod } }
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
@@ -386,24 +372,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return verified ? { ok: true } : { error: 'Wrong or expired OTP code' };
       }
     });
-    /***************************************************************************************************************************************/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    /***************************************************************************************************************************************/
     server.endpoint({
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
@@ -471,7 +439,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             expectedChallenge,
             expectedOrigin,
             expectedRPID,
-            requireUserVerification: false,
+            requireUserVerification: true,
           });
 
           if (!verified) {
@@ -504,7 +472,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             }),
           });
         } catch (error) {
-          console.error(error);
           return { error: 'Error registering passkey: ' + error.message };
         }
         return { ok: true };
@@ -517,7 +484,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       handler: async ({body, adminUser }) => {
         try {
           const options = await generateAuthenticationOptions({
-            rpID: process.env.HOSTNAME,
+            rpID: this.options.passkeys?.settings.rp.id,
             allowCredentials: [],
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
@@ -526,7 +493,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           setTimeout(() => challenges.delete(challengeId), 600_000);
           return { ok: true, data: options, challengeId: challengeId };
         } catch (e) {
-          console.error(e);
           return { ok: false, error: e };
         }
       }
