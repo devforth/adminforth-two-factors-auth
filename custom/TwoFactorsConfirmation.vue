@@ -29,7 +29,7 @@
                         @on-complete="handleOnComplete"
                       />
                       <div class="flex items-center justify-between w-full">
-                        <p v-if="confirmationMode === 'code' && doesUserHavePasskeys" @click="confirmationMode = 'passkey'" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</p>
+                        <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</Link>
                         <Link
                           v-if="confirmationMode === 'code'"
                           to="/login"
@@ -51,7 +51,7 @@
                       <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
                         Have issues with passkey?
                         <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
-                          <p v-if="confirmationMode === 'passkey'" @click="confirmationMode = 'code'" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</p>
+                          <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</Link>
                           <p> or </p>
                           <Link
                             to="/login"
@@ -61,7 +61,7 @@
                           </Link> 
                         </div>
                       </p>
-                     </div>
+                    </div>
                   </div>
                 </div>
             </div>
@@ -125,6 +125,14 @@
     checkIfUserHasPasskeys();
   });
 
+  watch(route, (newRoute) => {
+    if ( newRoute.hash === '#passkey' ) {
+      confirmationMode.value = 'passkey';
+    } else if ( newRoute.hash === '#code' ) {
+      confirmationMode.value = 'code';
+    }
+  });
+
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);
   });
@@ -177,13 +185,60 @@
       if (response.ok) {
         doesUserHavePasskeys.value = response.hasPasskeys;
         if ( doesUserHavePasskeys.value === true ) {
+          router.replace({ hash: '#passkey' })
           confirmationMode.value = 'passkey';
+        } else {
+          router.replace({ hash: '#code' })
         }
       }
     });
   }
 
-  function handlePasskeyAlert() {
+  async function selectPasskeyButtonClickHandler() {
+    const { _options, challengeId } = await createSignInRequest();
+    const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+    const credential = await authenticate(options);
+    const result = JSON.stringify(credential);
+    const passkeyOptions = {
+      response: result,
+      challengeId: challengeId,
+      origin: window.location.origin,
+    };
+    sendCode('', true, passkeyOptions);
+  }
+
+  async function createSignInRequest() {
+    let response;
+    try {
+        response = await callAdminForthApi({
+            path: `/plugin/passkeys/signInRequest`,
+            method: 'GET',
+        });
+    } catch (error) {
+        console.error('Error creating sign-in request:', error);
+        return;
+    }
+    if (response.ok === true) {
+        return { _options: response.data, challengeId: response.challengeId };
+    } else {
+        adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+    }
+  }
+
+  async function authenticate(options) {
+    const abortController = new AbortController();
+    const credential = await navigator.credentials.get({
+        publicKey: options,
+        signal: abortController.signal,
+        mediation: 'required'
+    });
+    return credential;
+  }
+
+  </script>
+
+  <script>
+  export function handlePasskeyAlert() {
     const currentDate = Date.now();
     window.localStorage.removeItem('suggestionPeriod');
     window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
@@ -238,48 +293,6 @@
       });
     }
   }
-
-  async function selectPasskeyButtonClickHandler() {
-    const { _options, challengeId } = await createSignInRequest();
-    const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
-    const credential = await authenticate(options);
-    const result = JSON.stringify(credential);
-    const passkeyOptions = {
-      response: result,
-      challengeId: challengeId,
-      origin: window.location.origin,
-    };
-    sendCode('', true, passkeyOptions);
-  }
-
-  async function createSignInRequest() {
-    let response;
-    try {
-        response = await callAdminForthApi({
-            path: `/plugin/passkeys/signInRequest`,
-            method: 'GET',
-        });
-    } catch (error) {
-        console.error('Error creating sign-in request:', error);
-        return;
-    }
-    if (response.ok === true) {
-        return { _options: response.data, challengeId: response.challengeId };
-    } else {
-        adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
-    }
-  }
-
-  async function authenticate(options) {
-    const abortController = new AbortController();
-    const credential = await navigator.credentials.get({
-        publicKey: options,
-        signal: abortController.signal,
-        mediation: 'required'
-    });
-    return credential;
-  }
-
   </script>
 
   <style scoped lang='scss'>

@@ -233,7 +233,6 @@
                     credential: credential,
                     origin: window.location.origin,
                     challengeId: challengeId,
-                    passkeyName: navigator.userAgent
             },
         });
         } catch (error) {
