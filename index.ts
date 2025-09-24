@@ -150,7 +150,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         icon: 'flowbite:lock-solid',
         pageLabel: 'Passkeys',
         slug: 'passkeys',
-        component: { file: this.componentPath('TwoFactorsPasskeysSettings.vue'), meta: { options: this.options.passkeys } },
+        component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
       });
     }
   }
