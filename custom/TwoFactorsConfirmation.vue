@@ -13,6 +13,7 @@
             <!-- Modal content -->
             <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
                 <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
+                  <div  v-if="confirmationMode === 'code'">
                     <div id="mfaCode-label" class="m-4">{{$t('Please enter your authenticator code')}} </div>
                     <div class="my-4 w-full flex justify-center" ref="otpRoot">
                       <v-otp-input
@@ -28,6 +29,12 @@
                         @on-complete="handleOnComplete"
                       />
                     </div>
+                  </div>
+                  <div v-else class="flex flex-col items-center justify-center px-16 py-4">
+                    <Button @click="selectPasskeyButtonClickHandler" class="w-full">
+                      Select passkey
+                    </Button>
+                  </div>
                       <div class="mt-6 flex justify-center">
                         <LinkButton
                           to="/login"
@@ -35,6 +42,10 @@
                         >
                           {{$t('Back to login')}}
                         </LinkButton>
+                      </div>
+                      <div v-if="doesUserHavePasskeys" class="mt-4 flex justify-end cursor-pointer" >
+                        <p v-if="confirmationMode === 'code'" @click="confirmationMode = 'passkey'" class="hover:underline">Use passkey</p>
+                        <p v-if="confirmationMode === 'passkey'" @click="confirmationMode = 'code'" class="hover:underline">Use TOTP</p>
                       </div>
                 </div>
             </div>
@@ -54,7 +65,7 @@
   import { useUserStore } from '@/stores/user';
   import { callAdminForthApi, loadFile } from '@/utils';
   import { showErrorTost } from '@/composables/useFrontendApi';
-  import { LinkButton } from '@/afcl';
+  import { LinkButton, Button } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router'
@@ -75,7 +86,7 @@
   });
 
   const handleOnComplete = (value) => {
-    sendCode(value);
+    sendCode(value, false, null);
   };
 
   function tagOtpInputs() {
@@ -95,94 +106,40 @@
 
   const coreStore = useCoreStore();
   const user = useUserStore();
-
+  const doesUserHavePasskeys = ref(false);
+  const confirmationMode = ref("code");
 
   onMounted(async () => {
     await nextTick();
     tagOtpInputs();
+    checkIfUserHasPasskeys();
   });
 
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);
   });
   
-  async function sendCode (value) {
+  async function sendCode (value, usePasskey, passkeyOptions) {
     inProgress.value = true;
     const resp = await callAdminForthApi({
       method: 'POST',
       path: '/plugin/twofa/confirmSetup',
       body: {
         code: value,
+        usePasskey: usePasskey,
+        passkeyOptions: passkeyOptions,
         secret: null,
       }
     })
     if ( resp.allowedLogin ) {
-      const currentDate = Date.now();
-      window.localStorage.removeItem('suggestionPeriod');
-      window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
-      let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
-      let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
-      let suggestPasskey = window.localStorage.getItem('suggestPasskey');
-      if ( !lastSuggestionDate ) { 
-        window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
-        lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
-      }
-      if ( !suggestPasskey ) {
-        window.localStorage.setItem('suggestPasskey', 'true');
-        suggestPasskey = window.localStorage.getItem('suggestPasskey');
-      }
-      console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
-      if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
-        console.log('suggesting passkey');
-        suggestPasskey = window.localStorage.getItem('suggestPasskey');
-        if (suggestPasskey !== 'true'){
-          if ( suggestPasskey === 'false' || !suggestPasskey ) {
-            window.localStorage.setItem('suggestPasskey', 'true');
-          } else if ( suggestPasskey !== 'never' ) {
-            window.localStorage.setItem('suggestPasskey', 'false');
-          }
-        }
-      }
-      suggestPasskey = window.localStorage.getItem('suggestPasskey');
-
-      if ( suggestPasskey === 'true' ) {
-        adminforth.alert({
-          message: 'Do you want to add passkey?', 
-          variant: 'info', 
-          buttons: [
-            { value: 'yes', label: 'Add passkey' },
-            { value: 'later', label: 'Later' },
-            { value: 'never', label: 'Never' },
-          ],
-          timeout: 'unlimited'
-        }).then((value) => {
-          switch (value) {
-            case 'yes':
-              router.push({ name: 'settings', params: { page: 'passkeys' } });
-              break;
-            case 'later':
-              window.localStorage.setItem('suggestPasskey', 'false');
-              break;
-            case 'never':
-              window.localStorage.setItem('suggestPasskey', 'never');
-              break;
-            default:
-              window.localStorage.setItem('suggestPasskey', 'false');
-              break;
-          }
-        });
+      if ( route.meta.isPasskeysEnabled && !doesUserHavePasskeys.value ) {
+        handlePasskeyAlert();
       }
       await user.finishLogin();
     } else {
       showErrorTost(t('Invalid code'));
     }
   }
-
-  // watch(code, async (nv)=>{
-  //   if (nv){
-  //     sendCode();
-  //   }
-  // })
 
   function handlePaste(event) {
     event.preventDefault();
@@ -194,6 +151,123 @@
       code.value?.fillInput(pastedText);
     }
   }
+
+  function checkIfUserHasPasskeys() {
+    callAdminForthApi({
+      method: 'POST',
+      path: '/plugin/passkeys/checkIfUserHasPasskeys',
+      body: {
+        userId: user.id
+      }
+    }).then((response) => {
+      if (response.ok) {
+        doesUserHavePasskeys.value = response.hasPasskeys;
+        if ( doesUserHavePasskeys.value === true ) {
+          confirmationMode.value = 'passkey';
+        }
+      }
+    });
+  }
+
+  function handlePasskeyAlert() {
+    const currentDate = Date.now();
+    window.localStorage.removeItem('suggestionPeriod');
+    window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
+    let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
+    let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    let suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    if ( !lastSuggestionDate ) { 
+      window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
+      lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+    }
+    if ( !suggestPasskey ) {
+      window.localStorage.setItem('suggestPasskey', 'true');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    }
+    console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
+    if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
+      console.log('suggesting passkey');
+      suggestPasskey = window.localStorage.getItem('suggestPasskey');
+      if (suggestPasskey !== 'true'){
+        if ( suggestPasskey === 'false' || !suggestPasskey ) {
+          window.localStorage.setItem('suggestPasskey', 'true');
+        } else if ( suggestPasskey !== 'never' ) {
+          window.localStorage.setItem('suggestPasskey', 'false');
+        }
+      }
+    }
+    suggestPasskey = window.localStorage.getItem('suggestPasskey');
+
+    if ( suggestPasskey === 'true' ) {
+      adminforth.alert({
+        message: 'Do you want to add passkey?', 
+        variant: 'info', 
+        buttons: [
+          { value: 'yes', label: 'Add passkey' },
+          { value: 'later', label: 'Later' },
+          { value: 'never', label: 'Never' },
+        ],
+        timeout: 'unlimited'
+      }).then((value) => {
+        switch (value) {
+          case 'yes':
+            router.push({ name: 'settings', params: { page: 'passkeys' } });
+            break;
+          case 'later':
+            window.localStorage.setItem('suggestPasskey', 'false');
+            break;
+          case 'never':
+            window.localStorage.setItem('suggestPasskey', 'never');
+            break;
+          default:
+            window.localStorage.setItem('suggestPasskey', 'false');
+            break;
+        }
+      });
+    }
+  }
+
+  async function selectPasskeyButtonClickHandler() {
+    const { _options, challengeId } = await createSignInRequest();
+    const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+    const credential = await authenticate(options);
+    const result = JSON.stringify(credential);
+    const passkeyOptions = {
+      response: result,
+      challengeId: challengeId,
+      origin: window.location.origin,
+    };
+    sendCode('', true, passkeyOptions);
+  }
+
+  async function createSignInRequest() {
+    let response;
+    try {
+        response = await callAdminForthApi({
+            path: `/plugin/passkeys/signInRequest`,
+            method: 'GET',
+        });
+    } catch (error) {
+        console.error('Error creating sign-in request:', error);
+        return;
+    }
+    if (response.ok === true) {
+        return { _options: response.data, challengeId: response.challengeId };
+    } else {
+        adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+    }
+  }
+
+  async function authenticate(options) {
+    const abortController = new AbortController();
+    const credential = await navigator.credentials.get({
+        publicKey: options,
+        signal: abortController.signal,
+        mediation: 'required'
+    });
+    return credential;
+  }
+
   </script>
 
   <style scoped lang='scss'>

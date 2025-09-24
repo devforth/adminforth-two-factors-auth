@@ -86,6 +86,56 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       .replace(/=/g, "");
   }
 
+  public async verifyPasskeyResponse(body: any, user_id: string) {
+    const challengeId = body.challengeId;
+    const expectedChallenge = challenges.get(challengeId);
+    const expectedOrigin = body.origin;
+    const expectedRPID = this.options.passkeys?.settings.rp.id;
+    const response = JSON.parse(body.response);
+    try {
+      const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
+      if (!cred) {
+        throw new Error('Credential not found.');
+      }
+      const credMeta = JSON.parse(cred[this.options.passkeys.credentialMetaFieldName]);
+      if (!credMeta || !credMeta.public_key) {
+        throw new Error('Credential public key not found.');
+      }
+      const userResourceId = this.adminforth.config.auth.usersResourceId;
+      const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
+      const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
+      const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
+      const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, cred.user_id)]);
+      if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
+        throw new Error('User not found.');
+      }
+      const { verified, authenticationInfo } = await verifyAuthenticationResponse({
+        response,
+        expectedChallenge,
+        expectedOrigin,
+        expectedRPID,
+        credential: {
+          id: cred[this.options.passkeys.credentialIdFieldName],
+          publicKey: isoBase64URL.toBuffer(credMeta.public_key),
+          counter: credMeta.counter,
+          transports: credMeta.transports,
+        },
+        requireUserVerification: false,
+      });
+
+      if (!verified) {
+        return { ok: false, error: 'User verification failed.' };
+      }
+      credMeta.counter = authenticationInfo.newCounter;
+      credMeta.last_used_at = new Date().toISOString();
+      await this.adminforth.resource(this.options.passkeys.credentialResourceID).update(cred[this.options.passkeys.credentialIdFieldName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
+      return { ok: true, passkeyConfirmed: true };
+    } catch (e) {
+      //console.error(e);
+      return { ok: false, error: 'Error authenticating passkey: ' + e };
+    }
+  }
+
   modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
@@ -267,11 +317,19 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             return {error: 'Wrong or expired OTP code'}
           }
         } else {
+          let verified = null;
+          if (body.usePasskey && this.options.passkeys) {
+            const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk);
+            if (res.ok && res.passkeyConfirmed) {
+              verified = true;
+            }
+          } else {
          // user already has secret, get it
-          this.connectors = this.adminforth.connectors
-          const connector = this.connectors[this.authResource.dataSource];
-          const user = await connector.getRecordByPrimaryKey(this.authResource, decoded.pk)
-          const verified = twofactor.verifyToken(user[this.options.twoFaSecretFieldName], body.code, this.options.timeStepWindow);
+            this.connectors = this.adminforth.connectors
+            const connector = this.connectors[this.authResource.dataSource];
+            const user = await connector.getRecordByPrimaryKey(this.authResource, decoded.pk)
+            verified = twofactor.verifyToken(user[this.options.twoFaSecretFieldName], body.code, this.options.timeStepWindow);
+          }
           if (verified) {
             this.adminforth.auth.removeCustomCookie({response, name:'totpTemporaryJWT'})
             this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
@@ -455,7 +513,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     server.endpoint({
       method: 'GET',
       path: `/plugin/passkeys/signInRequest`,
-      noAuth: false,
+      noAuth: true,
       handler: async ({body, adminUser }) => {
         try {
           const options = await generateAuthenticationOptions({
@@ -470,60 +528,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         } catch (e) {
           console.error(e);
           return { ok: false, error: e };
-        }
-      }
-    });
-    server.endpoint({
-      method: 'POST',
-      path: `/plugin/passkeys/signInResponse`,
-      noAuth: false,
-      handler: async ({body, adminUser }) => {
-        const challengeId = body.challengeId;
-        const expectedChallenge = challenges.get(challengeId);
-        const expectedOrigin = body.origin;
-        const expectedRPID = this.options.passkeys?.settings.rp.id;
-        const response = JSON.parse(body.response);
-        try {
-          const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
-          if (!cred) {
-            throw new Error('Credential not found.');
-          }
-          const credMeta = JSON.parse(cred[this.options.passkeys.credentialMetaFieldName]);
-          if (!credMeta || !credMeta.public_key) {
-            throw new Error('Credential public key not found.');
-          }
-          const userResourceId = this.adminforth.config.auth.usersResourceId;
-          const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
-          const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
-          const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
-          const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, cred.user_id)]);
-          if (!user) {
-            throw new Error('User not found.');
-          }
-          const { verified, authenticationInfo } = await verifyAuthenticationResponse({
-            response,
-            expectedChallenge,
-            expectedOrigin,
-            expectedRPID,
-            credential: {
-              id: cred[this.options.passkeys.credentialIdFieldName],
-              publicKey: isoBase64URL.toBuffer(credMeta.public_key),
-              counter: credMeta.counter,
-              transports: credMeta.transports,
-            },
-            requireUserVerification: false,
-          });
-
-          if (!verified) {
-            return { ok: false, error: 'User verification failed.' };
-          }
-          credMeta.counter = authenticationInfo.newCounter;
-          credMeta.last_used_at = new Date().toISOString();
-          await this.adminforth.resource(this.options.passkeys.credentialResourceID).update(cred[this.options.passkeys.credentialIdFieldName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
-          return { ok: true, data: user };
-        } catch (e) {
-          console.error(e);
-          return { ok: false, error: 'Error authenticating passkey: ' + e };
         }
       }
     });
@@ -602,5 +606,26 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     });
+     server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/checkIfUserHasPasskeys`,
+      noAuth: true,
+      handler: async ({body, adminUser, cookies }) => {
+        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
+        const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
+        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempTotp');
+        if (!decoded)
+          return { ok: false, error:'Invalid token'}
+        if (decoded.newSecret) {
+          return { ok: true, hasPasskeys: false };
+        }
+        const passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, decoded.pk)] );
+        if (passkeys && passkeys.length > 0) {
+          return { ok: true, hasPasskeys: true };
+        } else {
+          return { ok: true, hasPasskeys: false };
+        }
+      }
+     });
   }
 }

@@ -196,62 +196,10 @@ async function sendCode (value) {
     }
   })
   if (resp.allowedLogin) {
-    const currentDate = Date.now();
-    window.localStorage.removeItem('suggestionPeriod');
-    window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
-    let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
-    let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
-    let suggestPasskey = window.localStorage.getItem('suggestPasskey');
-    if ( !lastSuggestionDate ) { 
-      window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
-      lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
-    }
-    if ( !suggestPasskey ) {
-      window.localStorage.setItem('suggestPasskey', 'true');
-      suggestPasskey = window.localStorage.getItem('suggestPasskey');
-    }
-    console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
-    if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
-      console.log('suggesting passkey');
-      suggestPasskey = window.localStorage.getItem('suggestPasskey');
-      if (suggestPasskey !== 'true'){
-        if ( suggestPasskey === 'false' || !suggestPasskey ) {
-          window.localStorage.setItem('suggestPasskey', 'true');
-        } else if ( suggestPasskey !== 'never' ) {
-          window.localStorage.setItem('suggestPasskey', 'false');
-        }
+      if ( route.meta.isPasskeysEnabled ) {
+        handlePasskeyAlert();
       }
-    }
-    suggestPasskey = window.localStorage.getItem('suggestPasskey');
-
-    if ( suggestPasskey === 'true' ) {
-      adminforth.alert({
-        message: 'Do you want to add passkey?', 
-        variant: 'info', 
-        buttons: [
-          { value: 'yes', label: 'Add passkey' },
-          { value: 'later', label: 'Later' },
-          { value: 'never', label: 'Never' },
-        ],
-        timeout: 'unlimited'
-      }).then((value) => {
-        switch (value) {
-          case 'yes':
-            router.push({ name: 'settings', params: { page: 'passkeys' } });
-            break;
-          case 'later':
-            window.localStorage.setItem('suggestPasskey', 'false');
-            break;
-          case 'never':
-            window.localStorage.setItem('suggestPasskey', 'never');
-            break;
-          default:
-            window.localStorage.setItem('suggestPasskey', 'false');
-            break;
-        }
-      });
-    }
-    await user.finishLogin()
+      await user.finishLogin();
   } else {
     showErrorTost(t('Invalid code'));
   }
@@ -269,6 +217,64 @@ function handlePaste(event) {
   }
 }
 
+function handlePasskeyAlert() {
+  const currentDate = Date.now();
+  window.localStorage.removeItem('suggestionPeriod');
+  window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
+  let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
+  let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+  let suggestPasskey = window.localStorage.getItem('suggestPasskey');
+  if ( !lastSuggestionDate ) { 
+    window.localStorage.setItem('lastSuggestionDate', currentDate.toString());
+    lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
+  }
+  if ( !suggestPasskey ) {
+    window.localStorage.setItem('suggestPasskey', 'true');
+    suggestPasskey = window.localStorage.getItem('suggestPasskey');
+  }
+  console.log('currentDate - lastSuggestionDate = ', currentDate - parseInt(lastSuggestionDate), ' suggestionPeriod=', parseInt(suggestionPeriod));
+  if ( currentDate - parseInt(lastSuggestionDate) > parseInt(suggestionPeriod) ) {
+    console.log('suggesting passkey');
+    suggestPasskey = window.localStorage.getItem('suggestPasskey');
+    if (suggestPasskey !== 'true'){
+      if ( suggestPasskey === 'false' || !suggestPasskey ) {
+        window.localStorage.setItem('suggestPasskey', 'true');
+      } else if ( suggestPasskey !== 'never' ) {
+        window.localStorage.setItem('suggestPasskey', 'false');
+      }
+    }
+  }
+  suggestPasskey = window.localStorage.getItem('suggestPasskey');
+
+  if ( suggestPasskey === 'true' ) {
+    adminforth.alert({
+      message: 'Do you want to add passkey?', 
+      variant: 'info', 
+      buttons: [
+        { value: 'yes', label: 'Add passkey' },
+        { value: 'later', label: 'Later' },
+        { value: 'never', label: 'Never' },
+      ],
+      timeout: 'unlimited'
+    }).then((value) => {
+      switch (value) {
+        case 'yes':
+          router.push({ name: 'settings', params: { page: 'passkeys' } });
+          break;
+        case 'later':
+          window.localStorage.setItem('suggestPasskey', 'false');
+          break;
+        case 'never':
+          window.localStorage.setItem('suggestPasskey', 'never');
+          break;
+        default:
+          window.localStorage.setItem('suggestPasskey', 'false');
+          break;
+      }
+    });
+  }
+}
+
 const handleSkip = async () => {
   const resp = await callAdminForthApi({
     method: 'POST',
@@ -278,7 +284,10 @@ const handleSkip = async () => {
     }
   });
   if (resp.allowedLogin){
-    await user.finishLogin()
+      if ( route.meta.isPasskeysEnabled ) {
+        handlePasskeyAlert();
+      }
+      await user.finishLogin();
   } else {
     showErrorTost(t('Something went wrong'));
   }
