@@ -17,7 +17,7 @@
                         class="w-96"
                         :buttons="[
                             { label: 'Save', onclick: (dialog) => { renamePasskey(item.id, passkeysNewName); dialog.hide(); } },
-                            { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
+                            { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-300 dark:hover:!bg-gray-700 dark:border-gray-900'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
                         ]"
                         header="Edit Passkey"
                     >
@@ -34,7 +34,7 @@
                             <input 
                                 v-model="passkeysNewName" 
                                 type="text" 
-                                class="w-full mt-2 p-2 border rounded-md"
+                                class="w-full mt-2 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-gray-500 "
                                 placeholder="Enter new passkey name"
                             />
                         </div>
@@ -42,7 +42,7 @@
                     <Dialog 
                         class="w-96"
                         :buttons="[
-                            { label: 'Delete', options: {class: 'bg-red-800 !text-white hover:!bg-red-600 focus:ring-2 focus:ring-red-500'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
+                            { label: 'Delete', options: {class: 'bg-red-600 !text-white hover:!bg-red-800 focus:ring-2 focus:ring-red-500'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
                             { label: 'Cancel', options: {class: 'bg-white !text-gray-900 hover:!bg-gray-200'}, onclick: (dialog) => dialog.hide() },
                         ]"
                         header="Delete Passkey"

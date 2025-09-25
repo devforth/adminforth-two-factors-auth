@@ -189,7 +189,7 @@ async function sendCode (value) {
   })
   if (resp.allowedLogin) {
       if ( route.meta.isPasskeysEnabled ) {
-        handlePasskeyAlert();
+        handlePasskeyAlert(route.meta.suggestionPeriod, router);
       }
       await user.finishLogin();
   } else {

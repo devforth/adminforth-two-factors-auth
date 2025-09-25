@@ -151,7 +151,7 @@
     })
     if ( resp.allowedLogin ) {
       if ( route.meta.isPasskeysEnabled && !doesUserHavePasskeys.value ) {
-        handlePasskeyAlert();
+        handlePasskeyAlert(route.meta.suggestionPeriod, router);
       }
       await user.finishLogin();
     } else {
@@ -238,10 +238,11 @@
   </script>
 
   <script>
-  export function handlePasskeyAlert() {
+
+  export function handlePasskeyAlert(propSuggestionPeriod, router) {
     const currentDate = Date.now();
     window.localStorage.removeItem('suggestionPeriod');
-    window.localStorage.setItem('suggestionPeriod', route.meta.suggestionPeriod);
+    window.localStorage.setItem('suggestionPeriod', propSuggestionPeriod);
     let suggestionPeriod = window.localStorage.getItem('suggestionPeriod');
     let lastSuggestionDate = window.localStorage.getItem('lastSuggestionDate');
     let suggestPasskey = window.localStorage.getItem('suggestPasskey');

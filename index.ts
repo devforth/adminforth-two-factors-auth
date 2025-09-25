@@ -93,7 +93,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
       const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
       const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
-      const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, cred.user_id)]);
+      const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, cred[this.options.passkeys.credentialUserIdFieldName])]);
       if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
         throw new Error('User not found.');
       }
@@ -128,15 +128,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
     const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
+    const isPasskeysEnabled = this.options.passkeys ? true : false;
 
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
       path:'/confirm2fa',
-      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod } }
+      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled } }
     })
     customPages.push({
       path:'/setup2fa',
-      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod } }
+      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled  } }
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
@@ -466,7 +467,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             record: {
               [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
               [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
-              meta                    : JSON.stringify({
+              [this.options.passkeys.credentialMetaFieldName]         : JSON.stringify({
                 public_key              : base64PublicKey,
                 public_key_algorithm    : response.response.publicKeyAlgorithm,
                 sign_count              : 0,
