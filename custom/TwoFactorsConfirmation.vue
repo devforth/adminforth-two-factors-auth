@@ -74,7 +74,7 @@
   </template>
 
 
-  <script setup>
+  <script setup lang="ts">
 
   import { onMounted, nextTick, onBeforeUnmount, ref, watch } from 'vue';
   import { useCoreStore } from '@/stores/core';
@@ -96,7 +96,7 @@
   const router = useRouter();
 
   const handleOnComplete = (value) => {
-    sendCode(value, false, null);
+    sendCode(value, 'TOTP', null);
   };
 
   function tagOtpInputs() {
@@ -136,9 +136,10 @@
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);
   });
-  
-  async function sendCode (value, usePasskey, passkeyOptions) {
+
+  async function sendCode (value: any, factorMode: 'TOTP' | 'passkey', passkeyOptions: any) {
     inProgress.value = true;
+    const usePasskey = factorMode === 'passkey';
     const resp = await callAdminForthApi({
       method: 'POST',
       path: '/plugin/twofa/confirmSetup',
@@ -204,7 +205,7 @@
       challengeId: challengeId,
       origin: window.location.origin,
     };
-    sendCode('', true, passkeyOptions);
+    sendCode('', 'passkey', passkeyOptions);
   }
 
   async function createSignInRequest() {
