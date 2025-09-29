@@ -2,7 +2,6 @@ import {  AdminForthPlugin, Filters } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
-import crypto from 'crypto';
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -10,8 +9,6 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
-
-const challenges = new Map();
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
   adminforth: IAdminForth;
@@ -74,13 +71,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  public async verifyPasskeyResponse(body: any, user_id: string) {
-    const challengeId = body.challengeId;
-    const expectedChallenge = challenges.get(challengeId);
+  public async verifyPasskeyResponse(body: any, user_id: string, cookies?: any) {
+    const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const expectedOrigin = body.origin;
-    const expectedRPID = this.options.passkeys?.settings.rp.id;
+    const expectedChallenge = cookies.challenge;
+    const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
     const response = JSON.parse(body.response);
     try {
+      if (settingsOrigin !== expectedOrigin) {
+        throw new Error('Invalid origin');
+      }
       const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
       if (!cred) {
         throw new Error('Credential not found.');
@@ -108,7 +108,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           counter: credMeta.counter,
           transports: credMeta.transports,
         },
-        requireUserVerification: true,
+        requireUserVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification === 'discouraged' ? false : true,
       });
 
       if (!verified) {
@@ -306,7 +306,15 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         } else {
           let verified = null;
           if (body.usePasskey && this.options.passkeys) {
-            const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk);
+            const passkeysCookies = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_passkeyTemporaryJWT`)?.value;
+            if (!passkeysCookies) {
+              return { error: 'Passkey token is required' };
+            }
+            const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
+            if (!decodedPasskeysCookies) {
+              return { error: 'Invalid passkey token' };
+            }
+            const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, decodedPasskeysCookies);
             if (res.ok && res.passkeyConfirmed) {
               verified = true;
             }
@@ -418,19 +426,27 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           },
         });
-        const challengeId = crypto.randomUUID();
-        challenges.set(challengeId, options.challenge);
-        setTimeout(() => challenges.delete(challengeId), 600_000);
-        return { ok: true, data: options, challengeId: challengeId};
+        const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
+        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
+        response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_passkeyTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+        return { ok: true, data: options };
       }
     });
     server.endpoint({
       method: 'POST',
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
-      handler: async ({body, adminUser }) => {
-        const challengeId = body.challengeId;
-        const expectedChallenge = challenges.get(challengeId);
+      handler: async ({body, adminUser, cookies }) => {
+        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
+        const passkeysCookies = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_passkeyTemporaryJWT`)?.value;
+        if (!passkeysCookies) {
+          return { error: 'Passkey token is required' };
+        }
+        const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
+        if (!decodedPasskeysCookies) {
+          return { error: 'Invalid passkey token' };
+        }
+        const expectedChallenge = decodedPasskeysCookies.challenge;
         const expectedOrigin = body.origin;
         const expectedRPID = this.options.passkeys?.settings.rp.id;
         const response = JSON.parse(body.credential);
@@ -440,7 +456,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             expectedChallenge,
             expectedOrigin,
             expectedRPID,
-            requireUserVerification: true,
+            requireUserVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification === 'discouraged' ? false : true,
           });
 
           if (!verified) {
@@ -481,26 +497,27 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             adminUser: adminUser
           });
         } catch (error) {
+          console.error(error);
           return { error: 'Error registering passkey: ' + error.message };
         }
         return { ok: true };
       }
     });
     server.endpoint({
-      method: 'GET',
+      method: 'POST',
       path: `/plugin/passkeys/signInRequest`,
       noAuth: true,
-      handler: async ({body, adminUser }) => {
+      handler: async ({body, adminUser, response }) => {
         try {
           const options = await generateAuthenticationOptions({
             rpID: this.options.passkeys?.settings.rp.id,
             allowCredentials: [],
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
-          const challengeId = crypto.randomUUID();
-          challenges.set(challengeId, options.challenge);
-          setTimeout(() => challenges.delete(challengeId), 600_000);
-          return { ok: true, data: options, challengeId: challengeId };
+          const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
+          const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
+          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_passkeyTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+          return { ok: true, data: options };
         } catch (e) {
           return { ok: false, error: e };
         }

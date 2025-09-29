@@ -212,7 +212,7 @@
     try {
         response = await callAdminForthApi({
             path: `/plugin/passkeys/signInRequest`,
-            method: 'GET',
+            method: 'POST',
         });
     } catch (error) {
         console.error('Error creating sign-in request:', error);
@@ -228,9 +228,8 @@
   async function authenticate(options) {
     const abortController = new AbortController();
     const credential = await navigator.credentials.get({
-        publicKey: options,
-        signal: abortController.signal,
-        mediation: 'required'
+      publicKey: options,
+      signal: abortController.signal,
     });
     return credential;
   }

@@ -34,15 +34,19 @@ export type PluginOptions = {
          *  Passkeys settings for WebAuthn API.
          */
         settings: {
-            rp: {
+            /**
+             * The origin that you expect the authentication to come from. (e.g. https://example.com or http://localhost:3000)
+             */
+            expectedOrigin: string;
+            rp?: {
                 /**
                  * The Relying Party name.
                  */
-                name: string;
+                name?: string;
                 /**
                  * The Relying Party ID. A domain or subdomain (e.g. example.com or login.example.com).
                  */
-                id: string;
+                id?: string;
             },
             user: {
                 /**
@@ -67,10 +71,10 @@ export type PluginOptions = {
                  */
                 requireResidentKey?: boolean;
                 /**
-                 * Indicates whether a user verification using the device screen lock is "required", "preferred" or "discouraged". 
+                 * Indicates whether a user verification using the device screen lock is "required" or "discouraged". 
                  * The default is "required".
                  */
-                userVerification?: 'required' | 'preferred' | 'discouraged';
+                userVerification?: 'required' | 'discouraged';
             }
         };
     };
