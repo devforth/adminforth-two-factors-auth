@@ -45,6 +45,7 @@
                       @on-complete="handleOnComplete"
                     />
                   </div>
+                  <ErrorMessage :error="codeError" />
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
                    <div class="flex flex-row gap-2.5 h-12">
                   <LinkButton to="/login" class="w-full">
@@ -80,18 +81,22 @@ import adminforth from '@/adminforth';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { handlePasskeyAlert } from './TwoFactorsConfirmation.vue';
+import ErrorMessage from '@/components/ErrorMessage.vue';
+
 const { t } = useI18n();
 const route = useRoute()
 
 
 const code = ref(null);
+const codeError = ref(null);
+const bindValue = ref('');
 const handleOnComplete = (value) => {
   sendCode(value);
 };
 
 const router = useRouter();
 const inProgress = ref(false);
-const otpRoot = ref(null);
+const otpRoot = ref<HTMLElement | null>(null);
 
 const coreStore = useCoreStore();
 const user = useUserStore();
@@ -154,12 +159,19 @@ onMounted(async () => {
   }
 
   window.addEventListener('paste', handlePaste);
+  document.addEventListener('focusin', handleGlobalFocusIn, true);
   await nextTick();
   tagOtpInputs();
+  focusFirstAvailableOtpInput();
+  const rootEl = otpRoot.value;
+  rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
 });
 
 onBeforeUnmount(() => {
   window.removeEventListener('paste', handlePaste);
+  document.removeEventListener('focusin', handleGlobalFocusIn, true);
+  const rootEl = otpRoot.value;
+  rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
 });
 
 function tagOtpInputs() {
@@ -174,6 +186,42 @@ function tagOtpInputs() {
       el.setAttribute('aria-labelledby', 'mfaCode-label');
     });
   }
+
+function getOtpInputs(): HTMLInputElement[] {
+  const root = otpRoot.value;
+  if (!root) return [];
+  return Array.from(root.querySelectorAll('input.otp-input')) as HTMLInputElement[];
+}
+
+function focusFirstAvailableOtpInput(): void {
+  const inputs = getOtpInputs();
+  if (!inputs.length) return;
+  const firstEmpty = inputs.find((i) => !i.value);
+  (firstEmpty || inputs[0]).focus();
+}
+
+function handleGlobalFocusIn(event: FocusEvent): void {
+  const inputs = getOtpInputs();
+  if (!inputs.length) return;
+  const target = event.target as HTMLElement | null;
+  if (!target) return;
+  if (!inputs.includes(target as HTMLInputElement)) {
+    requestAnimationFrame(() => {
+      focusFirstAvailableOtpInput();
+    });
+  }
+}
+
+function handleFocusOut(): void {
+  requestAnimationFrame(() => {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const active = document.activeElement as HTMLElement | null;
+    if (!active || !inputs.includes(active as HTMLInputElement)) {
+      focusFirstAvailableOtpInput();
+    }
+  });
+}
 
 async function sendCode (value) {
   inProgress.value = true;
@@ -193,7 +241,7 @@ async function sendCode (value) {
       }
       await user.finishLogin();
   } else {
-    showErrorTost(t('Invalid code'));
+    codeError.value = 'Invalid code';
   }
 }
 
@@ -223,7 +271,7 @@ const handleSkip = async () => {
       }
       await user.finishLogin();
   } else {
-    showErrorTost(t('Something went wrong'));
+    codeError.value = 'Something went wrong';
   }
 }
 </script>

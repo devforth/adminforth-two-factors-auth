@@ -63,6 +63,17 @@
                       </p>
                     </div>
                   </div>
+
+                    </div>
+                    <ErrorMessage :error="codeError" />
+                    <div class="mt-6 flex justify-center">
+                      <LinkButton
+                        to="/login"
+                        class="w-full"
+                      >
+                        {{$t('Back to login')}}
+                      </LinkButton>
+                    </div>
                 </div>
             </div>
         </div>
@@ -87,6 +98,7 @@
   import { useRoute } from 'vue-router'
   import { useRouter } from 'vue-router';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
+  import ErrorMessage from '@/components/ErrorMessage.vue';
 
   const { t } = useI18n();
   const code = ref(null);
@@ -94,6 +106,7 @@
   const bindValue = ref('');
   const route = useRoute();
   const router = useRouter();
+  const codeError = ref(null);
 
   const handleOnComplete = (value) => {
     sendCode(value, 'TOTP', null);
@@ -131,10 +144,17 @@
     } else if ( newRoute.hash === '#code' ) {
       confirmationMode.value = 'code';
     }
+    document.addEventListener('focusin', handleGlobalFocusIn, true);
+    focusFirstAvailableOtpInput();
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   });
 
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);
+    document.removeEventListener('focusin', handleGlobalFocusIn, true);
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
   });
 
   async function sendCode (value: any, factorMode: 'TOTP' | 'passkey', passkeyOptions: any) {
@@ -158,8 +178,10 @@
     } else {
       if (usePasskey) {
         showErrorTost(t('Invalid passkey'));
+        codeError.value = 'Invalid passkey';
       } else {
         showErrorTost(t('Invalid code'));
+        codeError.value = 'Invalid code';
       }
     }
   }
@@ -297,6 +319,40 @@
         }
       });
     }
+  function getOtpInputs() {
+    const root = otpRoot.value;
+    if (!root) return [];
+    return Array.from(root.querySelectorAll('input.otp-input'));
+  }
+
+  function focusFirstAvailableOtpInput() {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const firstEmpty = inputs.find((i) => !i.value);
+    (firstEmpty || inputs[0]).focus();
+  }
+
+  function handleGlobalFocusIn(event) {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const target = event.target;
+    if (!target) return;
+    if (!inputs.includes(target)) {
+      requestAnimationFrame(() => {
+        focusFirstAvailableOtpInput();
+      });
+    }
+  }
+
+  function handleFocusOut() {
+    requestAnimationFrame(() => {
+      const inputs = getOtpInputs();
+      if (!inputs.length) return;
+      const active = document.activeElement;
+      if (!active || !inputs.includes(active)) {
+        focusFirstAvailableOtpInput();
+      }
+    });
   }
   </script>
 
