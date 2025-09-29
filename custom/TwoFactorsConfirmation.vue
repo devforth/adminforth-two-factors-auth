@@ -1,88 +1,75 @@
 <template>
-    <div class="relative flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-800"
-      :style="(coreStore.config?.loginBackgroundImage && coreStore.config?.loginBackgroundPosition === 'over') ? {
-        'background-image': 'url(' + loadFile(coreStore.config?.loginBackgroundImage) + ')',
-        'background-size': 'cover',
-        'background-position': 'center',
-        'background-blend-mode': coreStore.config?.removeBackgroundBlendMode ? 'normal' : 'darken'
-      }: {}"
-      >
-  
-      <div id="authentication-modal" tabindex="-1" class="af-two-factors-confirmation overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
-        <div class="relative p-4 w-full max-w-md max-h-full">
-            <!-- Modal content -->
-            <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
-                <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
-                  <div  v-if="confirmationMode === 'code'">
-                    <div id="mfaCode-label" class="m-4">{{$t('Please enter your authenticator code')}} </div>
-                    <div class="my-4 w-full flex flex-col gap-4 justify-center" ref="otpRoot">
-                      <v-otp-input
-                        ref="code"
-                        container-class="grid grid-cols-6 gap-3 w-full"
-                        input-classes="bg-gray-50 text-center justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                        :num-inputs="6"
-                        inputType="number"
-                        inputmode="numeric"
-                        :should-auto-focus="true"
-                        :should-focus-order="true"
-                        v-model:value="bindValue"
-                        @on-complete="handleOnComplete"
-                      />
-                      <div class="flex items-center justify-between w-full">
-                        <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</Link>
-                        <Link
-                          v-if="confirmationMode === 'code'"
-                          to="/login"
-                          class="w-max"
-                        >
-                          {{$t('Back to login')}}
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                  <div v-else class="flex flex-col items-center justify-center py-4 gap-6">
-                    <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
-                    <p class="text-4xl font-semibold mb-4">Passkey</p>
-                    <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
-                    <Button @click="usePasskeyButton" class="w-full mx-16">
-                      Use passkey
-                    </Button>
-                    <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                      <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
-                        Have issues with passkey?
-                        <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
-                          <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</Link>
-                          <p> or </p>
-                          <Link
-                            to="/login"
-                            class="w-full"
-                          >
-                            {{$t('back to login')}}
-                          </Link> 
-                        </div>
-                      </p>
-                    </div>
-                  </div>
+  <div class="relative flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-800"
+    :style="(coreStore.config?.loginBackgroundImage && coreStore.config?.loginBackgroundPosition === 'over') ? {
+      'background-image': 'url(' + loadFile(coreStore.config?.loginBackgroundImage) + ')',
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-blend-mode': coreStore.config?.removeBackgroundBlendMode ? 'normal' : 'darken'
+    }: {}"
+  >
 
-                    </div>
-                    <ErrorMessage :error="codeError" />
-                    <div class="mt-6 flex justify-center">
-                      <LinkButton
+  <div id="authentication-modal" tabindex="-1" class="af-two-factors-confirmation overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
+    <div class="relative p-4 w-full max-w-md max-h-full">
+        <!-- Modal content -->
+        <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
+            <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
+              <div v-if="confirmationMode === 'code'">
+                <div id="mfaCode-label" class="m-4">{{$t('Please enter your authenticator code')}} </div>
+                <div class="my-4 w-full flex flex-col gap-4 justify-center" ref="otpRoot">
+                  <v-otp-input
+                    ref="code"
+                    container-class="grid grid-cols-6 gap-3 w-full"
+                    input-classes="bg-gray-50 text-center justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                    :num-inputs="6"
+                    inputType="number"
+                    inputmode="numeric"
+                    :should-auto-focus="true"
+                    :should-focus-order="true"
+                    v-model:value="bindValue"
+                    @on-complete="handleOnComplete"
+                  />
+                  <div class="flex items-center justify-between w-full">
+                    <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</Link>
+                    <Link
+                      v-if="confirmationMode === 'code'"
+                      to="/login"
+                      class="w-max"
+                    >
+                      {{$t('Back to login')}}
+                    </Link>
+                  </div>
+                </div>
+              </div>
+              <div v-else class="flex flex-col items-center justify-center py-4 gap-6">
+                <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
+                <p class="text-4xl font-semibold mb-4">Passkey</p>
+                <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
+                <Button @click="usePasskeyButton" class="w-full mx-16">
+                  Use passkey
+                </Button>
+                <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+                  <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+                    Have issues with passkey?
+                    <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
+                      <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</Link>
+                      <p> or </p>
+                      <Link
                         to="/login"
                         class="w-full"
                       >
-                        {{$t('Back to login')}}
-                      </LinkButton>
+                        {{$t('back to login')}}
+                      </Link> 
                     </div>
+                  </p>
                 </div>
+              </div>
             </div>
+          <ErrorMessage :error="codeError" />
         </div>
-    </div>
-      
       </div>
-       
-  
-  </template>
+    </div>
+  </div>
+</template>
 
 
   <script setup lang="ts">
@@ -136,18 +123,19 @@
     await nextTick();
     tagOtpInputs();
     checkIfUserHasPasskeys();
+    document.addEventListener('focusin', handleGlobalFocusIn, true);
+    focusFirstAvailableOtpInput();
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   });
 
   watch(route, (newRoute) => {
+    codeError.value = null;
     if ( newRoute.hash === '#passkey' ) {
       confirmationMode.value = 'passkey';
     } else if ( newRoute.hash === '#code' ) {
       confirmationMode.value = 'code';
     }
-    document.addEventListener('focusin', handleGlobalFocusIn, true);
-    focusFirstAvailableOtpInput();
-    const rootEl = otpRoot.value;
-    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   });
 
   onBeforeUnmount(() => {
@@ -245,6 +233,7 @@
       return { _options: response.data, challengeId: response.challengeId };
     } else {
       adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+      codeError.value = 'Error creating sign-in request.';
     }
   }
 
@@ -257,13 +246,14 @@
       });
       return credential;
     } catch (error) {
-      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+      adminforth.alert({message: 'Error during authentication', variant: 'warning'});
+      codeError.value = 'Error during authentication.';
     }
   }
 
   </script>
 
-  <script>
+  <script lang="ts">
 
   export function handlePasskeyAlert(propSuggestionPeriod, router) {
     const currentDate = Date.now();
@@ -319,6 +309,8 @@
         }
       });
     }
+  }
+
   function getOtpInputs() {
     const root = otpRoot.value;
     if (!root) return [];
