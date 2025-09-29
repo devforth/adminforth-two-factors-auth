@@ -44,7 +44,7 @@
                     <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
                     <p class="text-4xl font-semibold mb-4">Passkey</p>
                     <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
-                    <Button @click="selectPasskeyButtonClickHandler" class="w-full mx-16">
+                    <Button @click="usePasskeyButton" class="w-full mx-16">
                       Use passkey
                     </Button>
                     <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -76,12 +76,12 @@
 
   <script setup>
 
-  import { onMounted, nextTick, onBeforeUnmount, ref, watchEffect,computed,watch } from 'vue';
+  import { onMounted, nextTick, onBeforeUnmount, ref, watch } from 'vue';
   import { useCoreStore } from '@/stores/core';
   import { useUserStore } from '@/stores/user';
   import { callAdminForthApi, loadFile } from '@/utils';
   import { showErrorTost } from '@/composables/useFrontendApi';
-  import { LinkButton, Button, Link } from '@/afcl';
+  import { Button, Link } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router'
@@ -178,26 +178,26 @@
     callAdminForthApi({
       method: 'POST',
       path: '/plugin/passkeys/checkIfUserHasPasskeys',
-      body: {
-        userId: user.id
-      }
     }).then((response) => {
       if (response.ok) {
         doesUserHavePasskeys.value = response.hasPasskeys;
         if ( doesUserHavePasskeys.value === true ) {
-          router.replace({ hash: '#passkey' })
+          router.push({ hash: '#passkey' })
           confirmationMode.value = 'passkey';
         } else {
-          router.replace({ hash: '#code' })
+          router.push({ hash: '#code' })
         }
       }
     });
   }
 
-  async function selectPasskeyButtonClickHandler() {
+  async function usePasskeyButton() {
     const { _options, challengeId } = await createSignInRequest();
     const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     const credential = await authenticate(options);
+    if (!credential) {
+      return;
+    }
     const result = JSON.stringify(credential);
     const passkeyOptions = {
       response: result,
@@ -210,28 +210,32 @@
   async function createSignInRequest() {
     let response;
     try {
-        response = await callAdminForthApi({
-            path: `/plugin/passkeys/signInRequest`,
-            method: 'POST',
-        });
+      response = await callAdminForthApi({
+        path: `/plugin/passkeys/signInRequest`,
+        method: 'POST',
+      });
     } catch (error) {
-        console.error('Error creating sign-in request:', error);
-        return;
+      console.error('Error creating sign-in request:', error);
+      return;
     }
     if (response.ok === true) {
-        return { _options: response.data, challengeId: response.challengeId };
+      return { _options: response.data, challengeId: response.challengeId };
     } else {
-        adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
     }
   }
 
   async function authenticate(options) {
-    const abortController = new AbortController();
-    const credential = await navigator.credentials.get({
-      publicKey: options,
-      signal: abortController.signal,
-    });
-    return credential;
+    try {
+      const abortController = new AbortController();
+      const credential = await navigator.credentials.get({
+        publicKey: options,
+        signal: abortController.signal,
+      });
+      return credential;
+    } catch (error) {
+      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+    }
   }
 
   </script>

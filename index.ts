@@ -71,7 +71,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  public async verifyPasskeyResponse(body: any, user_id: string, cookies?: any) {
+  public async verifyPasskeyResponse(body: any, user_id: string, cookies: any) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const expectedOrigin = body.origin;
     const expectedChallenge = cookies.challenge;
@@ -386,9 +386,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
       handler: async ({ adminUser, response }) => {
+        const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const rp = {
           name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
-          id: this.options.passkeys?.settings.rp.id,
+          id: this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname,
         };
         const userResourceId = this.adminforth.config.auth.usersResourceId;
         const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
@@ -446,11 +447,15 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!decodedPasskeysCookies) {
           return { error: 'Invalid passkey token' };
         }
-        const expectedChallenge = decodedPasskeysCookies.challenge;
+        const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const expectedOrigin = body.origin;
-        const expectedRPID = this.options.passkeys?.settings.rp.id;
+        const expectedChallenge = decodedPasskeysCookies.challenge;
+        const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
         const response = JSON.parse(body.credential);
-         try {
+        try {
+          if (settingsOrigin !== expectedOrigin) {
+            throw new Error('Invalid origin');
+          }
           const { verified, registrationInfo } = await verifyRegistrationResponse({
             response,
             expectedChallenge,
@@ -507,11 +512,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/signInRequest`,
       noAuth: true,
-      handler: async ({body, adminUser, response }) => {
+      handler: async ({ response }) => {
         try {
           const options = await generateAuthenticationOptions({
             rpID: this.options.passkeys?.settings.rp.id,
-            allowCredentials: [],
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
           const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
@@ -527,7 +531,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'GET',
       path: `/plugin/passkeys/getPasskeys`,
       noAuth: false,
-      handler: async ({body, adminUser }) => {
+      handler: async ({ adminUser }) => {
         let passkeys;
         try {
           passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)] );
@@ -618,11 +622,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     });
-     server.endpoint({
+    server.endpoint({
       method: 'POST',
       path: `/plugin/passkeys/checkIfUserHasPasskeys`,
       noAuth: true,
-      handler: async ({body, adminUser, cookies }) => {
+      handler: async ({ cookies }) => {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
         const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempTotp');
@@ -638,6 +642,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { ok: true, hasPasskeys: false };
         }
       }
-     });
+    });
   }
 }
