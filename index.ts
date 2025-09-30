@@ -181,8 +181,28 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!this.options.passkeys.settings) {
         throw new Error('Passkeys settings are required when passkeys option is enabled');
       }
-      if (!this.options.passkeys.settings.rp) {
-        throw new Error('Passkeys settings.rp is required');
+      if (!this.options.passkeys.settings.expectedOrigin) {
+        throw new Error('Passkeys settings.expectedOrigin is required');
+      }
+      const origin = new URL( this.options.passkeys.settings.expectedOrigin ).origin;
+      if ( origin !== this.options.passkeys.settings.expectedOrigin ) {
+        throw new Error('Passkeys settings.expectedOrigin is not valid');
+      }
+      if (this.options.passkeys.settings.authenticatorSelection) {
+        if (this.options.passkeys.settings.authenticatorSelection.authenticatorAttachment) {
+          if ( !['platform', 'cross-platform', 'both'].includes(this.options.passkeys.settings.authenticatorSelection.authenticatorAttachment) ) {
+            throw new Error('Passkeys settings.authenticatorSelection.authenticatorAttachment is not valid');
+          }
+        }
+        if (this.options.passkeys.settings.authenticatorSelection.userVerification) {
+          if ( !['required', 'discouraged'].includes(this.options.passkeys.settings.authenticatorSelection.userVerification) ) {
+            throw new Error('Passkeys settings.authenticatorSelection.userVerification is not valid');
+          }
+        }
+      }
+
+      if (!this.options.passkeys.settings.user) {
+        throw new Error('Passkeys settings.user is required');
       }
       if (!this.options.passkeys.settings.user.nameField) {
         throw new Error('Passkeys settings.user.nameField is required');
