@@ -68,20 +68,20 @@
             <div class="flex space-x-4 mt-4" v-if="isInitialFinished">
                 <ButtonGroup :solidColor="true">
                     <template #button:Profile>
-                        <div class="flex px-4 py-2" :disabled="!isPasskeySupported" @click="isPasskeySupported ? addPasskey() : null">
+                        <div class="flex px-4 py-2" @click="addPasskey()">
                             <IconPlusOutline class="w-5 h-5 me-2"/>
                             <p>{{ addPasskeyMode === 'platform' ? 'Add Local Passkey' : 'Add External Passkey' }}</p>
                         </div>
                     </template>
                     <template #button:Dropdown v-if="authenticatorAttachment === 'both'">
-                        <div id="dropdown-button" :disabled="!isPasskeySupported" class="flex px-2 py-2" @click="isPasskeySupported  ? isCardsVisible = !isCardsVisible : null">
+                        <div id="dropdown-button" class="flex px-2 py-2" @click="isCardsVisible = !isCardsVisible">
                             <IconCaretDownSolid class="w-5 h-5"/>
                         </div>
                     </template>
                 </ButtonGroup>
             </div> 
             <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white rounded-lg shadow-md flex flex-col space-y-2">
-                <div class="flex justify-between gap-4">
+                <div v-if="isPasskeySupported" class="flex justify-between gap-4" :class="!isPasskeySupported ? 'opacity-50 pointer-events-none' : ''">
                     <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'platform'"/></div>
                     <Card
                         @click="addPasskeyMode = 'platform'; isCardsVisible = false;"
@@ -93,6 +93,25 @@
                     >
                     </Card>
                 </div>
+                <Tooltip v-else >
+                    <div class="flex justify-between gap-4" :class="!isPasskeySupported ? 'opacity-50 pointer-events-none' : ''">
+                        <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'platform'"/></div>
+                        <Card
+                            @click="addPasskeyMode = 'platform'; isCardsVisible = false;"
+                            class="h-20"
+                            title="Use this device"
+                            size="sm"
+                            description="Create a passkey using the built-in authenticator on this device."
+                            hideBorder="true"
+                        >
+                        </Card>
+                    </div>
+
+                    <template #tooltip>
+                        <p class="max-w-64">This browser or device is reporting partial passkey support.</p>
+                        <p class="max-w-64"> To fix it try to install extention or change browser.</p>
+                    </template>
+                </Tooltip>
                 <div class="border-t border-gray-300"></div>
                 <div class="flex justify-between gap-4">
                     <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'cross-platform'"/></div>
@@ -116,7 +135,7 @@
     import { callAdminForthApi } from '@/utils';
     import adminforth from '@/adminforth';
     import { onMounted, ref, Ref, onBeforeUnmount } from 'vue';
-    import { Card, Dialog, ButtonGroup } from '@/afcl'
+    import { Card, Dialog, ButtonGroup, Tooltip } from '@/afcl'
     import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconCaretDownSolid, IconCheckOutline } from '@iconify-prerendered/vue-flowbite';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -137,6 +156,9 @@
     onMounted(async () => {
         await getPasskeys();
         await checkForCompatibility();
+        if (authenticatorAttachment.value === "cross-platform") {
+            addPasskeyMode.value = 'cross-platform';
+        }   
         isInitialFinished.value = true;
     });
 
@@ -240,6 +262,7 @@
             } else {  
                 adminforth.alert({message: 'Passkeys are not supported on this device or browser.', variant: 'warning'});
                 isPasskeySupported.value = false;
+                addPasskeyMode.value = 'cross-platform';
             }  
         });  
         }  
