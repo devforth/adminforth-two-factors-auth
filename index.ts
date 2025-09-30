@@ -385,7 +385,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ adminUser, response }) => {
+      handler: async ({ body, adminUser, response }) => {
+        const mode = body?.mode;
+        const authenticatorAttachment = (
+          this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment === 'both' ? mode 
+            : this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment ? this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment 
+              : 'platform'
+        );
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const rp = {
           name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
@@ -422,7 +428,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           attestationType: 'none',
           excludeCredentials,
           authenticatorSelection: {
-            authenticatorAttachment: this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment || 'platform',
+            authenticatorAttachment,
             requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey || true,
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           },
@@ -548,7 +554,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             id: pk[this.options.passkeys.credentialIdFieldName],
           });
         }
-        return { ok: true, data: dataToReturn };
+        return { ok: true, data: dataToReturn, authenticatorAttachment: this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment || 'platform' };
       }
     });
     server.endpoint({

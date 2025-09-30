@@ -60,10 +60,10 @@ export type PluginOptions = {
             },
             authenticatorSelection?: {
                 /**
-                 * The preferred authenticator attachment. It can be either "platform" or "cross-platform".
+                 * The preferred authenticator attachment. It can be either "platform", "cross-platform" or "both".
                  * Default to "platform".
                  */
-                authenticatorAttachment?: 'platform' | 'cross-platform';
+                authenticatorAttachment?: 'platform' | 'cross-platform' | 'both';
                 /**
                  * Set it to a boolean true. A discoverable credential (resident key) 
                  * stores user information to the passkey and lets users select the account upon authentication.

@@ -1,5 +1,5 @@
 <template>
-    <div class="text-3xl text-gray-900 font-semibold mt-2 w-full max-w-2xl flex-col justify-center items-center">
+    <div class="text-3xl text-gray-900 font-semibold mt-2 max-w-2xl flex-col justify-center items-center">
         <p>Passkeys</p>
         <div class="flex flex-col items-end">
             <Table
@@ -65,14 +65,48 @@
                 <span v-else class="text-gray-400">Never</span>
             </template>
             </Table>
-            <div class="flex space-x-4 mt-4">
-                <Button
-                    @click="addPasskey"
-                    :disabled="!isPasskeySupported"
-                >
-                    Add Passkey
-                </Button>
+            <div class="flex space-x-4 mt-4" v-if="isInitialFinished">
+                <ButtonGroup :solidColor="true">
+                    <template #button:Profile>
+                        <div class="flex px-4 py-2" :disabled="!isPasskeySupported" @click="isPasskeySupported ? addPasskey() : null">
+                            <IconPlusOutline class="w-5 h-5 me-2"/>
+                            <p>{{ addPasskeyMode === 'platform' ? 'Add Local Passkey' : 'Add External Passkey' }}</p>
+                        </div>
+                    </template>
+                    <template #button:Dropdown v-if="authenticatorAttachment === 'both'">
+                        <div id="dropdown-button" class="flex px-2 py-2" @click="isCardsVisible = !isCardsVisible">
+                            <IconCaretDownSolid class="w-5 h-5"/>
+                        </div>
+                    </template>
+                </ButtonGroup>
             </div> 
+            <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white rounded-lg shadow-md flex flex-col space-y-2">
+                <div class="flex justify-between gap-4">
+                    <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'platform'"/></div>
+                    <Card
+                        @click="addPasskeyMode = 'platform'; isCardsVisible = false;"
+                        class="h-20"
+                        title="Use this device"
+                        size="sm"
+                        description="Create a passkey using the built-in authenticator on this device."
+                        hideBorder="true"
+                    >
+                    </Card>
+                </div>
+                <div class="border-t border-gray-300"></div>
+                <div class="flex justify-between gap-4">
+                    <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'cross-platform'"/></div>
+                    <Card
+                        @click="addPasskeyMode = 'cross-platform'; isCardsVisible = false;"
+                        size="sm"
+                        class="h-20"
+                        title="Use a external device"
+                        description="Create a passkey using a phone, tablet or an external security key."
+                        hideBorder="true"
+                    >
+                    </Card>
+                </div>
+            </div>
         </div>
     </div>
 </template>
@@ -81,9 +115,9 @@
     import { Table } from '@/afcl'
     import { callAdminForthApi } from '@/utils';
     import adminforth from '@/adminforth';
-    import { onMounted, ref } from 'vue';
-    import { Button, Dialog, Input } from '@/afcl'
-    import { IconTrashBinSolid, IconPenSolid } from '@iconify-prerendered/vue-flowbite';
+    import { onMounted, ref, Ref, onBeforeUnmount } from 'vue';
+    import { Card, Dialog, ButtonGroup } from '@/afcl'
+    import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconCaretDownSolid, IconCheckOutline } from '@iconify-prerendered/vue-flowbite';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
@@ -95,11 +129,33 @@
     const passkeys = ref([]);
     const isPasskeySupported = ref(false);
     const passkeysNewName = ref('');
+    const isCardsVisible = ref(false);
+    const addPasskeyMode: Ref<'platform' | 'cross-platform'> = ref('platform');
+    const authenticatorAttachment = ref<'platform' | 'cross-platform' | 'both'>('platform');
+    const isInitialFinished = ref(false);
+
+    onMounted(async () => {
+        await getPasskeys();
+        await checkForCompatibility();
+        isInitialFinished.value = true;
+    });
 
     onMounted(() => {
-        getPasskeys();
-        checkForCompatibility();
+        document.addEventListener('click', handleClickOutside);
     });
+
+    onBeforeUnmount(() => {
+        document.removeEventListener('click', handleClickOutside);
+    });
+
+    function handleClickOutside(event: MouseEvent) {
+        const cards = document.getElementById('cards-container');
+        const dropdownButton = document.getElementById('dropdown-button');
+
+        if (!cards?.contains(event.target as Node) && !dropdownButton?.contains(event.target as Node)) {
+            isCardsVisible.value = false;
+        }
+    }
 
     async function addPasskey() {
         const { options, challengeId } = await fetchInformationFromTheBackend();
@@ -117,6 +173,7 @@
                 method: 'GET',
             });
             passkeys.value = response.data;
+            authenticatorAttachment.value = response.authenticatorAttachment;
         } catch (error) {
             console.error('Error fetching passkeys:', error);
             adminforth.alert({message: 'Error fetching passkeys.', variant: 'warning'});
@@ -195,6 +252,7 @@
                 path: `/plugin/passkeys/registerPasskeyRequest`,
                 method: 'POST',
                 body: {
+                    mode: addPasskeyMode.value
                 },
             });
         } catch (error) {
@@ -233,8 +291,8 @@
                     credential: credential,
                     origin: window.location.origin,
                     challengeId: challengeId,
-            },
-        });
+                },
+            });
         } catch (error) {
             console.error('Error finishing registering passkey:', error);
             return;
