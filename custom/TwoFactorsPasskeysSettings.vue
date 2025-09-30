@@ -260,7 +260,6 @@
             if (results.every(r => r === true)) {  
                 isPasskeySupported.value = true;
             } else {  
-                adminforth.alert({message: 'Passkeys are not supported on this device or browser.', variant: 'warning'});
                 isPasskeySupported.value = false;
                 addPasskeyMode.value = 'cross-platform';
             }  
