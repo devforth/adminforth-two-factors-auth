@@ -74,7 +74,7 @@
                         </div>
                     </template>
                     <template #button:Dropdown v-if="authenticatorAttachment === 'both'">
-                        <div id="dropdown-button" class="flex px-2 py-2" @click="isCardsVisible = !isCardsVisible">
+                        <div id="dropdown-button" :disabled="!isPasskeySupported" class="flex px-2 py-2" @click="isPasskeySupported  ? isCardsVisible = !isCardsVisible : null">
                             <IconCaretDownSolid class="w-5 h-5"/>
                         </div>
                     </template>
@@ -236,7 +236,7 @@
             PublicKeyCredential.isConditionalMediationAvailable(),  
         ]).then(results => {  
             if (results.every(r => r === true)) {  
-                isPasskeySupported.value = true;  
+                isPasskeySupported.value = true;
             } else {  
                 adminforth.alert({message: 'Passkeys are not supported on this device or browser.', variant: 'warning'});
                 isPasskeySupported.value = false;
