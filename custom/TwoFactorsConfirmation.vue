@@ -118,11 +118,15 @@
   const user = useUserStore();
   const doesUserHavePasskeys = ref(false);
   const confirmationMode = ref("code");
+  const isPasskeysSupported = ref(false);
 
   onMounted(async () => {
     await nextTick();
+    await isCMAAvailable();
     tagOtpInputs();
-    checkIfUserHasPasskeys();
+    if (isPasskeysSupported.value === true) {
+      checkIfUserHasPasskeys();
+    }
     document.addEventListener('focusin', handleGlobalFocusIn, true);
     focusFirstAvailableOtpInput();
     const rootEl = otpRoot.value;
@@ -137,6 +141,16 @@
       confirmationMode.value = 'code';
     }
   });
+
+  async function isCMAAvailable() {
+    if (window.PublicKeyCredential &&  
+    PublicKeyCredential.isConditionalMediationAvailable) {  
+      const isCMA = await PublicKeyCredential.isConditionalMediationAvailable();  
+      if (isCMA) {  
+        isPasskeysSupported.value = true;
+      }  
+    }
+  }
 
   onBeforeUnmount(() => {
     window.removeEventListener('paste', handlePaste);

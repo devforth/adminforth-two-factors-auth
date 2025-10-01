@@ -439,8 +439,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           rpID: rp.id,
           userID: isoUint8Array.fromUTF8String(user.id),
           userName: user.name,
-          userDisplayName: user.displayName || '',
-          attestationType: 'none',
+          userDisplayName: user.displayName,
           excludeCredentials,
           authenticatorSelection: {
             authenticatorAttachment: mode,

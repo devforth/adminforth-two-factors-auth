@@ -1,5 +1,5 @@
 <template>
-    <div class="text-3xl text-gray-900 font-semibold mt-2 max-w-2xl flex-col justify-center items-center">
+    <div class="text-3xl text-gray-900 font-semibold mt-2 max-w-2xl mr-6 flex-col justify-center items-center">
         <p>Passkeys</p>
         <div class="flex flex-col items-end">
             <Table
