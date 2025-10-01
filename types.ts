@@ -16,7 +16,7 @@ export type PluginOptions = {
      */
     timeStepWindow?: number;
 
-    customBrendPrefix?: string;
+    customBrandPrefix?: string;
 
     /**
      * Passkeys (WebAuthn) configuration.

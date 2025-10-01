@@ -237,8 +237,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
         const brandName = adminforth.config.customization.brandName;
         const brandNameSlug = adminforth.config.customization.brandNameSlug;
-        const issuerName = (this.options.customBrendPrefix && this.options.customBrendPrefix.trim())
-        ? this.options.customBrendPrefix.trim()
+        const issuerName = (this.options.customBrandPrefix && this.options.customBrandPrefix.trim())
+        ? this.options.customBrandPrefix.trim()
         : brandName;
         const authResource = adminforth.config.resources.find((res)=>res.resourceId === adminforth.config.auth.usersResourceId )
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
