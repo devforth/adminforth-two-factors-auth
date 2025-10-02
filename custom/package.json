@@ -11,6 +11,7 @@
   "description": "",
   "dependencies": {
     "@loltech/vue3-2fa-code-input": "^1.1.0",
+    "dayjs": "^1.11.18",
     "vue3-otp-input": "^0.5.21"
   }
 }
