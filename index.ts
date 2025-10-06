@@ -259,7 +259,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           newSecret = tempSecret.secret;
 
           const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
-          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_2FaTemporaryJWT=${totpTemporaryJWT}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; Expires=${new Date(Date.now() + '1h').toUTCString() } `);
+          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: totpTemporaryJWT, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
 
           return {
             body:{
@@ -271,7 +271,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         } else {
           const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
-          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_2FaTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
 
           return {
             body:{
@@ -292,9 +292,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: true,
       handler: async (server) => {
         const toReturn = {totpJWT:null,status:'ok',}
-        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-
-        const totpTemporaryJWT = server.cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
+        const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: server.cookies, name: "2FaTemporaryJWT"});
         if (totpTemporaryJWT){
           toReturn.totpJWT = totpTemporaryJWT
         }
@@ -309,7 +307,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: true,
       handler: async ({ body, adminUser, response, cookies  }) => {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const totpTemporaryJWT = cookies.find((cookie) => cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
+        const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "2FaTemporaryJWT"});
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded) {
           return { status:'error', message:'Invalid token' }
@@ -335,7 +333,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           let verified = null;
           if (body.usePasskey && this.options.passkeys) {
             // passkeys are enabled and user wants to use them
-            const passkeysCookies = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_passkeyTemporaryJWT`)?.value;
+            const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyTemporaryJWT`});
             if (!passkeysCookies) {
               return { error: 'Passkey token is required' };
             }
@@ -369,10 +367,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: "/plugin/twofa/skip-allow",
       noAuth: true,
       handler: async ({ cookies }) => {
-        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const totpTemporaryJWT = cookies.find(
-          (cookie) => cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`
-        )?.value;
+        const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({
+          cookies,
+          name: `2FaTemporaryJWT`,
+        });
         const decoded = await this.adminforth.auth.verify(
           totpTemporaryJWT,
           "temp2FA",
@@ -457,8 +455,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           },
         });
         const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
-        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_passkeyTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+        this.adminforth.auth.setCustomCookie({response, payload: {name: "passkeyTemporaryJWT", value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
         return { ok: true, data: options };
       }
     });
@@ -467,8 +464,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
       handler: async ({body, adminUser, cookies }) => {
-        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const passkeysCookies = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_passkeyTemporaryJWT`)?.value;
+        const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "passkeyTemporaryJWT"});
         if (!passkeysCookies) {
           return { error: 'Passkey token is required' };
         }
@@ -548,8 +544,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
           const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
-          const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_passkeyTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+          this.adminforth.auth.setCustomCookie({response, payload: {name: `passkeyTemporaryJWT`, value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
           return { ok: true, data: options };
         } catch (e) {
           return { ok: false, error: e };
@@ -656,8 +651,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/checkIfUserHasPasskeys`,
       noAuth: true,
       handler: async ({ cookies }) => {
-        const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
+        const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "2FaTemporaryJWT"});
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded)
           return { ok: false, error:'Invalid token'}
