@@ -455,7 +455,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           },
         });
-        const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '10m');
+        const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge, "user_id": adminUser.pk }, 'tempPasskeyChallenge', '10m');
         this.adminforth.auth.setCustomCookie({response, payload: {name: "registerPasskeyTemporaryJWT", value: value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
         return { ok: true, data: options };
       }
@@ -472,6 +472,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
         if (!decodedPasskeysCookies) {
           return { error: 'Invalid passkey token' };
+        }
+        if (decodedPasskeysCookies.user_id !== adminUser.pk) {
+          return { error: 'Invalid user' };
         }
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const expectedOrigin = body.origin;
