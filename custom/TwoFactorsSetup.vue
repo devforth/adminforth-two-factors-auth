@@ -241,7 +241,7 @@ async function sendCode (value) {
       }
       await user.finishLogin();
   } else {
-    codeError.value = 'Invalid code';
+    codeError.value = resp.error || t('Invalid code');
   }
 }
 

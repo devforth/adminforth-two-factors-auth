@@ -340,7 +340,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             }
             const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
             if (!decodedPasskeysCookies) {
-              return { error: 'Invalid passkey token' };
+              return { error: 'Invalid passkey' };
             }
             const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, decodedPasskeysCookies);
             if (res.ok && res.passkeyConfirmed) {

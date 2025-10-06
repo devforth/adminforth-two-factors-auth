@@ -179,11 +179,11 @@
       await user.finishLogin();
     } else {
       if (usePasskey) {
-        showErrorTost(t('Invalid passkey'));
-        codeError.value = 'Invalid passkey';
+        showErrorTost(t(resp.error));
+        codeError.value = resp.error || t('Passkey authentication failed');
       } else {
         showErrorTost(t(resp.error));
-        codeError.value = resp.error;
+        codeError.value = resp.error || t('Invalid code');
       }
     }
   }
