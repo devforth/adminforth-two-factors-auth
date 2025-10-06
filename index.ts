@@ -1,4 +1,4 @@
-import {  AdminForthPlugin, Filters } from "adminforth";
+import {  AdminForthPlugin, Filters, suggestIfTypo } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
@@ -173,9 +173,36 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!this.options.passkeys.credentialIdFieldName) {
         throw new Error('Passkeys credentialIdFieldName is required');
       }
+
+      const credentialResource = adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID); 
+      const credentialIDField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialIdFieldName);
+      if ( !credentialIDField ) {
+        const similar = suggestIfTypo(credentialResource.columns.map(c => c.name), this.options.passkeys.credentialIdFieldName);
+        throw new Error(
+          `Passkeys credentialIdFieldName '${this.options.passkeys.credentialIdFieldName}' not found in resource '${this.options.passkeys.credentialResourceID}'. ${
+            similar ? `Did you mean '${similar}'?` : ''
+          }`
+        );
+      }
+      credentialIDField.backendOnly = true;
+
       if (!this.options.passkeys.credentialMetaFieldName) {
         throw new Error('Passkeys credentialMetaFieldName is required');
       }
+
+      const metaResource = adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialMetaFieldName); 
+      const metaField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialMetaFieldName);
+      if ( !metaField ) {
+        const similar = suggestIfTypo(metaResource.columns.map(c => c.name), this.options.passkeys.credentialMetaFieldName);
+        throw new Error(
+          `Passkeys credentialMetaFieldName '${this.options.passkeys.credentialMetaFieldName}' not found in resource '${this.options.passkeys.credentialMetaFieldName}'. ${
+            similar ? `Did you mean '${similar}'?` : ''
+          }`
+        );
+      }
+      metaField.backendOnly = true;
+
+
       if (!this.options.passkeys.credentialUserIdFieldName) {
         throw new Error('Passkeys credentialUserIdFieldName is required');
       }
@@ -455,7 +482,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           },
         });
-        const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge, "user_id": adminUser.pk }, 'tempPasskeyChallenge', '10m');
+        const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge, "user_id": adminUser.pk }, 'registerTempPasskeyChallenge', '10m');
         this.adminforth.auth.setCustomCookie({response, payload: {name: "registerPasskeyTemporaryJWT", value: value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
         return { ok: true, data: options };
       }
@@ -469,7 +496,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!passkeysCookies) {
           return { error: 'Passkey token is required' };
         }
-        const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
+        const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'registerTempPasskeyChallenge', false);
         if (!decodedPasskeysCookies) {
           return { error: 'Invalid passkey token' };
         }
@@ -584,12 +611,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/deletePasskey`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
-        const passkeyId = body.passkeyId;
-        if (!passkeyId) {
+        const credentialID = body.passkeyId;
+        if (!credentialID) {
           return { ok: false, error: 'Passkey ID is required' };
         }
 
-        const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, passkeyId), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
+        const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credentialID), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
         if (!passkeyRecord) {
           return { ok: false, error: 'Passkey not found' };
         }
@@ -598,9 +625,18 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           if (!credResource) {
             throw new Error('Credential resource not found.');
           }
+          const credResourcePKColumn = credResource.columns.find(c => c.primaryKey);
+          if (!credResourcePKColumn) {
+            throw new Error('Credential resource primary key not found.');
+          }
+          const credResourcePKName = credResourcePKColumn.name;
+          const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credentialID), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
+          if (!passkeyRecord) {
+            return { ok: false, error: 'Passkey not found' };
+          }
           await this.adminforth.deleteResourceRecord({
             resource: credResource,
-            recordId: passkeyId,
+            recordId: passkeyRecord[credResourcePKName],
             record: passkeyRecord,
             adminUser: adminUser,
           });
@@ -616,16 +652,24 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/renamePasskey`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
-        const passkeyId = body.passkeyId;
+        const credentialID = body.passkeyId;
         const newName = body.newName;
-        if (!passkeyId) {
+        if (!credentialID) {
           return { ok: false, error: 'Passkey ID is required' };
         }
         if (!newName) {
           return { ok: false, error: 'New name is required' };
         }
-
-        const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, passkeyId), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
+        const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
+        if (!credResource) {
+          throw new Error('Credential resource not found.');
+        }
+        const credResourcePKColumn = credResource.columns.find(c => c.primaryKey);
+        if (!credResourcePKColumn) {
+          throw new Error('Credential resource primary key not found.');
+        }
+        const credResourcePKName = credResourcePKColumn.name;
+        const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credentialID), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
         if (!passkeyRecord) {
           return { ok: false, error: 'Passkey not found' };
         }
@@ -639,7 +683,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           }
           await this.adminforth.updateResourceRecord({
             resource: credResource,
-            recordId: passkeyId,
+            recordId: passkeyRecord[credResourcePKName],
             oldRecord: passkeyRecord,
             record: newRecord,
             adminUser: adminUser
