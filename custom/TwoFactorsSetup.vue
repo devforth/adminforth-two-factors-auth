@@ -229,7 +229,7 @@ async function sendCode (value) {
   
   const resp = await callAdminForthApi({
     method: 'POST',
-    path: '/plugin/twofa/confirmSetup',
+    path: '/plugin/twofa/confirmLogin',
     body: {
       code: value,
       secret: totp.value.newSecret,
@@ -260,7 +260,7 @@ function handlePaste(event) {
 const handleSkip = async () => {
   const resp = await callAdminForthApi({
     method: 'POST',
-    path: '/plugin/twofa/confirmSetup',
+    path: '/plugin/twofa/confirmLogin',
     body: {
       skip: true,
     }

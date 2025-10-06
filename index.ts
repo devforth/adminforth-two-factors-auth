@@ -256,10 +256,22 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         if (!secret){
           const tempSecret = twofactor.generateSecret({name: issuerName,account: userName})
-          newSecret = tempSecret.secret
+          newSecret = tempSecret.secret;
+
+          const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
+          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_2FaTemporaryJWT=${totpTemporaryJWT}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; Expires=${new Date(Date.now() + '1h').toUTCString() } `);
+
+          return {
+            body:{
+              loginAllowed: false,
+              redirectTo: secret ? '/confirm2fa' : '/setup2fa',
+            },
+            ok: true
+          }
+
         } else {
-          const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
-          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
+          const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
+          response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_2FaTemporaryJWT=${value}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; max-age=3600; `);
 
           return {
             body:{
@@ -269,16 +281,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             ok: true
           }
         }
-        const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'tempTotp', '2h');
-        response.setHeader('Set-Cookie', `adminforth_${brandNameSlug}_totpTemporaryJWT=${totpTemporaryJWT}; Path=${this.adminforth.config.baseUrl || '/'}; HttpOnly; SameSite=Strict; Expires=${new Date(Date.now() + '1h').toUTCString() } `);
-
-        return {
-          body:{
-            loginAllowed: false,
-            redirectTo: secret ? '/confirm2fa' : '/setup2fa',
-          },
-          ok: true
-        }
+        
       })
   }
 
@@ -291,25 +294,29 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const toReturn = {totpJWT:null,status:'ok',}
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
 
-        const totpTemporaryJWT = server.cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
+        const totpTemporaryJWT = server.cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
         if (totpTemporaryJWT){
           toReturn.totpJWT = totpTemporaryJWT
         }
         return toReturn
       }
     })
+
+    // this enpoints sets final login cookie if 2nd factor is confirmed
     server.endpoint({
       method: 'POST',
-      path: `/plugin/twofa/confirmSetup`,
+      path: `/plugin/twofa/confirmLogin`,
       noAuth: true,
       handler: async ({ body, adminUser, response, cookies  }) => {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
-        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempTotp');
-        if (!decoded)
-          return {status:'error',message:'Invalid token'}
+        const totpTemporaryJWT = cookies.find((cookie) => cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
+        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
+        if (!decoded) {
+          return { status:'error', message:'Invalid token' }
+        }
 
         if (decoded.newSecret) {
+          // set up standard TOTP request - ensured by presence of newSecret in temp2FA token
           const verified = body.skip && decoded.userCanSkipSetup ? true : twofactor.verifyToken(decoded.newSecret, body.code, this.options.timeStepWindow);
           if (verified) {
             this.connectors = this.adminforth.connectors
@@ -317,15 +324,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               const connector = this.connectors[this.authResource.dataSource];
               await connector.updateRecord({resource:this.authResource, recordId:decoded.pk, newValues:{[this.options.twoFaSecretFieldName]: decoded.newSecret}})
             }
-            this.adminforth.auth.removeCustomCookie({response, name:'totpTemporaryJWT'})
+            this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
             this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Wrong or expired OTP code'}
           }
         } else {
+          // login with confirming existing TOTP or Passkey
           let verified = null;
           if (body.usePasskey && this.options.passkeys) {
+            // passkeys are enabled and user wants to use them
             const passkeysCookies = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_passkeyTemporaryJWT`)?.value;
             if (!passkeysCookies) {
               return { error: 'Passkey token is required' };
@@ -339,14 +348,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               verified = true;
             }
           } else {
-         // user already has secret, get it
+            // user already has TOTP secret, get it
             this.connectors = this.adminforth.connectors
             const connector = this.connectors[this.authResource.dataSource];
             const user = await connector.getRecordByPrimaryKey(this.authResource, decoded.pk)
             verified = twofactor.verifyToken(user[this.options.twoFaSecretFieldName], body.code, this.options.timeStepWindow);
           }
           if (verified) {
-            this.adminforth.auth.removeCustomCookie({response, name:'totpTemporaryJWT'})
+            this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
             this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
@@ -362,11 +371,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       handler: async ({ cookies }) => {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
         const totpTemporaryJWT = cookies.find(
-          (cookie) => cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`
+          (cookie) => cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`
         )?.value;
         const decoded = await this.adminforth.auth.verify(
           totpTemporaryJWT,
-          "tempTotp",
+          "temp2FA",
         );
         if (!decoded) {
           return { status: "error", message: "Invalid token" };
@@ -648,8 +657,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: true,
       handler: async ({ cookies }) => {
         const brandNameSlug = this.adminforth.config.customization.brandNameSlug;
-        const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_totpTemporaryJWT`)?.value;
-        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempTotp');
+        const totpTemporaryJWT = cookies.find((cookie)=>cookie.key === `adminforth_${brandNameSlug}_2FaTemporaryJWT`)?.value;
+        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded)
           return { ok: false, error:'Invalid token'}
         if (decoded.newSecret) {
