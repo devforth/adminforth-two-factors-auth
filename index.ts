@@ -260,7 +260,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           newSecret = tempSecret.secret;
 
           const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
-          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: totpTemporaryJWT, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
+          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: totpTemporaryJWT, expirySeconds: 10 * 60, httpOnly: true}});
 
           return {
             body:{
@@ -272,7 +272,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         } else {
           const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', '2h');
-          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
+          this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: value, expirySeconds: 10 * 60, httpOnly: true}});
 
           return {
             body:{
@@ -311,7 +311,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "2FaTemporaryJWT"});
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded) {
-          return { status:'error', message:'Invalid token' }
+          return { status:'error', message:'Invalid token. Try to login again' }
         }
 
         if (decoded.newSecret) {
@@ -334,7 +334,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           let verified = null;
           if (body.usePasskey && this.options.passkeys) {
             // passkeys are enabled and user wants to use them
-            const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyTemporaryJWT`});
+            const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyLoginTemporaryJWT`});
             if (!passkeysCookies) {
               return { error: 'Passkey token is required' };
             }
@@ -456,7 +456,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           },
         });
         const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
-        this.adminforth.auth.setCustomCookie({response, payload: {name: "passkeyTemporaryJWT", value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
+        this.adminforth.auth.setCustomCookie({response, payload: {name: "registerPasskeyTemporaryJWT", value: value, expirySeconds: 10 * 60, httpOnly: true}});
         return { ok: true, data: options };
       }
     });
@@ -465,7 +465,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
       handler: async ({body, adminUser, cookies }) => {
-        const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "passkeyTemporaryJWT"});
+        const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "registerPasskeyTemporaryJWT"});
         if (!passkeysCookies) {
           return { error: 'Passkey token is required' };
         }
@@ -545,7 +545,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
           const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempPasskeyChallenge', '5m');
-          this.adminforth.auth.setCustomCookie({response, payload: {name: `passkeyTemporaryJWT`, value: value, expiry: 1 * 60 * 60 * 1000, httpOnly: true}});
+          this.adminforth.auth.setCustomCookie({response, payload: {name: `passkeyLoginTemporaryJWT`, value: value, expirySeconds: 10 * 60, httpOnly: true}});
           return { ok: true, data: options };
         } catch (e) {
           return { ok: false, error: e };

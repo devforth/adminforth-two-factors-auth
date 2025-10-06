@@ -182,8 +182,8 @@
         showErrorTost(t('Invalid passkey'));
         codeError.value = 'Invalid passkey';
       } else {
-        showErrorTost(t('Invalid code'));
-        codeError.value = 'Invalid code';
+        showErrorTost(t(resp.error));
+        codeError.value = resp.error;
       }
     }
   }
