@@ -358,7 +358,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
-            return {error: 'Wrong or expired OTP code'}
+            return {error: 'Verification failed'}
           }
         }
       }
