@@ -9,6 +9,7 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
+
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
   adminforth: IAdminForth;
