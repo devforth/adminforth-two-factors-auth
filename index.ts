@@ -80,7 +80,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const response = JSON.parse(body.response);
     try {
       if (settingsOrigin !== expectedOrigin) {
-        throw new Error('Invalid origin');
+        throw new Error(`Origin mismatch. Allowed in settings: ${settingsOrigin}, received from client: ${expectedOrigin}`);
       }
       const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
       if (!cred) {
@@ -101,7 +101,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const { verified, authenticationInfo } = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin,
+        settingsOrigin,
         expectedRPID,
         credential: {
           id: cred[this.options.passkeys.credentialIdFieldName],
