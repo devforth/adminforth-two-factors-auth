@@ -4,6 +4,9 @@
   "description": "AdminForth plugin for two factors authentication",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
   "homepage": "https://adminforth.dev/docs/tutorial/Plugins/TwoFactorsAuth/",
   "repository": {
     "type": "git",
