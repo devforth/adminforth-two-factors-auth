@@ -311,7 +311,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "2FaTemporaryJWT"});
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded) {
-          return { status:'error', message:'Session expired. Please log in again.' }
+          return { status:'error', message:'Login session expired. Please log in again.' }
         }
 
         if (decoded.newSecret) {
