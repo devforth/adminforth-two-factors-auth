@@ -1,6 +1,6 @@
 {
   "name": "@adminforth/two-factors-auth",
-  "version": "1.0.33", 
+  "version": "1.0.33",
   "description": "AdminForth plugin for two factors authentication",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,6 +25,7 @@
   "author": "devforth",
   "license": "ISC",
   "dependencies": {
+    "@simplewebauthn/server": "^13.2.1",
     "node-2fa": "^2.0.3"
   },
   "devDependencies": {

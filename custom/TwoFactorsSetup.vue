@@ -79,9 +79,13 @@ import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
 import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
 import { useI18n } from 'vue-i18n';
+import { useRoute } from 'vue-router';
+import { handlePasskeyAlert } from './TwoFactorsConfirmation.vue';
 import ErrorMessage from '@/components/ErrorMessage.vue';
 
 const { t } = useI18n();
+const route = useRoute()
+
 
 const code = ref(null);
 const codeError = ref(null);
@@ -231,8 +235,11 @@ async function sendCode (value) {
       secret: totp.value.newSecret,
     }
   })
-  if (resp.allowedLogin){
-    await user.finishLogin()
+  if (resp.allowedLogin) {
+      if ( route.meta.isPasskeysEnabled ) {
+        handlePasskeyAlert(route.meta.suggestionPeriod, router);
+      }
+      await user.finishLogin();
   } else {
     codeError.value = 'Invalid code';
   }
@@ -259,7 +266,10 @@ const handleSkip = async () => {
     }
   });
   if (resp.allowedLogin){
-    await user.finishLogin()
+      if ( route.meta.isPasskeysEnabled ) {
+        handlePasskeyAlert();
+      }
+      await user.finishLogin();
   } else {
     codeError.value = 'Something went wrong';
   }

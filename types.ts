@@ -16,7 +16,68 @@ export type PluginOptions = {
      */
     timeStepWindow?: number;
 
-    customBrendPrefix?: string;
+    customBrandPrefix?: string;
+
+    /**
+     * Passkeys (WebAuthn) configuration.
+     */
+    passkeys?: {
+        credentialResourceID: string,
+        credentialIdFieldName: string,
+        credentialMetaFieldName: string,
+        credentialUserIdFieldName: string,
+        /**
+         *  Period between showing alert suggesting to set up Passkeys if not set up yet.
+         */
+        suggestionPeriod?: string; // e.g. '30d', '12h', '15m'. Default is '5d'
+        /**
+         *  Passkeys settings for WebAuthn API.
+         */
+        settings: {
+            /**
+             * The origin that you expect the authentication to come from. (e.g. https://example.com or http://localhost:3000)
+             */
+            expectedOrigin: string;
+            rp?: {
+                /**
+                 * The Relying Party name.
+                 */
+                name?: string;
+                /**
+                 * The Relying Party ID. A domain or subdomain (e.g. example.com or login.example.com).
+                 */
+                id?: string;
+            },
+            user: {
+                /**
+                 * Field in users resource, that user will recognize as unique user ID.(e.g. email or username)
+                 */
+                nameField: string;
+                /**
+                 * Field in users resource, that user will recognize as display name.(e.g. full name)
+                 */
+                displayNameField?: string;
+            },
+            authenticatorSelection?: {
+                /**
+                 * The preferred authenticator attachment. It can be either "platform", "cross-platform" or "both".
+                 * Default to "platform".
+                 */
+                authenticatorAttachment?: 'platform' | 'cross-platform' | 'both';
+                /**
+                 * Set it to a boolean true. A discoverable credential (resident key) 
+                 * stores user information to the passkey and lets users select the account upon authentication.
+                 * Default to "True".
+                 */
+                requireResidentKey?: boolean;
+                /**
+                 * Indicates whether a user verification using the device screen lock is "required" or "discouraged". 
+                 * The default is "required".
+                 */
+                userVerification?: 'required' | 'discouraged';
+            }
+        };
+    };
 
     /**
      * Optional function to filter users to apply 2FA.
