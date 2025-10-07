@@ -101,7 +101,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const { verified, authenticationInfo } = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        settingsOrigin,
+        expectedOrigin: settingsOrigin,
         expectedRPID,
         credential: {
           id: cred[this.options.passkeys.credentialIdFieldName],
