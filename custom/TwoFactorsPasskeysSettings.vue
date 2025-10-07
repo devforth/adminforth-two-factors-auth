@@ -1,6 +1,6 @@
 <template>
-    <div class="text-3xl text-gray-900 font-semibold mt-2 max-w-2xl mr-6 flex-col justify-center items-center">
-        <p>Passkeys</p>
+    <div class="text-3xl text-gray-900 font-semibold max-w-2xl mr-6 flex-col justify-center items-center">
+        <p class="flex items-start justify-start leading-none">Passkeys</p>
         <div class="flex flex-col items-end">
             <Table
             class="mt-4 w-full"

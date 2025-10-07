@@ -101,7 +101,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const { verified, authenticationInfo } = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        settingsOrigin,
+        expectedOrigin: settingsOrigin,
         expectedRPID,
         credential: {
           id: cred[this.options.passkeys.credentialIdFieldName],
@@ -134,11 +134,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
       path:'/confirm2fa',
-      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled } }
+      component: { file: this.componentPath('TwoFactorsConfirmation.vue'), meta: { sidebarAndHeader: "none", suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled } }
     })
     customPages.push({
       path:'/setup2fa',
-      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', customLayout: true, suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled  } }
+      component: { file: this.componentPath('TwoFactorsSetup.vue'), meta: { title: 'Setup 2FA', sidebarAndHeader: "none", suggestionPeriod: suggestionPeriod, isPasskeysEnabled: isPasskeysEnabled  } }
     })
     const everyPageBottomInjections = this.adminforth.config.customization.globalInjections.everyPageBottom || []
     everyPageBottomInjections.push({ file: this.componentPath('TwoFAModal.vue'), meta: {} })
