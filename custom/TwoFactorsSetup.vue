@@ -80,7 +80,7 @@ import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
-import { handlePasskeyAlert } from './TwoFactorsConfirmation.vue';
+import { handlePasskeyAlert } from './utils.js';
 import ErrorMessage from '@/components/ErrorMessage.vue';
 
 const { t } = useI18n();
