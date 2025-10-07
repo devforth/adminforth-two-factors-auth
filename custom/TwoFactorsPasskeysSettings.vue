@@ -22,12 +22,18 @@
                         header="Edit Passkey"
                     >
                         <template #trigger>
-                            <div 
-                                @click="passkeysNewName = ''"
-                                class="w-7 h-7 flex items-center justify-center hover:border rounded-md hover:shadow-md text-blue-500 hover:text-blue-700 cursor-pointer"
-                            >
-                                <IconPenSolid class="w-5 h-5" />
-                            </div>
+                            <Tooltip>
+                                <div 
+                                    @click="passkeysNewName = ''"
+                                    class="w-7 h-7 flex items-center justify-center rounded-md text-blue-500 hover:text-blue-700 cursor-pointer"
+                                >
+                                    <IconPenSolid class="w-5 h-5" />
+                                </div>
+
+                                <template #tooltip>
+                                    Rename passkey
+                                </template>
+                            </Tooltip>
                         </template>
                         <div>
                             <p>Enter new passkey name:</p>
@@ -48,11 +54,16 @@
                         header="Delete Passkey"
                     >
                         <template #trigger>
-                            <div class="w-7 h-7 flex items-center justify-center hover:border rounded-md hover:shadow-md text-red-500 hover:text-red-700 cursor-pointer">
-                                <IconTrashBinSolid 
-                                    class="w-5 h-5" 
-                                />
-                            </div>
+                            <Tooltip>
+                                <div class="w-7 h-7 flex items-center justify-center rounded-md text-red-500 hover:text-red-700 cursor-pointer">
+                                    <IconTrashBinSolid 
+                                        class="w-5 h-5" 
+                                    />
+                                </div>
+                                <template #tooltip>
+                                    Delete passkey
+                                </template>
+                            </Tooltip>
                         </template>
                         <div>
                             <p>Are you sure you want to delete this passkey?</p>
@@ -66,7 +77,7 @@
             </template>
             </Table>
             <div class="flex space-x-4 mt-4" v-if="isInitialFinished">
-                <ButtonGroup :solidColor="true">
+                <ButtonGroup :solidColor="true" v-if="isFetchingPasskey === false">
                     <template #button:Profile>
                         <div class="flex px-4 py-2" @click="addPasskey()">
                             <IconPlusOutline class="w-5 h-5 me-2"/>
@@ -79,6 +90,7 @@
                         </div>
                     </template>
                 </ButtonGroup>
+                <p v-else class="flex items-center justify-center gap-2 text-base">Processing <Spinner class="w-4 h-4 inline-block" /></p>
             </div> 
             <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white rounded-lg shadow-md flex flex-col space-y-2">
                 <div v-if="isPasskeySupported" class="flex justify-between gap-4" :class="!isPasskeySupported ? 'opacity-50 pointer-events-none' : ''">
@@ -135,7 +147,7 @@
     import { callAdminForthApi } from '@/utils';
     import adminforth from '@/adminforth';
     import { onMounted, ref, Ref, onBeforeUnmount } from 'vue';
-    import { Card, Dialog, ButtonGroup, Tooltip } from '@/afcl'
+    import { Card, Dialog, ButtonGroup, Tooltip, Spinner } from '@/afcl'
     import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconCaretDownSolid, IconCheckOutline } from '@iconify-prerendered/vue-flowbite';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -152,6 +164,7 @@
     const addPasskeyMode: Ref<'platform' | 'cross-platform'> = ref('platform');
     const authenticatorAttachment = ref<'platform' | 'cross-platform' | 'both'>('platform');
     const isInitialFinished = ref(false);
+    const isFetchingPasskey = ref(false);
 
     onMounted(async () => {
         await getPasskeys();
@@ -180,12 +193,22 @@
     }
 
     async function addPasskey() {
-        const { options, challengeId } = await fetchInformationFromTheBackend();
-        const creationResult = await callWebAuthn(options);
-        if (!creationResult) {
+        isFetchingPasskey.value = true;
+        const code = await window.adminforthTwoFaModal.getCode();
+
+        const { options } = await fetchInformationFromTheBackend(code);
+        if (!options ) {
+            isFetchingPasskey.value = false;
+            adminforth.alert({message: 'Verification failed.', variant: 'warning'});
             return;
         }
-        finishRegisteringPasskey(creationResult, challengeId);
+        const creationResult = await callWebAuthn(options);
+        if (!creationResult) {
+            isFetchingPasskey.value = false;
+            return;
+        }
+        finishRegisteringPasskey(creationResult);
+        isFetchingPasskey.value = false;
     }
 
     async function getPasskeys() {
@@ -267,19 +290,23 @@
         }  
     } 
     
-    async function fetchInformationFromTheBackend() {
+    async function fetchInformationFromTheBackend(code) {
         let response;
         try {
             response = await callAdminForthApi({
                 path: `/plugin/passkeys/registerPasskeyRequest`,
                 method: 'POST',
                 body: {
-                    mode: addPasskeyMode.value
+                    mode: addPasskeyMode.value,
+                    code: code
                 },
             });
         } catch (error) {
             console.error('Error fetching passkeys info:', error);
             return;
+        }
+        if (!response.ok) {
+            return {};
         }
         const _options = response.data;
         const challengeId = response.challengeId;
@@ -303,7 +330,7 @@
         return result;
     }
 
-    async function finishRegisteringPasskey(credential: any, challengeId: string) {
+    async function finishRegisteringPasskey(credential: any) {
         let res 
         try {
             res = await callAdminForthApi({
@@ -312,7 +339,6 @@
                 body: {
                     credential: credential,
                     origin: window.location.origin,
-                    challengeId: challengeId,
                 },
             });
         } catch (error) {

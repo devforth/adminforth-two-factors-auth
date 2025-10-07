@@ -442,6 +442,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: false,
       handler: async ({ body, adminUser, response }) => {
         const mode = body?.mode;
+
+        const code = body?.code;
+        this.connectors = this.adminforth.connectors
+        const connector = this.connectors[this.authResource.dataSource];
+        const reqUser = await connector.getRecordByPrimaryKey(this.authResource, adminUser.pk)
+        const verified = twofactor.verifyToken(reqUser[this.options.twoFaSecretFieldName], code, this.options.timeStepWindow)
+        if ( !verified ) {
+          return { ok: false, error: 'Wrong or expired OTP code' };
+        }
+
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const rp = {
           name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
