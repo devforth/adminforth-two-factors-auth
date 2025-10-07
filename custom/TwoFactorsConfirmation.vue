@@ -74,7 +74,7 @@
 
   <script setup lang="ts">
 
-  import { onMounted, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+  import { onMounted, nextTick, onBeforeUnmount, ref, watch, onBeforeMount } from 'vue';
   import { useCoreStore } from '@/stores/core';
   import { useUserStore } from '@/stores/user';
   import { callAdminForthApi, loadFile } from '@/utils';
@@ -94,6 +94,17 @@
   const route = useRoute();
   const router = useRouter();
   const codeError = ref(null);
+
+  onBeforeMount(() => {
+    if (localStorage.getItem('isAuthorized') === 'true') {
+      coreStore.fetchMenuAndResource();
+      if (route.query.next) {
+        router.push(route.query.next.toString());
+      } else {
+        router.push({ name: 'home' });
+      }
+    }
+  })
 
   const handleOnComplete = (value) => {
     sendCode(value, 'TOTP', null);
@@ -121,16 +132,18 @@
   const isPasskeysSupported = ref(false);
 
   onMounted(async () => {
-    await nextTick();
-    await isCMAAvailable();
-    tagOtpInputs();
-    if (isPasskeysSupported.value === true) {
-      checkIfUserHasPasskeys();
+    if (localStorage.getItem('isAuthorized') !== 'true') {
+      await nextTick();
+      await isCMAAvailable();
+      tagOtpInputs();
+      if (isPasskeysSupported.value === true) {
+        checkIfUserHasPasskeys();
+      }
+      document.addEventListener('focusin', handleGlobalFocusIn, true);
+      focusFirstAvailableOtpInput();
+      const rootEl = otpRoot.value;
+      rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
     }
-    document.addEventListener('focusin', handleGlobalFocusIn, true);
-    focusFirstAvailableOtpInput();
-    const rootEl = otpRoot.value;
-    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   });
 
   watch(route, (newRoute) => {

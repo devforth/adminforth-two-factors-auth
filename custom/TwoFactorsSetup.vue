@@ -67,7 +67,7 @@
 
 <script setup lang="ts">
 
-import { onMounted, onBeforeUnmount, nextTick, ref, watchEffect,computed,watch } from 'vue';
+import { onMounted, onBeforeUnmount, nextTick, ref, watchEffect,computed,watch, onBeforeMount } from 'vue';
 import { useCoreStore } from '@/stores/core';
 import { useUserStore } from '@/stores/user';
 import { IconEyeSolid, IconEyeSlashSolid } from '@iconify-prerendered/vue-flowbite';
@@ -86,6 +86,16 @@ import ErrorMessage from '@/components/ErrorMessage.vue';
 const { t } = useI18n();
 const route = useRoute()
 
+onBeforeMount(() => {
+  if (localStorage.getItem('isAuthorized') === 'true') {
+    coreStore.fetchMenuAndResource();
+    if (route.query.next) {
+      router.push(route.query.next.toString());
+    } else {
+      router.push({ name: 'home' });
+    }
+  }
+})
 
 const code = ref(null);
 const codeError = ref(null);
