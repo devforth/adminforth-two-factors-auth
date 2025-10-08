@@ -9,6 +9,12 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
+import { webcrypto } from 'crypto';
+
+if (!globalThis.crypto) {
+  // @ts-ignore
+  globalThis.crypto = webcrypto;
+}
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -27,31 +33,50 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   public async verify(
-    code: string,
-    opts?: { adminUser?: AdminUser; userPk?: string }
+    confirmationResult: Record<string, any>,
+    opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any }
   ): Promise<{ ok: true } | { error: string }> {
-    if (!code) return { error: "Code is required" };
+    if (!confirmationResult) return { error: "Confirmation result is required" };
 
-    const authRes = this.adminforth.config.resources
-      .find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
+    if (confirmationResult.mode === "totp") {
+      const code = confirmationResult.result;
+      const authRes = this.adminforth.config.resources
+        .find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
 
-    if (!authRes) return { error: "Auth resource not found" };
+      if (!authRes) return { error: "Auth resource not found" };
 
-    const connector = this.adminforth.connectors[authRes.dataSource];
-    const pkName = authRes.columns.find(c => c.primaryKey)?.name;
-    if (!pkName) return { error: "Primary key not found on auth resource" };
+      const connector = this.adminforth.connectors[authRes.dataSource];
+      const pkName = authRes.columns.find(c => c.primaryKey)?.name;
+      if (!pkName) return { error: "Primary key not found on auth resource" };
 
-    const pk = opts?.userPk ?? opts?.adminUser?.dbUser?.[pkName];
-    if (!pk) return { error: "User PK is required" };
+      const pk = opts?.userPk ?? opts?.adminUser?.dbUser?.[pkName];
+      if (!pk) return { error: "User PK is required" };
 
-    const user = await connector.getRecordByPrimaryKey(authRes, pk);
-    if (!user) return { error: "User not found" };
+      const user = await connector.getRecordByPrimaryKey(authRes, pk);
+      if (!user) return { error: "User not found" };
 
-    const secret = user[this.options.twoFaSecretFieldName];
-    if (!secret) return { error: "2FA is not set up for this user" };
+      const secret = user[this.options.twoFaSecretFieldName];
+      if (!secret) return { error: "2FA is not set up for this user" };
 
-    const verified = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
-    return verified ? { ok: true } : { error: "Wrong or expired OTP code" };
+      const verified = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
+      return verified ? { ok: true } : { error: "Wrong or expired OTP code" };
+    } else if (confirmationResult.mode === "passkey") {
+      const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: opts.cookies, name: `passkeyLoginTemporaryJWT`});
+      if (!passkeysCookies) {
+        return { error: 'Passkey token is required' };
+      }
+
+      const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempPasskeyChallenge', false);
+      if (!decodedPasskeysCookies) {
+        return { error: 'Invalid passkey' };
+      }
+      const verificationResult = await this.verifyPasskeyResponse(confirmationResult.result, opts.userPk, decodedPasskeysCookies );
+
+      if (verificationResult.ok && verificationResult.passkeyConfirmed) {
+        return  { ok: true }
+      }
+      return { error: "Invalid passkey" }
+    }
   }
 
   public parsePeriod(period?: string): number {
@@ -440,15 +465,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ body, adminUser, response }) => {
+      handler: async ({ body, adminUser, response, cookies }) => {
         const mode = body?.mode;
 
-        const code = body?.code;
-        this.connectors = this.adminforth.connectors
-        const connector = this.connectors[this.authResource.dataSource];
-        const reqUser = await connector.getRecordByPrimaryKey(this.authResource, adminUser.pk)
-        const verified = twofactor.verifyToken(reqUser[this.options.twoFaSecretFieldName], code, this.options.timeStepWindow)
-        if ( !verified ) {
+        const confirmationResult = body?.confirmationResult;
+        const verificationResult = await this.verify(confirmationResult, {
+          adminUser: adminUser,
+          userPk: adminUser.pk, 
+          cookies: cookies
+        });
+        if ( !verificationResult || !('ok' in verificationResult) || verificationResult.ok === false) {
           return { ok: false, error: 'Wrong or expired OTP code' };
         }
 

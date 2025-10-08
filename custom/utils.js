@@ -1,4 +1,6 @@
-    export function handlePasskeyAlert(propSuggestionPeriod, router) {
+   import { callAdminForthApi } from '@/utils';
+
+   export function handlePasskeyAlert(propSuggestionPeriod, router) {
         const currentDate = Date.now();
         window.localStorage.removeItem('suggestionPeriod');
         window.localStorage.setItem('suggestionPeriod', propSuggestionPeriod);
@@ -53,3 +55,52 @@
         });
         }
     }
+
+    export async function getPasskey() {
+    const { _options } = await createSignInRequest();
+    const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+    const credential = await authenticate(options);
+    if (!credential) {
+      isFetchingPasskey.value = false;
+      return;
+    }
+    const result = JSON.stringify(credential);
+    const passkeyOptions = {
+      response: result,
+      origin: window.location.origin,
+    };
+    return passkeyOptions;
+  }
+
+  async function createSignInRequest() {
+    let response;
+    try {
+      response = await callAdminForthApi({
+        path: `/plugin/passkeys/signInRequest`,
+        method: 'POST',
+      });
+    } catch (error) {
+      console.error('Error creating sign-in request:', error);
+      return;
+    }
+    if (response.ok === true) {
+      return { _options: response.data, challengeId: response.challengeId };
+    } else {
+      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+      codeError.value = 'Error creating sign-in request.';
+    }
+  }
+
+  async function authenticate(options) {
+    try {
+      const abortController = new AbortController();
+      const credential = await navigator.credentials.get({
+        publicKey: options,
+        signal: abortController.signal,
+      });
+      return credential;
+    } catch (error) {
+      adminforth.alert({message: 'Error during authentication', variant: 'warning'});
+      codeError.value = 'Error during authentication.';
+    }
+  }

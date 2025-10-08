@@ -1,5 +1,5 @@
 <template>
-    <div class="text-3xl text-gray-900 font-semibold max-w-2xl mr-6 flex-col justify-center items-center">
+    <div class="text-3xl text-lightBreadcrumbsText dark:text-darkBreadcrumbsText font-semibold max-w-2xl mr-6 flex-col justify-center items-center">
         <p class="flex items-start justify-start leading-none">Passkeys</p>
         <div class="flex flex-col items-end">
             <Table
@@ -79,7 +79,7 @@
             <div class="flex space-x-4 mt-4" v-if="isInitialFinished">
                 <ButtonGroup :solidColor="true" v-if="isFetchingPasskey === false">
                     <template #button:Profile>
-                        <div class="flex px-4 py-2" @click="addPasskey()">
+                        <div class="flex px-4 py-2" @click="addPasskeyStartAction()">
                             <IconPlusOutline class="w-5 h-5 me-2"/>
                             <p>{{ addPasskeyMode === 'platform' ? 'Add Local Passkey' : 'Add External Passkey' }}</p>
                         </div>
@@ -139,6 +139,29 @@
                 </div>
             </div>
         </div>
+        <Dialog 
+            ref="confirmDialog" 
+            class="w-96" 
+            :click-to-close-outside="false"   
+            :buttons="[]"
+        >
+            <div class="flex flex-col">
+                <button
+                type="button"
+                class="text-lightDialogCloseButton bg-transparent hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover"
+                @click="{ isFetchingPasskey = false; fetchedOptions = null; closeDialog(); }"
+                >
+                    <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                        <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                    </svg>
+                    <span class="sr-only">Close dialog</span>
+                </button>
+                <div class="flex items-center justify-center space-y-4">
+                    Now you can add a passkey. 
+                </div>
+                <Button class="mt-4" @click="addPasskeyFinishAction(fetchedOptions); closeDialog();">Add Passkey</Button>
+            </div>
+        </Dialog>
     </div>
 </template>
 
@@ -147,7 +170,7 @@
     import { callAdminForthApi } from '@/utils';
     import adminforth from '@/adminforth';
     import { onMounted, ref, Ref, onBeforeUnmount } from 'vue';
-    import { Card, Dialog, ButtonGroup, Tooltip, Spinner } from '@/afcl'
+    import { Card, Dialog, ButtonGroup, Tooltip, Spinner, Button } from '@/afcl'
     import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconCaretDownSolid, IconCheckOutline } from '@iconify-prerendered/vue-flowbite';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -165,6 +188,18 @@
     const authenticatorAttachment = ref<'platform' | 'cross-platform' | 'both'>('platform');
     const isInitialFinished = ref(false);
     const isFetchingPasskey = ref(false);
+
+    const confirmDialog = ref(null);
+
+    const openDialog = () => {
+        confirmDialog.value.open();
+    }
+
+    const closeDialog = () => {
+        confirmDialog.value.close();
+    }
+
+    const fetchedOptions = ref(null);
 
     onMounted(async () => {
         await getPasskeys();
@@ -192,21 +227,37 @@
         }
     }
 
-    async function addPasskey() {
+    async function addPasskeyStartAction() {
         isFetchingPasskey.value = true;
-        const code = await window.adminforthTwoFaModal.getCode();
-
-        const { options } = await fetchInformationFromTheBackend(code);
+        let confirmationResult;
+        try {
+            confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult(undefined, "To add passkey first verify yourself");
+        } catch (e) {
+            isFetchingPasskey.value = false;
+            return;
+        }
+        if (!confirmationResult) {
+            isFetchingPasskey.value = false;
+            return;
+        }
+        const { options } = await fetchInformationFromTheBackend(confirmationResult);
         if (!options ) {
             isFetchingPasskey.value = false;
             adminforth.alert({message: 'Verification failed.', variant: 'warning'});
             return;
         }
+        fetchedOptions.value = options;
+        openDialog();
+    }
+
+    async function addPasskeyFinishAction(options) {
         const creationResult = await callWebAuthn(options);
         if (!creationResult) {
             isFetchingPasskey.value = false;
+            fetchedOptions.value = null;
             return;
         }
+        fetchedOptions.value = null;
         finishRegisteringPasskey(creationResult);
         isFetchingPasskey.value = false;
     }
@@ -290,7 +341,7 @@
         }  
     } 
     
-    async function fetchInformationFromTheBackend(code) {
+    async function fetchInformationFromTheBackend(confirmationResult) {
         let response;
         try {
             response = await callAdminForthApi({
@@ -298,7 +349,7 @@
                 method: 'POST',
                 body: {
                     mode: addPasskeyMode.value,
-                    code: code
+                    confirmationResult: confirmationResult
                 },
             });
         } catch (error) {
