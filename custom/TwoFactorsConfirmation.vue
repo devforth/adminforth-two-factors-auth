@@ -143,7 +143,7 @@
       await isCMAAvailable();
       tagOtpInputs();
       if (isPasskeysSupported.value === true) {
-        checkIfUserHasPasskeys();
+        await checkIfUserHasPasskeys();
       }
       document.addEventListener('focusin', handleGlobalFocusIn, true);
       focusFirstAvailableOtpInput();
@@ -219,21 +219,25 @@
     }
   }
 
-  function checkIfUserHasPasskeys() {
-    callAdminForthApi({
-      method: 'POST',
-      path: '/plugin/passkeys/checkIfUserHasPasskeys',
-    }).then((response) => {
-      if (response.ok) {
-        doesUserHavePasskeys.value = response.hasPasskeys;
-        if ( doesUserHavePasskeys.value === true ) {
-          router.push({ hash: '#passkey' })
-          confirmationMode.value = 'passkey';
-        } else {
-          router.push({ hash: '#code' })
+  async function checkIfUserHasPasskeys() {
+    try {
+      await callAdminForthApi({
+        method: 'POST',
+        path: '/plugin/passkeys/checkIfUserHasPasskeys',
+      }).then(async (response) => {
+        if (response.ok) {
+          doesUserHavePasskeys.value = response.hasPasskeys;
+          if ( doesUserHavePasskeys.value === true ) {
+            router.push({ hash: '#passkey' })
+            confirmationMode.value = 'passkey';
+          } else {
+            router.push({ hash: '#code' })
+          }
         }
-      }
-    });
+      });
+    } catch (error) {
+      console.error('Error checking if user has passkeys:', error);
+    }
   }
 
   async function usePasskeyButton() {
