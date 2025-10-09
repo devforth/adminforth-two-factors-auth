@@ -1,7 +1,7 @@
 <template>
     <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
     v-show ="modelShow && (isLoading === false)">
-      <div v-if="modalMode === 'totp'" class="relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
+      <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
           <p> {{ customDialogTitle }} </p>
           <p>{{ $t('Please enter your authenticator code') }}</p>
@@ -34,7 +34,7 @@
 
 
 
-      <div v-else-if="modalMode === 'passkey'" class="flex flex-col items-center justify-center py-4 gap-6 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+      <div v-else-if="modalMode === 'passkey'" class="af-two-factor-modal-passkeys flex flex-col items-center justify-center py-4 gap-6 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6">
         <button
           type="button"
           class="text-lightDialogCloseButton bg-transparent hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover"
@@ -46,8 +46,8 @@
           <span class="sr-only">Close modal</span>
         </button>
         <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
-        <p class="text-4xl font-semibold mb-4">Passkey</p>
-        <div class="mb-2 max-w-[300px]">
+        <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">Passkey</p>
+        <div class="mb-2 max-w-[300px] text:gray-900 dark:text-gray-200">
           <p class="mb-2">{{customDialogTitle}} </p>
           <p>Authenticate yourself using the button below</p>
         </div>

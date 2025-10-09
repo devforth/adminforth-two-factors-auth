@@ -9,12 +9,6 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
-import { webcrypto } from 'crypto';
-
-if (!globalThis.crypto) {
-  // @ts-ignore
-  globalThis.crypto = webcrypto;
-}
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -475,7 +469,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           cookies: cookies
         });
         if ( !verificationResult || !('ok' in verificationResult) || verificationResult.ok === false) {
-          return { ok: false, error: 'Wrong or expired OTP code' };
+          return { ok: false, error: 'Verification failed' };
         }
 
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
