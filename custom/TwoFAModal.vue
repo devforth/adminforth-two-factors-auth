@@ -1,14 +1,15 @@
 <template>
     <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
-    v-show ="modelShow">
-      <div class="relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
+    v-show ="modelShow && (isLoading === false)">
+      <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
-          {{ $t('Please enter your authenticator code') }}
+          <p> {{ customDialogTitle }} </p>
+          <p>{{ $t('Please enter your authenticator code') }}</p>
         </div>
   
         <div class="my-4 w-full flex justify-center" ref="otpRoot">
           <v-otp-input
-            ref="code"
+            ref="confirmationResult"
             container-class="grid grid-cols-6 gap-3 w-full"
             input-classes="bg-gray-50 text-center flex justify-center otp-input border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
             :num-inputs="6"
@@ -21,7 +22,8 @@
           />
         </div>
   
-        <div class="mt-6 flex justify-center gap-3">
+        <div class="mt-6 flex justify-center items-center gap-32 w-full">
+          <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >use passkey</p>
           <button
             class="px-4 py-2 rounded border bg-gray-100 dark:bg-gray-600"
             @click="onCancel"
@@ -29,18 +31,60 @@
           >{{ $t('Cancel') }}</button>
         </div>
       </div>
+
+
+
+      <div v-else-if="modalMode === 'passkey'" class="af-two-factor-modal-passkeys flex flex-col items-center justify-center py-4 gap-6 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6">
+        <button
+          type="button"
+          class="text-lightDialogCloseButton bg-transparent hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover"
+          @click="onCancel"
+        >
+          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+          </svg>
+          <span class="sr-only">Close modal</span>
+        </button>
+        <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
+        <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">Passkey</p>
+        <div class="mb-2 max-w-[300px] text:gray-900 dark:text-gray-200">
+          <p class="mb-2">{{customDialogTitle}} </p>
+          <p>Authenticate yourself using the button below</p>
+        </div>
+        <Button @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
+          Use passkey
+        </Button>
+        <div v-if="modalMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+          <div class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+            <p> Have issues with passkey? </p>
+            <p class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'totp'" >use TOTP</p>
+          </div>
+        </div>
+
+
+
+      </div>
     </div>
   </template>
   
   <script setup lang="ts">
   import VOtpInput from 'vue3-otp-input';
-  import { ref, nextTick, watch } from 'vue';
+  import { ref, nextTick, watch, onMounted } from 'vue';
   import { useUserStore } from '@/stores/user';
   import { useI18n } from 'vue-i18n';
+  import { callAdminForthApi } from '@/utils';
+  import { Link, Button } from '@/afcl';
+  import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
+  import { getPasskey } from './utils.js' 
+
+
   declare global {
     interface Window {
       adminforthTwoFaModal: {
-        getCode: () => Promise<any>;
+        get2FaConfirmationResult: (        
+          verifyingCallback?: (confirmationResult: string) => Promise<boolean>,
+          title?: string
+        ) => Promise<any>;
       };
     }
   }
@@ -54,15 +98,20 @@
   }>();
 
   const modelShow = ref(false);
-  let resolveFn: ((code: string) => void) | null = null;
-  let verifyingCallback: ((code: string) => boolean) | null = null;
-  let verifyFn: null | ((code: string) => Promise<boolean> | boolean) = null;
+  let resolveFn: ((confirmationResult: string) => void) | null = null;
+  let verifyingCallback: ((confirmationResult: string) => boolean) | null = null;
+  let verifyFn: null | ((confirmationResult: string) => Promise<boolean> | boolean) = null;
   let rejectFn: ((err?: any) => void) | null = null;
 
+
   window.adminforthTwoFaModal = {
-    getCode: (verifyingCallback?: (code: string) => Promise<boolean>) =>
-      new Promise((resolve, reject) => {
+    get2FaConfirmationResult: (verifyingCallback?: (confirmationResult: string) => Promise<boolean>, title?: string) =>
+      new Promise(async (resolve, reject) => {
       if (modelShow.value) throw new Error('Modal is already open');
+      await checkIfUserHasPasskeys();
+      if (title) {
+        customDialogTitle.value = title;
+      }
       modelShow.value = true;
       resolveFn = resolve;
       rejectFn = reject;
@@ -73,10 +122,30 @@
   const { t } = useI18n();
   const user = useUserStore();
   
-  const code = ref<any>(null);
+  const confirmationResult = ref<any>(null);
   const otpRoot = ref<HTMLElement | null>(null);
   const bindValue = ref('');
+  const doesUserHavePasskeys = ref(false);
+  const modalMode = ref<"totp" | "passkey">("totp");
+  const isLoading = ref(false);
+  const customDialogTitle = ref("");
   
+  async function usePasskeyButtonClick() {
+    let passkeyData;
+    try {
+      passkeyData = await getPasskey();
+    } catch (e) {
+      adminforth.alert({message: 'Failed to get passkey', variant: 'danger'});
+      onCancel();
+    }
+    modelShow.value = false;
+    const dataToReturn = {
+      mode: "passkey",
+      result: passkeyData
+    }
+    resolveFn(dataToReturn);
+  }
+
   function tagOtpInputs() {
     const root = otpRoot.value;
     if (!root) return;
@@ -96,15 +165,15 @@
     event.preventDefault();
     const pastedText = event.clipboardData?.getData('text') || '';
     if (pastedText.length === 6) {
-      code.value?.fillInput(pastedText);
+      confirmationResult.value?.fillInput(pastedText);
     }
   }
   
   async function handleOnComplete(value: string) {
-    await sendCode(value);
+    await sendConfirmationResult(value);
   }
   
-  async function sendCode(value: string) {
+  async function sendConfirmationResult(value: string) {
     if (!resolveFn) throw new Error('Modal is not initialized properly');
     if (verifyFn) {
       try {
@@ -120,14 +189,19 @@
     }
 
     modelShow.value = false;
-    resolveFn(value);
+    const dataToReturn = {
+      mode: "totp",
+      result: value
+    }
+    resolveFn(dataToReturn);
   }
   
   
   function onCancel() {
     modelShow.value = false;
     bindValue.value = '';
-    code.value?.clearInput();
+    confirmationResult.value?.clearInput();
+    rejectFn("Cancel");
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
@@ -148,9 +222,29 @@
       htmlRef.style.overflow = '';
     }
     bindValue.value = '';
-    code.value?.clearInput();
+    confirmationResult.value?.clearInput();
   }
 });
+
+  async function checkIfUserHasPasskeys() {
+    isLoading.value = true;
+    callAdminForthApi({
+      method: 'GET',
+      path: '/plugin/passkeys/getPasskeys',
+    }).then((response) => {
+      if (response.ok) {
+        if (response.data.length >= 1) {
+          doesUserHavePasskeys.value = true;
+          modalMode.value = "passkey";
+          isLoading.value = false;
+        } else {
+          doesUserHavePasskeys.value = false;
+          modalMode.value = "totp";
+          isLoading.value = false;
+        }
+      }
+    });
+  }
 
   </script>
   

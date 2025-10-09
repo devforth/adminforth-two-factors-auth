@@ -8,7 +8,7 @@
     }: {}"
   >
 
-  <div id="authentication-modal" tabindex="-1" class="af-two-factors-confirmation overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
+  <div v-if="isLoading===false" id="authentication-modal" tabindex="-1" class="af-two-factors-confirmation overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
     <div class="relative p-4 w-full max-w-md max-h-full">
         <!-- Modal content -->
         <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
@@ -44,7 +44,7 @@
                 <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
                 <p class="text-4xl font-semibold mb-4">Passkey</p>
                 <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
-                <Button @click="usePasskeyButton" class="w-full mx-16">
+                <Button @click="usePasskeyButton" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
                   Use passkey
                 </Button>
                 <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
@@ -68,6 +68,9 @@
         </div>
       </div>
     </div>
+    <div v-else>
+      <Spinner class="w-10 h-10" />
+    </div>
   </div>
 </template>
 
@@ -79,7 +82,7 @@
   import { useUserStore } from '@/stores/user';
   import { callAdminForthApi, loadFile } from '@/utils';
   import { showErrorTost } from '@/composables/useFrontendApi';
-  import { Button, Link } from '@/afcl';
+  import { Button, Link, Spinner } from '@/afcl';
   import VOtpInput from "vue3-otp-input";
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router'
@@ -95,6 +98,7 @@
   const route = useRoute();
   const router = useRouter();
   const codeError = ref(null);
+  const isFetchingPasskey = ref(false);
 
   onBeforeMount(() => {
     if (localStorage.getItem('isAuthorized') === 'true') {
@@ -131,6 +135,7 @@
   const doesUserHavePasskeys = ref(false);
   const confirmationMode = ref("code");
   const isPasskeysSupported = ref(false);
+  const isLoading = ref(true);
 
   onMounted(async () => {
     if (localStorage.getItem('isAuthorized') !== 'true') {
@@ -145,6 +150,7 @@
       const rootEl = otpRoot.value;
       rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
     }
+    isLoading.value = false;
   });
 
   watch(route, (newRoute) => {
@@ -231,10 +237,12 @@
   }
 
   async function usePasskeyButton() {
+    isFetchingPasskey.value = true;
     const { _options, challengeId } = await createSignInRequest();
     const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     const credential = await authenticate(options);
     if (!credential) {
+      isFetchingPasskey.value = false;
       return;
     }
     const result = JSON.stringify(credential);
@@ -244,6 +252,7 @@
       origin: window.location.origin,
     };
     sendCode('', 'passkey', passkeyOptions);
+    isFetchingPasskey.value = false;
   }
 
   async function createSignInRequest() {
