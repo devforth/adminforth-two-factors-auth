@@ -468,7 +468,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           userPk: adminUser.pk, 
           cookies: cookies
         });
-        if ( !verificationResult || !('ok' in verificationResult) || verificationResult.ok === false) {
+        if ( !verificationResult || !('ok' in verificationResult) ) {
           return { ok: false, error: 'Verification failed' };
         }
 
