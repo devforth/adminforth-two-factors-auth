@@ -143,6 +143,7 @@
       mode: "passkey",
       result: passkeyData
     }
+    customDialogTitle.value = "";
     resolveFn(dataToReturn);
   }
 
@@ -193,6 +194,7 @@
       mode: "totp",
       result: value
     }
+    customDialogTitle.value = "";
     resolveFn(dataToReturn);
   }
   
