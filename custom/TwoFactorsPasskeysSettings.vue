@@ -176,12 +176,10 @@
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import { useCoreStore } from '@/stores/core';
-    import { useUserStore } from '@/stores/user'
 
     dayjs.extend(utc);
     dayjs.extend(timezone);
     const coreStore = useCoreStore();
-    const userStore = useUserStore();
     const passkeys = ref([]);
     const isPasskeySupported = ref(false);
     const passkeysNewName = ref('');
@@ -204,14 +202,12 @@
     const fetchedOptions = ref(null);
 
     onMounted(async () => {
-        if (userStore.isAuthorized === true ) {
-            await getPasskeys();
-            await checkForCompatibility();
-            if (authenticatorAttachment.value === "cross-platform") {
-                addPasskeyMode.value = 'cross-platform';
-            }   
-            isInitialFinished.value = true;
-        }
+        await getPasskeys();
+        await checkForCompatibility();
+        if (authenticatorAttachment.value === "cross-platform") {
+            addPasskeyMode.value = 'cross-platform';
+        }   
+        isInitialFinished.value = true;
     });
 
     onMounted(() => {
@@ -276,7 +272,9 @@
             authenticatorAttachment.value = response.authenticatorAttachment;
         } catch (error) {
             console.error('Error fetching passkeys:', error);
-            adminforth.alert({message: 'Error fetching passkeys.', variant: 'warning'});
+            if ( coreStore.adminUser.username ) {
+                adminforth.alert({message: 'Error fetching passkeys.', variant: 'warning'});
+            }
         }
     }
 
