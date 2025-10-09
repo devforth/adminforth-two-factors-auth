@@ -200,7 +200,6 @@
     }
 
     const fetchedOptions = ref(null);
-    
 
     onMounted(async () => {
         await getPasskeys();
