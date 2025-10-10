@@ -71,7 +71,7 @@
         >
           <p class="pl-6">{{ codeError }} </p>
         </div>
-        <div v-else class="h-[36px]">
+        <div v-else class="h-[36px] opacity-0">
           
         </div>   
       </div>
