@@ -383,15 +383,21 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           let verified = null;
           if (body.usePasskey && this.options.passkeys) {
             // passkeys are enabled and user wants to use them
+            console.log("Using passkey for 2FA verification");
             const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyLoginTemporaryJWT`});
+            console.log("Passkey cookies:", passkeysCookies);
             if (!passkeysCookies) {
               return { error: 'Passkey token is required' };
             }
+            console.log("Verifying passkey cookies");
             const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempLoginPasskeyChallenge', false);
             if (!decodedPasskeysCookies) {
               return { error: 'Invalid passkey' };
             }
+            console.log("Passkey cookies decoded:", decodedPasskeysCookies);
+            console.log("Verifying passkey response");
             const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, decodedPasskeysCookies);
+            console.log("Passkey response verification result:", res);
             if (res.ok && res.passkeyConfirmed) {
               verified = true;
             }
