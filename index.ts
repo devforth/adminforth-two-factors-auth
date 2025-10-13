@@ -173,14 +173,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         slug: 'passkeys',
         component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
       });
-    }
 
-    if ( this.options.passkeys.allowLoginWithPasskeys !== false ) {
-      this.options.passkeys.allowLoginWithPasskeys = true;
-      if ( !this.adminforth.config.customization.loginPageInjections ) {
-        this.adminforth.config.customization.loginPageInjections = { underInputs: [],  panelHeader: [] };
+      if ( this.options.passkeys.allowLoginWithPasskeys !== false ) {
+        this.options.passkeys.allowLoginWithPasskeys = true;
+        if ( !this.adminforth.config.customization.loginPageInjections ) {
+          this.adminforth.config.customization.loginPageInjections = { underInputs: [],  panelHeader: [] };
+        }
+        this.adminforth.config.customization.loginPageInjections.underInputs.push({ file: this.componentPath('LoginWithPasskeyButton.vue'), meta: {} });
       }
-      this.adminforth.config.customization.loginPageInjections.underInputs.push({ file: this.componentPath('LoginWithPasskeyButton.vue'), meta: {} });
     }
   }
 
