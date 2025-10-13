@@ -298,15 +298,18 @@
   }
 
   async function authenticate(options) {
+    console.log("Authenticating with options:", options);
     try {
       const abortController = new AbortController();
       const credential = await navigator.credentials.get({
         publicKey: options,
         signal: abortController.signal,
       });
+      console.log("Credential obtained:", credential);
       return credential;
     } catch (error) {
-      adminforth.alert({message: 'Error during authentication', variant: 'warning'});
+      console.error('Error during authentication:', error);
+      adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
       codeError.value = 'Error during authentication.';
     }
   }
