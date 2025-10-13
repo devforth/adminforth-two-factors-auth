@@ -24,11 +24,11 @@
   
         <div class="mt-6 flex justify-center items-center gap-32 w-full">
           <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >use passkey</p>
-          <button
-            class="px-4 py-2 rounded border bg-gray-100 dark:bg-gray-600"
+          <Button
+            class="px-4 py-2 rounded border"
             @click="onCancel"
             :disabled="inProgress"
-          >{{ $t('Cancel') }}</button>
+          >{{ $t('Cancel') }}</Button>
         </div>
       </div>
 
