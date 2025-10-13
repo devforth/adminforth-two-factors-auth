@@ -444,7 +444,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { error: 'Authentication session is expired. Please, try again' }
         }
 
-        const parsedPasskeyResponse = JSON.parse(passkeyResponse.response);
+        let parsedPasskeyResponse;
+        try {
+          parsedPasskeyResponse = JSON.parse(passkeyResponse.response);
+        } catch (e) {
+          return { error: 'Malformed passkey response' };
+        }
         const credential_id = parsedPasskeyResponse.id;
         if (!credential_id) {
           return { error: 'Credential ID is required' };
