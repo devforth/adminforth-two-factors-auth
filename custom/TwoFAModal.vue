@@ -97,6 +97,25 @@
     (e: 'closed'): void
   }>();
 
+  function removeListeners() {
+    window.removeEventListener('paste', handlePaste);
+    document.removeEventListener('focusin', handleGlobalFocusIn, true);
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
+  }
+
+  async function addListeners() {
+    document.addEventListener('focusin', handleGlobalFocusIn, true);
+    
+    // Wait for DOM to be ready and OTP inputs to be rendered
+    await nextTick();
+    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for v-otp-input to render
+    
+    focusFirstAvailableOtpInput();
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
+  }
+
   const modelShow = ref(false);
   let resolveFn: ((confirmationResult: string) => void) | null = null;
   let verifyingCallback: ((confirmationResult: string) => boolean) | null = null;
@@ -113,6 +132,7 @@
         customDialogTitle.value = title;
       }
       modelShow.value = true;
+      await addListeners();
       resolveFn = resolve;
       rejectFn = reject;
       verifyFn = verifyingCallback ?? null;
@@ -144,6 +164,7 @@
       result: passkeyData
     }
     customDialogTitle.value = "";
+    removeListeners();
     resolveFn(dataToReturn);
   }
 
@@ -195,6 +216,7 @@
       result: value
     }
     customDialogTitle.value = "";
+    removeListeners();
     resolveFn(dataToReturn);
   }
   
@@ -203,10 +225,21 @@
     modelShow.value = false;
     bindValue.value = '';
     confirmationResult.value?.clearInput();
+    removeListeners();
     rejectFn("Cancel");
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
+
+  watch(modalMode, async (newMode) => {
+    if (newMode === 'totp' && modelShow.value && !isLoading.value) {
+      await nextTick();
+      setTimeout(() => {
+        tagOtpInputs();
+        focusFirstAvailableOtpInput();
+      }, 100);
+    }
+  });
 
   watch(modelShow, async (open) => {
   if (open) {
@@ -215,8 +248,17 @@
     if (htmlRef) {
       htmlRef.style.overflow = 'hidden';
     }
-    tagOtpInputs();
-    window.addEventListener('paste', handlePaste);
+    
+    // Wait for conditional rendering to complete
+    if (modalMode.value === 'totp' && !isLoading.value) {
+      await nextTick();
+      setTimeout(() => {
+        tagOtpInputs();
+        window.addEventListener('paste', handlePaste);
+      }, 100);
+    } else {
+      window.addEventListener('paste', handlePaste);
+    }
   } else {
     window.removeEventListener('paste', handlePaste);
     const htmlRef = document.querySelector('html');
@@ -248,7 +290,47 @@
     });
   }
 
-  </script>
+  function getOtpInputs() {
+    const root = otpRoot.value;
+    if (!root) return [];
+    return Array.from(root.querySelectorAll('input.otp-input'));
+  }
+
+  function focusFirstAvailableOtpInput() {
+    const inputs = getOtpInputs();
+    if (!inputs.length) {
+      // Retry after a short delay if inputs aren't ready yet
+      setTimeout(() => focusFirstAvailableOtpInput(), 50);
+      return;
+    }
+    const firstEmpty = inputs.find((i) => !(i as HTMLInputElement).value);
+    ((firstEmpty || inputs[0]) as HTMLInputElement).focus();
+  }
+
+  function handleGlobalFocusIn(event) {
+    const inputs = getOtpInputs();
+    if (!inputs.length) return;
+    const target = event.target;
+    if (!target) return;
+    if (!inputs.includes(target)) {
+      requestAnimationFrame(() => {
+        focusFirstAvailableOtpInput();
+      });
+    }
+  }
+
+  function handleFocusOut() {
+    requestAnimationFrame(() => {
+      const inputs = getOtpInputs();
+      if (!inputs.length) return;
+      const active = document.activeElement;
+      if (!active || !inputs.includes(active)) {
+        focusFirstAvailableOtpInput();
+      }
+    });
+  }
+
+</script>
   
 <style scoped>
   :deep(.otp-input-container) {

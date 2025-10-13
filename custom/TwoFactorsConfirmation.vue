@@ -150,11 +150,8 @@
       await nextTick();
       await isCMAAvailable();
       tagOtpInputs();
-      console.log("Checking if device supports passkeys:", isPasskeysSupported.value);
       if (isPasskeysSupported.value === true) {
-        console.log("Device supports passkeys, checking if user has passkeys...");
         await checkIfUserHasPasskeys();
-        console.log("Does user have passkeys:", doesUserHavePasskeys.value);
       }
       document.addEventListener('focusin', handleGlobalFocusIn, true);
       focusFirstAvailableOtpInput();
@@ -193,8 +190,6 @@
   async function sendCode (value: any, factorMode: 'TOTP' | 'passkey', passkeyOptions: any) {
     inProgress.value = true;
     const usePasskey = factorMode === 'passkey';
-    console.log("Sending code with factorMode:", factorMode);
-    console.log("Passkey options:", passkeyOptions);
     const resp = await callAdminForthApi({
       method: 'POST',
       path: '/plugin/twofa/confirmLogin',
@@ -205,15 +200,12 @@
         secret: null,
       }
     })
-    console.log("Response from confirmLogin:", resp);
     if ( resp.allowedLogin ) {
       if ( route.meta.isPasskeysEnabled && !doesUserHavePasskeys.value ) {
         handlePasskeyAlert(route.meta.suggestionPeriod, router);
       }
-      console.log("Login confirmed, finishing login...");
       await user.finishLogin();
     } else {
-      console.log("Login not allowed, showing error:", resp.error);
       if (usePasskey) {
         showErrorTost(t(resp.error));
         codeError.value = resp.error || t('Passkey authentication failed');
@@ -277,18 +269,15 @@
 
   async function createSignInRequest() {
     let response;
-    console.log("Creating sign-in request for passkey...");
     try {
       response = await callAdminForthApi({
         path: `/plugin/passkeys/signInRequest`,
         method: 'POST',
       });
     } catch (error) {
-      console.log("Error creating sign-in request:", error);
       console.error('Error creating sign-in request:', error);
       return;
     }
-    console.log("Sign-in request response:", response);
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
@@ -298,14 +287,12 @@
   }
 
   async function authenticate(options) {
-    console.log("Authenticating with options:", options);
     try {
       const abortController = new AbortController();
       const credential = await navigator.credentials.get({
         publicKey: options,
         signal: abortController.signal,
       });
-      console.log("Credential obtained:", credential);
       return credential;
     } catch (error) {
       console.error('Error during authentication:', error);

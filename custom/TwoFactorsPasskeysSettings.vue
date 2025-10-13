@@ -144,6 +144,7 @@
             class="w-96" 
             :click-to-close-outside="false"   
             :buttons="[]"
+            :closable="false"
         >
             <div class="flex flex-col">
                 <button
