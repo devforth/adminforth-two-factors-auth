@@ -11,6 +11,12 @@
                 ]"
                 :data="passkeys"
             >
+            <template #cell:name="{item}">
+                <div class="flex items-center justify-start space-x-2">
+                    <img class="max-h-6" :src="coreStore.theme === 'light' ? item.light_icon : item.dark_icon" />
+                    <p>{{ item.name }}</p>
+                </div>
+            </template>
             <template #cell:actions="{item}">
                 <div class="flex items-center justify-start space-x-2">
                     <Dialog 

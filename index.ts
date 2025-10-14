@@ -9,6 +9,7 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
+import aaguids from './custom/aaguid.json' with { type: 'json' };
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -561,7 +562,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             credential,
             credentialBackedUp
           } = registrationInfo;
-          
+          const provider_name = aaguids[aaguid]?.name || 'Unknown';
           const credentialPublicKey = credential.publicKey;
           const credentialID = credential.id;
 
@@ -585,7 +586,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
                 created_at              : new Date().toISOString(),
                 last_used_at            : new Date().toISOString(),
                 aaguid                  : aaguid,
-                name                    : `Passkey ${adminUser.username}`,
+                name                    : provider_name,
               }),
             },
             adminUser: adminUser
@@ -631,6 +632,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           const parsedKey = JSON.parse(pk[this.options.passkeys.credentialMetaFieldName]);
           dataToReturn.push({
             name: parsedKey.name,
+            light_icon: aaguids[parsedKey.aaguid]?.icon_light || null,
+            dark_icon: aaguids[parsedKey.aaguid]?.icon_dark || null,
             created_at: parsedKey.created_at,
             last_used_at: parsedKey.last_used_at,
             id: pk[this.options.passkeys.credentialIdFieldName],
