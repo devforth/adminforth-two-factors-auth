@@ -299,7 +299,14 @@
       return;
     }
     const { _options, challengeId } = signIn;
-    const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+    let options;
+    try {
+      options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
+    } catch (e) {
+      console.error('Error parsing request options:', e);
+      adminforth.alert({message: 'Error initiating passkey authentication.', variant: 'warning'});
+      return;
+    }
     const credential = await authenticate(options);
     if (!credential) {
       isFetchingPasskey.value = false;
