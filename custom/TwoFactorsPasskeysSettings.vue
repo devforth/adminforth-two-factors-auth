@@ -327,6 +327,8 @@
     }
 
     function checkForCompatibility() {
+        let isCMA_supported = false;
+        let isParsingSupported = false;
         if (window.PublicKeyCredential &&  
             PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable &&  
             PublicKeyCredential.isConditionalMediationAvailable) {  
@@ -335,13 +337,23 @@
             PublicKeyCredential.isConditionalMediationAvailable(),  
         ]).then(results => {  
             if (results.every(r => r === true)) {  
-                isPasskeySupported.value = true;
+                isCMA_supported = true;
             } else {  
-                isPasskeySupported.value = false;
+                isCMA_supported = false;
                 addPasskeyMode.value = 'cross-platform';
             }  
         });  
-        }  
+        }
+        try {
+            const temp = PublicKeyCredential.parseRequestOptionsFromJSON({challenge: 'test123', timeout: 60000, userVerification: 'required'});
+            if (temp && typeof temp === 'object') {
+                isParsingSupported = true;
+            }
+        } catch (e) {
+            adminforth.alert({message: 'Please ensure your browser supports passkeys.', variant: 'warning'});
+            isParsingSupported = false;
+        }
+        isPasskeySupported.value = (isCMA_supported && isParsingSupported);  
     } 
     
     async function fetchInformationFromTheBackend(confirmationResult) {
