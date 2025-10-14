@@ -91,7 +91,10 @@
     }
   }
 
+  let controller = new AbortController();
+
   async function authenticate(options) {
+    controller.abort();
     try {
       const abortController = new AbortController();
       const credential = await navigator.credentials.get({

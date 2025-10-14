@@ -349,8 +349,11 @@
     }
   }
 
+  let controller = new AbortController();
+
   async function authenticate(options) {
     console.log("Authenticating with options:", options);
+    controller.abort();
     try {
       // Guard: prevent concurrent navigator.credentials.get calls
       if (webAuthn.inFlight) {
