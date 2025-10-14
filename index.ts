@@ -424,7 +424,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/twofa/confirmLoginWithPasskey`,
       noAuth: true,
-      handler: async ({ body, adminUser, response, cookies  }) => {
+      handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
         if ( this.options.passkeys.allowLoginWithPasskeys !== true ) {
           return { error: 'Login with passkeys is not allowed' };
         }
@@ -480,11 +480,24 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         const username = user[this.adminforth.config.auth.usernameField];
 
+        const adminUser = { 
+          dbUser: user,
+          pk: user.id,
+          username,
+        };
+        await this.adminforth.restApi.processLoginCallbacks(adminUser, { allowedLogin: true, error: '' }, response, {
+          headers,
+          cookies,
+          requestUrl,
+          query,
+          body: {}
+        });
+
         this.adminforth.auth.setAuthCookie({
           response,
           username,
           pk: user.id,
-          expireInDays: this.adminforth.config.auth.rememberMeDays
+          expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays
         });
 
         return { allowedLogin: true, error: '' };

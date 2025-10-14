@@ -31,6 +31,11 @@ export type PluginOptions = {
          * Allow login with Passkeys even if 2FA is not set up. Default is true.
          */
         allowLoginWithPasskeys?: boolean;
+
+        /**
+         * Remember user for number of days after login with Passkey, so that user won't be challenged with 2FA on every login.
+         */
+        rememberDaysAfterPasskeyLogin?: number;
         /**
          *  Period between showing alert suggesting to set up Passkeys if not set up yet.
          */

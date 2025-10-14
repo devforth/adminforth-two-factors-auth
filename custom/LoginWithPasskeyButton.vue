@@ -1,12 +1,12 @@
 <template>
 
-    <div
-        class="flex items-center justify-center border hover:bg-gray-50 hover:cursor-pointer px-4 py-2 rounded-md text-gray-900 font-medium"
+    <Button
+        class="w-full !py-1"
         @click="handleLoginWithPasskey"
     >
-        <IconShieldOutline class="w-6 h-6" />
+        <IconShieldOutline class="w-7 h-8" />
         <span class="ml-2">Continue with Passkey</span>
-    </div>
+    </Button>
 
 </template>
 
@@ -17,6 +17,7 @@
     import { getPasskey } from "./utils.js";
     import { callAdminForthApi } from '@/utils';
     import { useUserStore } from '@/stores/user';
+    import { Button } from '@/afcl';
 
     const userStore = useUserStore();
 
