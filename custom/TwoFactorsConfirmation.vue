@@ -98,6 +98,9 @@
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import ErrorMessage from '@/components/ErrorMessage.vue';
   import { handlePasskeyAlert } from './utils.js';
+  
+  // Global provided by AdminForth runtime
+  declare const adminforth: any;
 
   const { t } = useI18n();
   const code = ref(null);
@@ -107,6 +110,29 @@
   const router = useRouter();
   const codeError = ref(null);
   const isFetchingPasskey = ref(false);
+
+  // Shared WebAuthn state to prevent concurrent navigator.credentials.get calls
+  const webAuthn = {
+    controller: null as AbortController | null,
+    inFlight: false,
+  };
+
+  function cancelPendingWebAuthn(reason?: string) {
+    try {
+      if (webAuthn.controller) {
+        // Abort any pending WebAuthn request
+        webAuthn.controller.abort();
+      }
+    } catch (e) {
+      // no-op
+    } finally {
+      webAuthn.controller = null;
+      webAuthn.inFlight = false;
+      if (reason) {
+        console.debug('[WebAuthn] Aborted pending request:', reason);
+      }
+    }
+  }
 
   onBeforeMount(() => {
     if (localStorage.getItem('isAuthorized') === 'true') {
@@ -147,11 +173,16 @@
 
   onMounted(async () => {
     if (localStorage.getItem('isAuthorized') !== 'true') {
+      // Safety: ensure no pending WebAuthn request survives SPA navigation
+      cancelPendingWebAuthn('mount-init');
       await nextTick();
       await isCMAAvailable();
       tagOtpInputs();
+      console.log("Checking if device supports passkeys:", isPasskeysSupported.value);
       if (isPasskeysSupported.value === true) {
+        console.log("Device supports passkeys, checking if user has passkeys...");
         await checkIfUserHasPasskeys();
+        console.log("Does user have passkeys:", doesUserHavePasskeys.value);
       }
       document.addEventListener('focusin', handleGlobalFocusIn, true);
       focusFirstAvailableOtpInput();
@@ -164,8 +195,10 @@
   watch(route, (newRoute) => {
     codeError.value = null;
     if ( newRoute.hash === '#passkey' ) {
+      cancelPendingWebAuthn('switch-to-passkey');
       confirmationMode.value = 'passkey';
     } else if ( newRoute.hash === '#code' ) {
+      cancelPendingWebAuthn('switch-to-code');
       confirmationMode.value = 'code';
     }
   });
@@ -185,11 +218,15 @@
     document.removeEventListener('focusin', handleGlobalFocusIn, true);
     const rootEl = otpRoot.value;
     rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
+    // Abort any in-flight WebAuthn request when leaving the component
+    cancelPendingWebAuthn('component-unmount');
   });
 
   async function sendCode (value: any, factorMode: 'TOTP' | 'passkey', passkeyOptions: any) {
     inProgress.value = true;
     const usePasskey = factorMode === 'passkey';
+    console.log("Sending code with factorMode:", factorMode);
+    console.log("Passkey options:", passkeyOptions);
     const resp = await callAdminForthApi({
       method: 'POST',
       path: '/plugin/twofa/confirmLogin',
@@ -200,12 +237,15 @@
         secret: null,
       }
     })
+    console.log("Response from confirmLogin:", resp);
     if ( resp.allowedLogin ) {
       if ( route.meta.isPasskeysEnabled && !doesUserHavePasskeys.value ) {
         handlePasskeyAlert(route.meta.suggestionPeriod, router);
       }
+      console.log("Login confirmed, finishing login...");
       await user.finishLogin();
     } else {
+      console.log("Login not allowed, showing error:", resp.error);
       if (usePasskey) {
         showErrorTost(t(resp.error));
         codeError.value = resp.error || t('Passkey authentication failed');
@@ -249,8 +289,16 @@
   }
 
   async function usePasskeyButton() {
+    // Cancel any stray pending requests from earlier flows
+    cancelPendingWebAuthn('button-pressed');
+    codeError.value = null;
     isFetchingPasskey.value = true;
-    const { _options, challengeId } = await createSignInRequest();
+    const signIn = await createSignInRequest();
+    if (!signIn) {
+      isFetchingPasskey.value = false;
+      return;
+    }
+    const { _options, challengeId } = signIn;
     const options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     const credential = await authenticate(options);
     if (!credential) {
@@ -269,15 +317,18 @@
 
   async function createSignInRequest() {
     let response;
+    console.log("Creating sign-in request for passkey...");
     try {
       response = await callAdminForthApi({
         path: `/plugin/passkeys/signInRequest`,
         method: 'POST',
       });
     } catch (error) {
+      console.log("Error creating sign-in request:", error);
       console.error('Error creating sign-in request:', error);
       return;
     }
+    console.log("Sign-in request response:", response);
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
@@ -287,25 +338,54 @@
   }
 
   async function authenticate(options) {
+    console.log("Authenticating with options:", options);
     try {
+      // Guard: prevent concurrent navigator.credentials.get calls
+      if (webAuthn.inFlight) {
+        console.warn('[WebAuthn] A request is already in flight. Aborting previous and retrying.');
+        cancelPendingWebAuthn('pre-auth-guard');
+      }
+
       const abortController = new AbortController();
+      webAuthn.controller = abortController;
+      webAuthn.inFlight = true;
+
       const credential = await navigator.credentials.get({
         publicKey: options,
         signal: abortController.signal,
+        // mediation can be set if using conditional UI, omitted here intentionally
       });
+      console.log("Credential obtained:", credential);
       return credential;
     } catch (error) {
       console.error('Error during authentication:', error);
+      // Handle specific concurrent/pending request error cases gracefully
+      const name = (error && (error.name || error.constructor?.name)) || '';
+      const message = (error && error.message) || '';
+      if (name === 'AbortError') {
+        // Aborted intentionally; no user-facing error needed
+        return null;
+      }
+      if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
+        adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
+        codeError.value = t('A previous passkey attempt was still pending. Please try again.');
+        return null;
+      }
       adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
       codeError.value = 'Error during authentication.';
+    }
+    finally {
+      // Clear in-flight state regardless of outcome
+      webAuthn.inFlight = false;
+      webAuthn.controller = null;
     }
   }
 
 
-  function getOtpInputs() {
+  function getOtpInputs(): HTMLInputElement[] {
     const root = otpRoot.value;
     if (!root) return [];
-    return Array.from(root.querySelectorAll('input.otp-input'));
+    return Array.from(root.querySelectorAll('input.otp-input')) as HTMLInputElement[];
   }
 
   function focusFirstAvailableOtpInput() {
@@ -318,7 +398,7 @@
   function handleGlobalFocusIn(event) {
     const inputs = getOtpInputs();
     if (!inputs.length) return;
-    const target = event.target;
+    const target = event.target as HTMLInputElement | null;
     if (!target) return;
     if (!inputs.includes(target)) {
       requestAnimationFrame(() => {
@@ -331,8 +411,9 @@
     requestAnimationFrame(() => {
       const inputs = getOtpInputs();
       if (!inputs.length) return;
-      const active = document.activeElement;
-      if (!active || !inputs.includes(active)) {
+      const active = document.activeElement as Element | null;
+      const activeInput = active instanceof HTMLInputElement ? active : null;
+      if (!activeInput || !inputs.includes(activeInput)) {
         focusFirstAvailableOtpInput();
       }
     });
