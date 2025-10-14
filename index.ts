@@ -9,7 +9,7 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
-import aaguids from './custom/aaguid.json' with { type: 'json' };
+import aaguids from './custom/aaguid.json';
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
