@@ -377,14 +377,19 @@
       if (name === 'AbortError') {
         // Aborted intentionally; no user-facing error needed
         return null;
-      }
-      if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
+      } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
         codeError.value = t('A previous passkey attempt was still pending. Please try again.');
         return null;
+      } else if (name === 'NotAllowedError') {
+        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        codeError.value = 'The operation either timed out or was not allowed.';
+        return null;
+      } else {
+        adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
+        codeError.value = 'Error during authentication.';
+        return null;
       }
-      adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
-      codeError.value = 'Error during authentication.';
     }
     finally {
       // Clear in-flight state regardless of outcome

@@ -100,7 +100,25 @@
       });
       return credential;
     } catch (error) {
-      adminforth.alert({message: 'Error during authentication', variant: 'warning'});
-      codeError.value = 'Error during authentication.';
+      console.error('Error during authentication:', error);
+      // Handle specific concurrent/pending request error cases gracefully
+      const name = (error && (error.name || error.constructor?.name)) || '';
+      const message = (error && error.message) || '';
+      if (name === 'AbortError') {
+        // Aborted intentionally; no user-facing error needed
+        return null;
+      } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
+        adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
+        codeError.value = t('A previous passkey attempt was still pending. Please try again.');
+        return null;
+      } else if (name === 'NotAllowedError') {
+        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        codeError.value = 'The operation either timed out or was not allowed.';
+        return null;
+      } else {
+        adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
+        codeError.value = 'Error during authentication.';
+        return null;
+      }
     }
   }
