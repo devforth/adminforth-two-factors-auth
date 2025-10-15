@@ -562,7 +562,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             credential,
             credentialBackedUp
           } = registrationInfo;
-          const provider_name = aaguids[aaguid]?.name || 'Unknown';
+          const provider_name = aaguids[aaguid]?.name || 'Unknown provider';
           const credentialPublicKey = credential.publicKey;
           const credentialID = credential.id;
 
