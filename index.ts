@@ -174,6 +174,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         slug: 'passkeys',
         component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
       });
+
+      if ( this.options.passkeys.allowLoginWithPasskeys !== false ) {
+        this.options.passkeys.allowLoginWithPasskeys = true;
+        if ( !this.adminforth.config.customization.loginPageInjections ) {
+          this.adminforth.config.customization.loginPageInjections = { underInputs: [],  panelHeader: [] };
+        }
+        this.adminforth.config.customization.loginPageInjections.underInputs.push({ file: this.componentPath('LoginWithPasskeyButton.vue'), meta: {} });
+      }
     }
   }
 
@@ -281,6 +289,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
       async({ adminUser, response, extra }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any} )=> {
+        if (extra?.body?.loginAllowedByPasskeyDirectSignIn === true) {
+          return { body: { loginAllowed: true }, ok: true };
+        }
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
         const brandName = adminforth.config.customization.brandName;
@@ -299,7 +310,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!userNeeds2FA){
           return { body:{loginAllowed: true}, ok: true}
         }
-
         const userCanSkipSetup = this.options.usersFilterToAllowSkipSetup ? this.options.usersFilterToAllowSkipSetup(adminUser) : false;
 
         if (!secret){
@@ -413,6 +423,95 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
       }
     })
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/twofa/confirmLoginWithPasskey`,
+      noAuth: true,
+      handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
+        if ( this.options.passkeys.allowLoginWithPasskeys !== true ) {
+          return { error: 'Login with passkeys is not allowed' };
+        }
+
+        const passkeyResponse = body.passkeyResponse;
+        if (!passkeyResponse) {
+          return { error: 'Passkey response is required' };
+        }
+
+        const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "passkeyLoginTemporaryJWT"});
+        if (!totpTemporaryJWT) {
+          return { error: 'Authentication session is expired. Please, try again' }
+        }
+
+        const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'tempLoginPasskeyChallenge', false);
+        if (!decoded) {
+          return { error: 'Authentication session is expired. Please, try again' }
+        }
+
+        let parsedPasskeyResponse;
+        try {
+          parsedPasskeyResponse = JSON.parse(passkeyResponse.response);
+        } catch (e) {
+          return { error: 'Malformed passkey response' };
+        }
+        const credential_id = parsedPasskeyResponse.id;
+        if (!credential_id) {
+          return { error: 'Credential ID is required' };
+        }
+
+        const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credential_id)]);
+        if (!passkeyRecord) {
+          return { error: 'Passkey not found' };
+        }
+
+        const userPk = passkeyRecord[this.options.passkeys.credentialUserIdFieldName];
+        if (!userPk) {
+          return { error: 'User ID not found in passkey record' };
+        }
+
+        const userResourceId = this.adminforth.config.auth.usersResourceId;
+        const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
+        const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
+        const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
+        const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, userPk)]);
+        if (!user) {
+          return { error: 'User not found' };
+        }
+
+        const verificationResult = await this.verifyPasskeyResponse(passkeyResponse, userPk, decoded);
+        if (!verificationResult.ok || !verificationResult.passkeyConfirmed) {
+          return { error: 'Passkey verification failed' };
+        }
+        const username = user[this.adminforth.config.auth.usernameField];
+
+        const adminUser = { 
+          dbUser: user,
+          pk: user.id,
+          username,
+        };
+        
+        const toReturn = { allowedLogin: true, error: '' };
+
+        await this.adminforth.restApi.processLoginCallbacks(adminUser, toReturn, response, {
+          headers,
+          cookies,
+          requestUrl,
+          query,
+          body: {
+            loginAllowedByPasskeyDirectSignIn: true
+          },
+        });
+
+        if ( toReturn.allowedLogin === true ) {
+          this.adminforth.auth.setAuthCookie({
+            response,
+            username,
+            pk: user.id,
+            expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays,
+          });
+        }
+        return toReturn;
+      }
+    }),
     server.endpoint({
       method: "GET",
       path: "/plugin/twofa/skip-allow",
