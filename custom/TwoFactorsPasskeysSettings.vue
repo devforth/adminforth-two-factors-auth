@@ -13,7 +13,7 @@
             >
             <template #cell:name="{item}">
                 <div class="flex items-center justify-start space-x-2">
-                    <img class="max-h-6" :src="coreStore.theme === 'light' ? item.light_icon : item.dark_icon" />
+                    <img class="max-h-6 max-w-6" :src="coreStore.theme === 'light' ? item.light_icon : item.dark_icon" />
                     <p>{{ item.name }}</p>
                 </div>
             </template>
@@ -377,6 +377,7 @@
     async function callWebAuthn(options: any) {
         let credential;
         try {
+            console.log('Creating credential with options:', options);
             credential = await navigator.credentials.create({
                 publicKey: options
             });
