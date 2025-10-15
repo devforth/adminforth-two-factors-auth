@@ -36,6 +36,11 @@ export type PluginOptions = {
          * Remember user for number of days after login with Passkey, so that user won't be challenged with 2FA on every login.
          */
         rememberDaysAfterPasskeyLogin?: number;
+
+        /**
+         * Order of "Continue with passkey" button in under login button injection
+         */
+        continueWithButtonsOrder?: number,
         /**
          *  Period between showing alert suggesting to set up Passkeys if not set up yet.
          */
