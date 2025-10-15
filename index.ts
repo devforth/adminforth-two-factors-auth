@@ -288,6 +288,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
       async({ adminUser, response, extra }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any} )=> {
+        if (extra?.body?.loginAllowedByPasskeyDirectSignIn === true) {
+          return { body: { loginAllowed: true }, ok: true };
+        }
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
         const brandName = adminforth.config.customization.brandName;
@@ -306,7 +309,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!userNeeds2FA){
           return { body:{loginAllowed: true}, ok: true}
         }
-
         const userCanSkipSetup = this.options.usersFilterToAllowSkipSetup ? this.options.usersFilterToAllowSkipSetup(adminUser) : false;
 
         if (!secret){
@@ -485,22 +487,28 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           pk: user.id,
           username,
         };
-        await this.adminforth.restApi.processLoginCallbacks(adminUser, { allowedLogin: true, error: '' }, response, {
+        
+        const toReturn = { allowedLogin: true, error: '' };
+
+        await this.adminforth.restApi.processLoginCallbacks(adminUser, toReturn, response, {
           headers,
           cookies,
           requestUrl,
           query,
-          body: {}
+          body: {
+            loginAllowedByPasskeyDirectSignIn: true
+          },
         });
 
-        this.adminforth.auth.setAuthCookie({
-          response,
-          username,
-          pk: user.id,
-          expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays
-        });
-
-        return { allowedLogin: true, error: '' };
+        if ( toReturn.allowedLogin === true ) {
+          this.adminforth.auth.setAuthCookie({
+            response,
+            username,
+            pk: user.id,
+            expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays,
+          });
+        }
+        return toReturn;
       }
     }),
     server.endpoint({

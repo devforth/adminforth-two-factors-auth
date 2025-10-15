@@ -18,8 +18,11 @@
     import { callAdminForthApi } from '@/utils';
     import { useUserStore } from '@/stores/user';
     import { Button } from '@/afcl';
+    import adminforth from '@/adminforth';
+    import { useRouter, useRoute } from 'vue-router';
 
     const userStore = useUserStore();
+    const router = useRouter();
 
     async function handleLoginWithPasskey() {
       const passkeyOptions = await getPasskey();
@@ -39,6 +42,11 @@
 
         if ( resp.allowedLogin === true ) { 
             await userStore.finishLogin();
+        } else if (resp.redirectTo) {
+          router.push(resp.redirectTo);
+        } else {
+          console.error("Login not allowed:", resp.error);
+          adminforth.alert({message: 'Error: ' + (resp.error || 'Login not allowed'), variant: 'warning'});
         }
       } catch (error) {
         console.error("Error during passkey login:", error);
