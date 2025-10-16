@@ -76,6 +76,7 @@
   import { Link, Button } from '@/afcl';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import { getPasskey } from './utils.js' 
+  import adminforth from '@/adminforth';
 
 
   declare global {
@@ -154,8 +155,22 @@
     let passkeyData;
     try {
       passkeyData = await getPasskey();
-    } catch (e) {
-      adminforth.alert({message: 'Failed to get passkey', variant: 'danger'});
+    } catch (error) {
+      const name = (error && (error.name || error.constructor?.name)) || '';
+      const message = (error && error.message) || '';
+      if (name === 'AbortError') {
+        // Aborted intentionally; no user-facing error needed
+        return null;
+      } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
+        adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
+        return null;
+      } else if (name === 'NotAllowedError') {
+        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        return null;
+      } else {
+        adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
+        return null;
+      }
       onCancel();
     }
     modelShow.value = false;
