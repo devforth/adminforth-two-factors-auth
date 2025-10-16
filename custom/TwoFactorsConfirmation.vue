@@ -67,7 +67,7 @@
         </div>
         <div
           v-if="codeError"
-          class="relative top-full left-0 bg-red-100 text-red-700 text-sm px-2 py-2 rounded-b-lg shadow"
+          class="af-two-factors-confirmation-error relative top-full left-0 bg-red-100 text-red-700 text-sm px-2 py-2 rounded-b-lg shadow"
         >
           <p class="pl-6">{{ codeError }} </p>
         </div>
