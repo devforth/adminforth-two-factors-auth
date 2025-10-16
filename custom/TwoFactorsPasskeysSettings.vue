@@ -98,7 +98,7 @@
                 </ButtonGroup>
                 <p v-else class="flex items-center justify-center gap-2 text-base">Processing <Spinner class="w-4 h-4 inline-block" /></p>
             </div> 
-            <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white rounded-lg shadow-md flex flex-col space-y-2">
+            <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col space-y-2">
                 <div v-if="isPasskeySupported" class="flex justify-between gap-4" :class="!isPasskeySupported ? 'opacity-50 pointer-events-none' : ''">
                     <div class="shrink-0 mt-1 w-4 h-4 z-10"><IconCheckOutline v-if="addPasskeyMode === 'platform'"/></div>
                     <Card
