@@ -13,7 +13,7 @@
         <!-- Modal content -->
         <div class="relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" :class="codeError ? 'rounded-b-none' : ''">
             <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
-              <div v-if="confirmationMode === 'code'">
+              <div v-if="confirmationMode === 'code'" class="af-totp-confirmation">
                 <div id="mfaCode-label" class="mx-4">{{$t('Please enter your authenticator code')}} </div>
                 <div class="mt-4 w-full flex flex-col gap-4 justify-center" ref="otpRoot">
                   <v-otp-input
@@ -40,7 +40,7 @@
                   </div>
                 </div>
               </div>
-              <div v-else class="flex flex-col items-center justify-center py-4 gap-6">
+              <div v-else class="af-passkey-confirmation flex flex-col items-center justify-center py-4 gap-6">
                 <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
                 <p class="text-4xl font-semibold mb-4">Passkey</p>
                 <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
