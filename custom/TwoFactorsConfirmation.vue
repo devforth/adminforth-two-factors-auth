@@ -181,14 +181,20 @@
       if (isPasskeysSupported.value === true) {
         await checkIfUserHasPasskeys();
       }
-      document.addEventListener('focusin', handleGlobalFocusIn, true);
-      focusFirstAvailableOtpInput();
-      const rootEl = otpRoot.value;
-      rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
+      if (confirmationMode.value ===  'code') {
+        await addEventListenerForOTPInput();
+      }
     }
     isLoading.value = false;
   });
 
+  watch(confirmationMode, async (newMode) => {
+    if (newMode === 'code') {
+      await addEventListenerForOTPInput();
+    } else {
+      removeEventListenerForOTPInput();
+    }
+  });
   watch(route, (newRoute) => {
     codeError.value = null;
     if ( newRoute.hash === '#passkey' ) {
@@ -199,6 +205,24 @@
       confirmationMode.value = 'code';
     }
   });
+
+  async function addEventListenerForOTPInput(){
+    document.addEventListener('focusin', handleGlobalFocusIn, true);
+    focusFirstAvailableOtpInput();
+    isLoading.value = false;
+    await nextTick();
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
+  }
+
+  function removeEventListenerForOTPInput() {
+    window.removeEventListener('paste', handlePaste);
+    document.removeEventListener('focusin', handleGlobalFocusIn, true);
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
+    // Abort any in-flight WebAuthn request when leaving the component
+    cancelPendingWebAuthn('component-unmount');
+  }
 
   async function isCMAAvailable() {
     if (window.PublicKeyCredential &&  
@@ -211,12 +235,7 @@
   }
 
   onBeforeUnmount(() => {
-    window.removeEventListener('paste', handlePaste);
-    document.removeEventListener('focusin', handleGlobalFocusIn, true);
-    const rootEl = otpRoot.value;
-    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
-    // Abort any in-flight WebAuthn request when leaving the component
-    cancelPendingWebAuthn('component-unmount');
+    removeEventListenerForOTPInput();
   });
 
   async function sendCode (value: any, factorMode: 'TOTP' | 'passkey', passkeyOptions: any) {

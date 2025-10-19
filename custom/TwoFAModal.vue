@@ -68,6 +68,7 @@
   </template>
   
   <script setup lang="ts">
+
   import VOtpInput from 'vue3-otp-input';
   import { ref, nextTick, watch, onMounted } from 'vue';
   import { useUserStore } from '@/stores/user';
@@ -98,27 +99,26 @@
     (e: 'closed'): void
   }>();
 
-  function removeListeners() {
-    window.removeEventListener('paste', handlePaste);
-    document.removeEventListener('focusin', handleGlobalFocusIn, true);
-    const rootEl = otpRoot.value;
-    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
-  }
-
-  async function addListeners() {
+  async function addEventListenerForOTPInput(){
     document.addEventListener('focusin', handleGlobalFocusIn, true);
-    
-    // Wait for DOM to be ready and OTP inputs to be rendered
-    await nextTick();
-    await new Promise(resolve => setTimeout(resolve, 100)); // Small delay for v-otp-input to render
-    
     focusFirstAvailableOtpInput();
+    isLoading.value = false;
+    await nextTick();
     const rootEl = otpRoot.value;
     rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
   }
 
+  function removeEventListenerForOTPInput() {
+    window.removeEventListener('paste', handlePaste);
+    document.removeEventListener('focusin', handleGlobalFocusIn, true);
+    const rootEl = otpRoot.value;
+    rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
+    // Abort any in-flight WebAuthn request when leaving the component
+  }
+
+
   const modelShow = ref(false);
-  let resolveFn: ((confirmationResult: string) => void) | null = null;
+  let resolveFn: ((confirmationResult: any) => void) | null = null;
   let verifyingCallback: ((confirmationResult: string) => boolean) | null = null;
   let verifyFn: null | ((confirmationResult: string) => Promise<boolean> | boolean) = null;
   let rejectFn: ((err?: any) => void) | null = null;
@@ -133,7 +133,9 @@
         customDialogTitle.value = title;
       }
       modelShow.value = true;
-      await addListeners();
+      if (modalMode.value === 'totp') {
+        await addEventListenerForOTPInput();
+      }
       resolveFn = resolve;
       rejectFn = reject;
       verifyFn = verifyingCallback ?? null;
@@ -163,15 +165,17 @@
         return null;
       } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
+        onCancel();
         return null;
       } else if (name === 'NotAllowedError') {
         adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        onCancel();
         return null;
       } else {
         adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
+        onCancel();
         return null;
       }
-      onCancel();
     }
     modelShow.value = false;
     const dataToReturn = {
@@ -179,7 +183,7 @@
       result: passkeyData
     }
     customDialogTitle.value = "";
-    removeListeners();
+    removeEventListenerForOTPInput();
     resolveFn(dataToReturn);
   }
 
@@ -231,7 +235,7 @@
       result: value
     }
     customDialogTitle.value = "";
-    removeListeners();
+    removeEventListenerForOTPInput();
     resolveFn(dataToReturn);
   }
   
@@ -240,19 +244,17 @@
     modelShow.value = false;
     bindValue.value = '';
     confirmationResult.value?.clearInput();
-    removeListeners();
+    removeEventListenerForOTPInput();
     rejectFn("Cancel");
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
 
   watch(modalMode, async (newMode) => {
-    if (newMode === 'totp' && modelShow.value && !isLoading.value) {
-      await nextTick();
-      setTimeout(() => {
-        tagOtpInputs();
-        focusFirstAvailableOtpInput();
-      }, 100);
+    if (newMode === 'totp') {
+      await addEventListenerForOTPInput();
+    } else {
+      removeEventListenerForOTPInput();
     }
   });
 
@@ -287,22 +289,29 @@
 
   async function checkIfUserHasPasskeys() {
     isLoading.value = true;
-    callAdminForthApi({
-      method: 'GET',
-      path: '/plugin/passkeys/getPasskeys',
-    }).then((response) => {
+    try {
+      const response = await callAdminForthApi({
+        method: 'GET',
+        path: '/plugin/passkeys/getPasskeys',
+      });
+      
       if (response.ok) {
         if (response.data.length >= 1) {
           doesUserHavePasskeys.value = true;
           modalMode.value = "passkey";
-          isLoading.value = false;
         } else {
           doesUserHavePasskeys.value = false;
           modalMode.value = "totp";
-          isLoading.value = false;
         }
       }
-    });
+    } catch (error) {
+      console.error('Error checking passkeys:', error);
+      // Fallback to TOTP if there's an error
+      doesUserHavePasskeys.value = false;
+      modalMode.value = "totp";
+    } finally {
+      isLoading.value = false;
+    }
   }
 
   function getOtpInputs() {
