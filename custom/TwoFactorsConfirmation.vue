@@ -279,6 +279,9 @@
   }
 
   async function checkIfUserHasPasskeys() {
+    if(!route.meta.isPasskeysEnabled) {
+      return;
+    }
     try {
       await callAdminForthApi({
         method: 'POST',

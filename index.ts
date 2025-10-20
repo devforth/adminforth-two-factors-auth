@@ -834,6 +834,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/checkIfUserHasPasskeys`,
       noAuth: true,
       handler: async ({ cookies }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, hasPasskeys: false };
+        }
         const totpTemporaryJWT = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "2FaTemporaryJWT"});
         const decoded = await this.adminforth.auth.verify(totpTemporaryJWT, 'temp2FA');
         if (!decoded)
