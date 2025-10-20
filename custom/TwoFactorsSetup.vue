@@ -11,7 +11,7 @@
     <div id="authentication-modal" tabindex="-1" class="af-two-factors-setup overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
       <div class="relative p-4 w-full max-w-md max-h-full">
           <!-- Modal content -->
-          <div class="af-login-popup relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" >
+          <div class="af-login-popup relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" :class="codeError ? 'rounded-b-none' : ''">
               <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
                   <div>{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
@@ -45,7 +45,6 @@
                       @on-complete="handleOnComplete"
                     />
                   </div>
-                  <ErrorMessage :error="codeError" />
                   <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
                    <div class="flex flex-row gap-2.5 h-12">
                   <LinkButton to="/login" class="w-full">
@@ -57,6 +56,15 @@
                 </div>
               </div>
           </div>
+          <div
+            v-if="codeError"
+            class="af-two-factors-confirmation-error relative top-full left-0 bg-red-100 text-red-700 text-sm px-2 py-2 rounded-b-lg shadow"
+          >
+            <p class="pl-6">{{ codeError }} </p>
+          </div>
+          <div v-else class="h-[36px] opacity-0">
+            
+          </div>  
       </div>
   </div>
 </div>
