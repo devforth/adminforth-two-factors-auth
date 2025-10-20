@@ -147,7 +147,7 @@
         </div>
         <Dialog 
             ref="confirmDialog" 
-            class="w-96" 
+            class="add-passkey-confirmation-dialog w-96" 
             :click-to-close-outside="false"   
             :buttons="[]"
             :closable="false"
