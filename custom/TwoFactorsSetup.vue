@@ -288,6 +288,8 @@ const handleSkip = async () => {
         handlePasskeyAlert();
       }
       await user.finishLogin();
+  } else if (resp.error) {
+    codeError.value = resp.error;
   } else {
     codeError.value = 'Something went wrong';
   }
