@@ -1,6 +1,6 @@
 <template>
     <div class="text-3xl text-lightBreadcrumbsText dark:text-darkBreadcrumbsText font-semibold max-w-2xl mr-6 flex-col justify-center items-center">
-        <p class="flex items-start justify-start leading-none">Passkeys</p>
+        <p class="flex items-start justify-start leading-none">{{$t('Passkeys')}}</p>
         <div class="flex flex-col items-end">
             <Table
             class="mt-4 w-full"
@@ -37,12 +37,12 @@
                                 </div>
 
                                 <template #tooltip>
-                                    Rename passkey
+                                    {{$t('Rename passkey')}}
                                 </template>
                             </Tooltip>
                         </template>
                         <div>
-                            <p>Enter new passkey name:</p>
+                            <p>{{$t('Enter new passkey name:')}}</p>
                             <input 
                                 v-model="passkeysNewName" 
                                 type="text" 
@@ -67,19 +67,19 @@
                                     />
                                 </div>
                                 <template #tooltip>
-                                    Delete passkey
+                                    {{$t('Delete passkey')}}
                                 </template>
                             </Tooltip>
                         </template>
                         <div>
-                            <p>Are you sure you want to delete this passkey?</p>
+                            <p>{{$t('Are you sure you want to delete this passkey?')}}</p>
                         </div>
                     </Dialog>
                 </div>  
             </template>
             <template #cell:last_used_at="{item}">
                 <span v-if="item.last_used_at">{{ formatDateTime(item.last_used_at) }}</span>
-                <span v-else class="text-gray-400">Never</span>
+                <span v-else class="text-gray-400">{{$t('Never')}}</span>
             </template>
             </Table>
             <div class="flex space-x-4 mt-4" v-if="isInitialFinished">
@@ -96,7 +96,7 @@
                         </div>
                     </template>
                 </ButtonGroup>
-                <p v-else class="flex items-center justify-center gap-2 text-base">Processing <Spinner class="w-4 h-4 inline-block" /></p>
+                <p v-else class="flex items-center justify-center gap-2 text-base">{{$t('Processing')}} <Spinner class="w-4 h-4 inline-block" /></p>
             </div> 
             <div v-if="isCardsVisible" id="cards-container" class="w-80 mt-2 border-gray-400 p-2 bg-white dark:bg-gray-800 rounded-lg shadow-md flex flex-col space-y-2">
                 <div v-if="isPasskeySupported" class="flex justify-between gap-4" :class="!isPasskeySupported ? 'opacity-50 pointer-events-none' : ''">
@@ -126,8 +126,8 @@
                     </div>
 
                     <template #tooltip>
-                        <p class="max-w-64">This browser or device is reporting partial passkey support.</p>
-                        <p class="max-w-64"> To fix it try to install extention or change browser.</p>
+                        <p class="max-w-64">{{$t('This browser or device is reporting partial passkey support.')}}</p>
+                        <p class="max-w-64">{{$t('To fix it try to install extention or change browser.')}}</p>
                     </template>
                 </Tooltip>
                 <div class="border-t border-gray-300"></div>
@@ -161,12 +161,12 @@
                     <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
                         <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
                     </svg>
-                    <span class="sr-only">Close dialog</span>
+                    <span class="sr-only">{{$t('Close dialog')}}</span>
                 </button>
                 <div class="flex items-center justify-center space-y-4">
-                    Now you can add a passkey. 
+                    {{$t('Now you can add a passkey.')}}
                 </div>
-                <Button class="mt-4" @click="addPasskeyFinishAction(fetchedOptions); closeDialog();">Add Passkey</Button>
+                <Button class="mt-4" @click="addPasskeyFinishAction(fetchedOptions); closeDialog();">{{$t('Add Passkey')}}</Button>
             </div>
         </Dialog>
     </div>
@@ -377,7 +377,6 @@
     async function callWebAuthn(options: any) {
         let credential;
         try {
-            console.log('Creating credential with options:', options);
             credential = await navigator.credentials.create({
                 publicKey: options
             });

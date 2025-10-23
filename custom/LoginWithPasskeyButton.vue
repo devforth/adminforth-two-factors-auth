@@ -5,7 +5,7 @@
         @click="handleLoginWithPasskey"
     >
         <IconShieldOutline class="w-7 h-8" />
-        <span class="ml-2">Continue with Passkey</span>
+        <span class="ml-2">{{ $t('Continue with Passkey') }}</span>
     </Button>
 
 </template>
@@ -20,7 +20,9 @@
     import { Button } from '@/afcl';
     import adminforth from '@/adminforth';
     import { useRouter, useRoute } from 'vue-router';
+    import { useI18n } from 'vue-i18n';
 
+    const { t } = useI18n();
     const userStore = useUserStore();
     const router = useRouter();
 
@@ -36,7 +38,7 @@
         });
         if ( resp.error ) {
             console.error("Login failed:", resp.error);
-            adminforth.alert({message: 'Error: ' + resp.error, variant: 'warning'});
+            adminforth.alert({message: t('Error: ') + resp.error, variant: 'warning'});
           return;
         }
 
@@ -46,7 +48,7 @@
           router.push(resp.redirectTo);
         } else {
           console.error("Login not allowed:", resp.error);
-          adminforth.alert({message: 'Error: ' + (resp.error || 'Login not allowed'), variant: 'warning'});
+          adminforth.alert({message: t('Error: ') + (resp.error || t('Login not allowed')), variant: 'warning'});
         }
       } catch (error) {
         console.error("Error during passkey login:", error);

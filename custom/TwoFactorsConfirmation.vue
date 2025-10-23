@@ -29,7 +29,7 @@
                     @on-complete="handleOnComplete"
                   />
                   <div class="flex items-center justify-between w-full">
-                    <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">Use passkey</Link>
+                    <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">{{$t('Use passkey')}}</Link>
                     <Link
                       v-if="confirmationMode === 'code'"
                       to="/login"
@@ -42,17 +42,17 @@
               </div>
               <div v-else class="af-passkey-confirmation flex flex-col items-center justify-center py-4 gap-6">
                 <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
-                <p class="text-4xl font-semibold mb-4">Passkey</p>
-                <p class="mb-2 max-w-[300px]">When you are ready, authenticate using the button below</p>
+                <p class="text-4xl font-semibold mb-4">{{$t('Passkey')}}</p>
+                <p class="mb-2 max-w-[300px]">{{$t('When you are ready, authenticate using the button below')}}</p>
                 <Button @click="usePasskeyButton" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
-                  Use passkey
+                  {{$t('Use passkey')}}
                 </Button>
                 <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
                   <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
-                    Have issues with passkey?
+                    {{$t('Have issues with passkey?')}}
                     <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
-                      <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">use TOTP</Link>
-                      <p> or </p>
+                      <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">{{$t('use TOTP')}}</Link>
+                      <p> {{$t('or')}}</p>
                       <Link
                         to="/login"
                         class="w-full"
@@ -318,7 +318,7 @@
       options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     } catch (e) {
       console.error('Error parsing request options:', e);
-      adminforth.alert({message: 'Error initiating passkey authentication.', variant: 'warning'});
+      adminforth.alert({message: t('Error initiating passkey authentication.'), variant: 'warning'});
       return;
     }
     const credential = await authenticate(options);
@@ -350,7 +350,7 @@
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
-      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
+      adminforth.alert({message: t('Error creating sign-in request.'), variant: 'warning'});
       codeError.value = 'Error creating sign-in request.';
     }
   }
@@ -389,12 +389,12 @@
         codeError.value = t('A previous passkey attempt was still pending. Please try again.');
         return null;
       } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
-        codeError.value = 'The operation either timed out or was not allowed.';
+        adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'warning' });
+        codeError.value = t('The operation either timed out or was not allowed.');
         return null;
       } else {
-        adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
-        codeError.value = 'Error during authentication.';
+        adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
+        codeError.value = t('Error during authentication.');
         return null;
       }
     }

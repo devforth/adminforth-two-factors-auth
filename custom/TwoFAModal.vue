@@ -23,7 +23,7 @@
         </div>
   
         <div class="mt-6 flex justify-center items-center gap-32 w-full">
-          <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >use passkey</p>
+          <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >{{$t('use passkey')}}</p>
           <Button
             class="px-4 py-2 rounded border"
             @click="onCancel"
@@ -43,21 +43,21 @@
           <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
             <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
           </svg>
-          <span class="sr-only">Close modal</span>
+          <span class="sr-only">{{$t('Close modal')}}</span>
         </button>
         <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
-        <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">Passkey</p>
+        <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">{{$t('Passkey')}}</p>
         <div class="mb-2 max-w-[300px] text:gray-900 dark:text-gray-200">
           <p class="mb-2">{{customDialogTitle}} </p>
-          <p>Authenticate yourself using the button below</p>
+          <p>{{$t('Authenticate yourself using the button below')}}</p>
         </div>
         <Button @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
-          Use passkey
+          {{$t('Use passkey')}}
         </Button>
         <div v-if="modalMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
           <div class="mb-3 font-normal text-gray-700 dark:text-gray-400">
-            <p> Have issues with passkey? </p>
-            <p class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'totp'" >use TOTP</p>
+            <p>{{$t('Have issues with passkey?')}}</p>
+            <p class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'totp'" >{{$t('use TOTP')}}</p>
           </div>
         </div>
 
@@ -168,11 +168,11 @@
         onCancel();
         return null;
       } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'warning' });
         onCancel();
         return null;
       } else {
-        adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
+        adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
         onCancel();
         return null;
       }
