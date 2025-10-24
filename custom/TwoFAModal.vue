@@ -158,24 +158,8 @@
     try {
       passkeyData = await getPasskey();
     } catch (error) {
-      const name = (error && (error.name || error.constructor?.name)) || '';
-      const message = (error && error.message) || '';
-      if (name === 'AbortError') {
-        // Aborted intentionally; no user-facing error needed
-        return null;
-      } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
-        adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
-        onCancel();
-        return null;
-      } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'warning' });
-        onCancel();
-        return null;
-      } else {
-        adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
-        onCancel();
-        return null;
-      }
+      onCancel();
+      return null;
     }
     modelShow.value = false;
     const dataToReturn = {
