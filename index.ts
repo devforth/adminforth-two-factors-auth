@@ -32,7 +32,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
-
+    if (this.options.usersFilterToApply) {
+      const res = this.options.usersFilterToApply(opts.adminUser);
+      if ( res === false ) {
+        return { ok: true };
+      }
+    }
     if (confirmationResult.mode === "totp") {
       const code = confirmationResult.result;
       const authRes = this.adminforth.config.resources
@@ -536,6 +541,19 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             skipAllowed: decoded.userCanSkipSetup,
           };
         }
+      },
+    });
+    server.endpoint({
+      method: "GET",
+      path: "/plugin/twofa/skip-allow-modal",
+      handler: async ({ adminUser }) => {
+        if ( this.options.usersFilterToApply ) {
+          const res = this.options.usersFilterToApply(adminUser);
+          if ( res === false ) {
+            return { skipAllowed: true };
+          }
+        }
+        return { skipAllowed: false };
       },
     });
     server.endpoint({

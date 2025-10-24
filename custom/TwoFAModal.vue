@@ -128,6 +128,11 @@
     get2FaConfirmationResult: (verifyingCallback?: (confirmationResult: string) => Promise<boolean>, title?: string) =>
       new Promise(async (resolve, reject) => {
       if (modelShow.value) throw new Error('Modal is already open');
+      const skipAllowModal = await checkIfSkipAllowModal();
+      if (skipAllowModal) {
+        resolve({ code: "123456" }); // dummy code
+        return;
+      }
       await checkIfUserHasPasskeys();
       if (title) {
         customDialogTitle.value = title;
@@ -336,6 +341,24 @@
         focusFirstAvailableOtpInput();
       }
     });
+  }
+
+
+  async function checkIfSkipAllowModal(){
+    try {
+      const response = await callAdminForthApi({
+        method: "GET",
+        path: "/plugin/twofa/skip-allow-modal",
+      });
+      if ( response.skipAllowed === true ) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (error) {
+      console.error('Error checking skip allow modal:', error);
+      return false;
+    }
   }
 
 </script>
