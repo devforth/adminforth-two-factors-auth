@@ -56,8 +56,8 @@
         <Button @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
           {{$t('Use passkey')}}
         </Button>
-        <div v-if="modalMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-          <div class="af-2fa-passkey-issues-card mb-3 font-normal text-gray-700 dark:text-gray-400">
+        <div v-if="modalMode === 'passkey'" class="af-2fa-passkey-issues-card  max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
+          <div class="mb-3 font-normal text-gray-700 dark:text-gray-400">
             <p>{{$t('Have issues with passkey?')}}</p>
             <p class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'totp'" >{{$t('use TOTP')}}</p>
           </div>
