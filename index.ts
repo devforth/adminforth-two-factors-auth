@@ -496,6 +496,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         
         const toReturn = { allowedLogin: true, error: '' };
 
+        const rememberMeDays = this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays;
         await this.adminforth.restApi.processLoginCallbacks(adminUser, toReturn, response, {
           headers,
           cookies,
@@ -504,6 +505,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           body: {
             loginAllowedByPasskeyDirectSignIn: true
           },
+          rememberMeDays,
         });
 
         if ( toReturn.allowedLogin === true ) {
@@ -511,7 +513,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             response,
             username,
             pk: user.id,
-            expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays,
+            expireInDays: rememberMeDays,
           });
         }
         return toReturn;
