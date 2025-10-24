@@ -307,8 +307,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const authResource = adminforth.config.resources.find((res)=>res.resourceId === adminforth.config.auth.usersResourceId )
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
-        const rememberMe = extra?.body?.rememberMe || false;
-        const rememberMeDays = rememberMe ? adminforth.config.auth.rememberMeDays || 30 : 1;
+
+        const rememberMeDays = extra?.rememberMeDays;
         let newSecret = null;
 
         const userNeeds2FA = this.options.usersFilterToApply ? this.options.usersFilterToApply(adminUser) : true;
