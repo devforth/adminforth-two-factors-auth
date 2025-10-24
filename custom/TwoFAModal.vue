@@ -23,7 +23,7 @@
             />
           </div>
     
-          <div class="flex justify-between items-center w-full">
+          <div class="flex items-center w-full" :class="doesUserHavePasskeys ? 'justify-between' : 'justify-center' ">
             <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >{{$t('use passkey')}}</p>
             <Button
               class="px-4 py-2 rounded border"
