@@ -27,6 +27,33 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
+  public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
+    if (this.options.usersFilterToAllowSkipSetup) {
+      const res = await this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
+      if (res === false) { // if false, user is not allowed to skip anyway, so doesn't matter if they have 2FA set up or not
+        return { skipAllowed: true };
+      }
+      
+      //recieve user's record
+      const usersResource = this.adminforth.config.resources.find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
+      const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
+      const userPkFieldName = usersPrimaryKeyColumn.name;
+      const userRecord = await this.adminforth.resource(this.adminforth.config.auth.usersResourceId).get([Filters.EQ(userPkFieldName, adminUser.pk)])
+
+      //check if user has 2FA set up
+      const users2FASecret = userRecord[this.options.twoFaSecretFieldName];
+      //check if user has any passkeys registered
+      const passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.dbUser[userPkFieldName])] );
+
+      // If user has either 2FA secret or any passkeys, they cannot skip
+      if (users2FASecret || (passkeys && passkeys.length > 0)) {
+        return { skipAllowed: false };
+      }
+      return { skipAllowed: res };
+    }
+    return { skipAllowed: false };
+  }
+
   public async verify(
     confirmationResult: Record<string, any>,
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any }
@@ -35,6 +62,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if (this.options.usersFilterToApply) {
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
+        return { ok: true };
+      }
+    }
+    if (this.options.usersFilterToAllowSkipSetup) {
+      const res = await this.checkIfSkipSetupAllowSkipVerify(opts.adminUser);
+      if ( res.skipAllowed === true ) {
         return { ok: true };
       }
     }
@@ -550,6 +583,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if ( this.options.usersFilterToApply ) {
           const res = this.options.usersFilterToApply(adminUser);
           if ( res === false ) {
+            return { skipAllowed: true };
+          }
+        }
+        if ( this.options.usersFilterToAllowSkipSetup ) {
+          const res = await this.checkIfSkipSetupAllowSkipVerify(adminUser);
+          if ( res.skipAllowed === true ) {
             return { skipAllowed: true };
           }
         }
