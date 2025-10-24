@@ -293,7 +293,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
-      async({ adminUser, response, extra }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any} )=> {
+      async({ adminUser, response, extra, rememberMeDays }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any, rememberMeDays?: number} )=> {
         if (extra?.body?.loginAllowedByPasskeyDirectSignIn === true) {
           return { body: { loginAllowed: true }, ok: true };
         }
@@ -308,7 +308,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
 
-        const rememberMeDays = extra?.rememberMeDays;
+        const useRememberMeDays = rememberMeDays || 1;  // default 1 day, but should never happen for new versions
         let newSecret = null;
 
         const userNeeds2FA = this.options.usersFilterToApply ? this.options.usersFilterToApply(adminUser) : true;
@@ -321,7 +321,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           const tempSecret = twofactor.generateSecret({name: issuerName,account: userName})
           newSecret = tempSecret.secret;
 
-          const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
+          const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays: useRememberMeDays }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
           this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: totpTemporaryJWT, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
 
           return {
