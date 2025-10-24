@@ -45,7 +45,7 @@
           </svg>
           <span class="sr-only">{{$t('Close modal')}}</span>
         </button>
-        <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
+        <IconShieldOutline class="af-2fa-shield-icon w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
         <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">{{$t('Passkey')}}</p>
         <div class="mb-2 max-w-[300px] text:gray-900 dark:text-gray-200">
           <p class="mb-2">{{customDialogTitle}} </p>
@@ -55,7 +55,7 @@
           {{$t('Use passkey')}}
         </Button>
         <div v-if="modalMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-          <div class="mb-3 font-normal text-gray-700 dark:text-gray-400">
+          <div class="af-2fa-passkey-issues-card mb-3 font-normal text-gray-700 dark:text-gray-400">
             <p>{{$t('Have issues with passkey?')}}</p>
             <p class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'totp'" >{{$t('use TOTP')}}</p>
           </div>
