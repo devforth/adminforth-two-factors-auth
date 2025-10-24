@@ -1,34 +1,36 @@
 <template>
     <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
     v-show ="modelShow && (isLoading === false)">
-      <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
+      <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp flex flex-col items-center relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
           <p> {{ customDialogTitle }} </p>
           <p>{{ $t('Please enter your authenticator code') }}</p>
         </div>
-  
-        <div class="my-4 w-full flex justify-center" ref="otpRoot">
-          <v-otp-input
-            ref="confirmationResult"
-            container-class="grid grid-cols-6 gap-3 w-full"
-            input-classes="bg-gray-50 text-center flex justify-center otp-input border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            :num-inputs="6"
-            inputType="number"
-            inputmode="numeric"
-            :should-auto-focus="true"
-            :should-focus-order="true"
-            v-model:value="bindValue"
-            @on-complete="handleOnComplete"
-          />
-        </div>
-  
-        <div class="mt-6 flex justify-center items-center gap-32 w-full">
-          <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >{{$t('use passkey')}}</p>
-          <Button
-            class="px-4 py-2 rounded border"
-            @click="onCancel"
-            :disabled="inProgress"
-          >{{ $t('Cancel') }}</Button>
+        
+        <div class="flex flex-col max-w-[calc(15rem_+_60px)]">
+          <div class="mb-4 w-full flex justify-center" ref="otpRoot">
+            <v-otp-input
+              ref="confirmationResult"
+              container-class="grid grid-cols-6 gap-3 w-full"
+              input-classes="bg-gray-50 text-center flex justify-center otp-input border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              :num-inputs="6"
+              inputType="number"
+              inputmode="numeric"
+              :should-auto-focus="true"
+              :should-focus-order="true"
+              v-model:value="bindValue"
+              @on-complete="handleOnComplete"
+            />
+          </div>
+    
+          <div class="flex justify-between items-center gap-32 w-full">
+            <p v-if="doesUserHavePasskeys===true" class="underline hover:no-underline text-lightPrimary whitespace-nowrap hover:cursor-pointer" @click="modalMode = 'passkey'" >{{$t('use passkey')}}</p>
+            <Button
+              class="px-4 py-2 rounded border"
+              @click="onCancel"
+              :disabled="inProgress"
+            >{{ $t('Cancel') }}</Button>
+          </div>
         </div>
       </div>
 
