@@ -31,7 +31,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if (this.options.usersFilterToAllowSkipSetup) {
       const res = await this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
       if (res === false) { // if false, user is not allowed to skip anyway, so doesn't matter if they have 2FA set up or not
-        return { skipAllowed: true };
+        return { skipAllowed: false };
       }
       
       //recieve user's record
