@@ -20,7 +20,7 @@
             <template #cell:actions="{item}">
                 <div class="flex items-center justify-start space-x-2">
                     <Dialog 
-                        class="w-96"
+                        class="edit-passkey-confirmation-dialog w-96"
                         :buttons="[
                             { label: 'Save', onclick: (dialog) => { renamePasskey(item.id, passkeysNewName); dialog.hide(); } },
                             { label: 'Cancel', options: {class: 'bg-white focus:ring-gray-200 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:border-gray-900 dark:hover:border-gray-800 dark:focus:ring-gray-800'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
