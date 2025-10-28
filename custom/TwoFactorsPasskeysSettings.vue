@@ -137,7 +137,7 @@
                         @click="addPasskeyMode = 'cross-platform'; isCardsVisible = false;"
                         size="sm"
                         class="h-20"
-                        title="Use a external device"
+                        title="Use an external device"
                         description="Create a passkey using a phone, tablet or an external security key."
                         hideBorder="true"
                     >
