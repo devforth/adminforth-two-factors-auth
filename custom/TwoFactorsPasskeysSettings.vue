@@ -23,7 +23,7 @@
                         class="w-96"
                         :buttons="[
                             { label: 'Save', onclick: (dialog) => { renamePasskey(item.id, passkeysNewName); dialog.hide(); } },
-                            { label: 'Cancel', options: {class: 'bg-white focus:!ring-gray-200 !text-gray-900 hover:!bg-gray-200 dark:!bg-gray-800 dark:!text-gray-300 dark:hover:!bg-gray-700 dark:border-gray-900 dark:hover:!border-gray-800 dark:focus:!ring-gray-800'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
+                            { label: 'Cancel', options: {class: 'bg-white focus:ring-gray-200 text-gray-900 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700 dark:border-gray-900 dark:hover:border-gray-800 dark:focus:ring-gray-800'}, onclick: (dialog) => {passkeysNewName = ''; dialog.hide();} },
                         ]"
                         header="Edit Passkey"
                     >
@@ -46,16 +46,16 @@
                             <input 
                                 v-model="passkeysNewName" 
                                 type="text" 
-                                class="w-full mt-2 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-gray-500 "
+                                class="w-full mt-2 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 dark:focus:ring-gray-500 dark:bg-gray-800"
                                 placeholder="Enter new passkey name"
                             />
                         </div>
                     </Dialog>
                     <Dialog 
-                        class="w-96"
+                        class="delete-passkey-confirmation-dialog w-96"
                         :buttons="[
-                            { label: 'Delete', options: {class: 'bg-red-700 !text-white hover:!bg-red-600 focus:ring-2 focus:ring-red-500 dark:!bg-red-700 dark:hover:!bg-red-600 dark:focus:ring-red-500 dark:!border-red-800'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
-                            { label: 'Cancel', options: {class: 'bg-white focus:!ring-gray-200 !text-gray-900 hover:!bg-gray-200 dark:!text-white dark:!bg-gray-700 dark:hover:!bg-gray-800 dark:!border-gray-600 dark:focus:!ring-gray-800'}, onclick: (dialog) => dialog.hide() },
+                            { label: 'Delete', options: {class: 'bg-red-700 text-white hover:bg-red-600 focus:ring-2 focus:ring-red-500 dark:bg-red-700 dark:hover:bg-red-600 dark:focus:ring-red-500 dark:border-red-800 dark:hover:border-red-700'}, onclick: (dialog) => { deletePasskey(item.id); dialog.hide(); } },
+                            { label: 'Cancel', options: {class: 'bg-white focus:ring-gray-200 text-gray-900 hover:bg-gray-200 dark:text-white dark:bg-gray-700 dark:hover:bg-gray-800 dark:border-gray-600 dark:focus:ring-gray-800 dark:hover:border-gray-500'}, onclick: (dialog) => dialog.hide() },
                         ]"
                         header="Delete Passkey"
                     >
