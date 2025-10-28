@@ -418,3 +418,35 @@
         return dayjs.utc(date).local().format(`${coreStore.config?.datesFormat} ${coreStore.config?.timeFormat}` || 'YYYY-MM-DD HH:mm:ss');
     }
 </script>
+
+<style>
+ /* Scoped styles for dialog buttons, because there is no different way to style them */
+ .dialog-delete-button.dialog-delete-button {
+    background-color: rgb(179, 27, 27);
+    color: white;
+    border: 1px solid rgb(153, 27, 27);
+ }
+
+ .dialog-delete-button.dialog-delete-button:hover {
+    background-color: rgb(153, 27, 27);
+ }
+
+ .dialog-delete-button.dialog-delete-button:active {
+    background-color: rgb(127, 20, 20);
+ }
+
+ /* Dark theme styles for delete button */
+ .dark .dialog-delete-button.dialog-delete-button {
+    background-color: rgb(220, 38, 38);
+    color: white;
+ }
+
+ .dark .dialog-delete-button.dialog-delete-button:hover {
+    background-color: rgb(185, 28, 28);
+ }
+
+ .dark .dialog-delete-button.dialog-delete-button:active {
+    background-color: rgb(153, 27, 27);
+ }
+
+</style>
