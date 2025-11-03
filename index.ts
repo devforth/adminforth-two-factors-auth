@@ -175,7 +175,15 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       }
       credMeta.counter = authenticationInfo.newCounter;
       credMeta.last_used_at = new Date().toISOString();
-      await this.adminforth.resource(this.options.passkeys.credentialResourceID).update(cred[this.options.passkeys.credentialIdFieldName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
+      const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
+      const credResourcePKColumn = credResource?.columns.find(c => c.primaryKey);
+      if (!credResource || !credResourcePKColumn) {
+        throw new Error('Credential resource or its primary key is not configured correctly');
+      }
+      const credResourcePKName = credResourcePKColumn.name;
+      await this.adminforth
+        .resource(this.options.passkeys.credentialResourceID)
+        .update(cred[credResourcePKName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
       return { ok: true, passkeyConfirmed: true };
     } catch (e) {
       return { ok: false, error: 'Error authenticating passkey: ' + e };
