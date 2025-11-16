@@ -465,7 +465,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credential_id)]);
         if (!passkeyRecord) {
-          return { error: 'No registered passkey found, probably it was removed' };
+          return { error: 'No such passkey found, most likeley it was removed on this website but you still have it on your device' };
         }
 
         const userPk = passkeyRecord[this.options.passkeys.credentialUserIdFieldName];
