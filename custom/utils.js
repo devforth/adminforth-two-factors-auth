@@ -27,7 +27,7 @@
         }
         suggestPasskey = window.localStorage.getItem('suggestPasskey');
 
-        if ( suggestPasskey === 'true' ) {
+        if ( suggestPasskey === 'true' && window.localStorage.getItem('twofa-skip-setup') !== 'true') {
         adminforth.alert({
             message: 'Do you want to add passkey?', 
             variant: 'info', 
