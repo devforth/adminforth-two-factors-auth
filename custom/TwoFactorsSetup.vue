@@ -254,6 +254,7 @@ async function sendCode (value) {
     }
   })
   if (resp.allowedLogin) {
+      localStorage.setItem('twofa-skip-setup', 'false');
       if ( route.meta.isPasskeysEnabled ) {
         handlePasskeyAlert(route.meta.suggestionPeriod, router);
       }
@@ -276,6 +277,7 @@ function handlePaste(event) {
 }
 
 const handleSkip = async () => {
+  localStorage.setItem('twofa-skip-setup', 'true');
   const resp = await callAdminForthApi({
     method: 'POST',
     path: '/plugin/twofa/confirmLogin',
