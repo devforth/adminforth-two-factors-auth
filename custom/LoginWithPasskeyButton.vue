@@ -1,11 +1,13 @@
 <template>
 
     <Button
-        class="w-full !py-1"
+        class="w-full !py-2"
         @click="handleLoginWithPasskey"
     >
-        <IconShieldOutline class="w-7 h-8" />
-        <span class="ml-2">{{ $t('Continue with Passkey') }}</span>
+      <div class="flex items-center justify-center">
+        <IconShieldOutline class="w-6 h-6 mr-1" />
+        <span>{{ $t('Continue with Passkey') }}</span>
+      </div>
     </Button>
 
 </template>
