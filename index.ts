@@ -219,6 +219,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         pageLabel: 'Passkeys',
         slug: 'passkeys',
         component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
+        isVisible: (adminUser: AdminUser) => {
+          const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
+          if (!secret || secret.length === 0) {
+            return false;
+          }
+          return true;
+        }
       });
 
       if ( this.options.passkeys.allowLoginWithPasskeys !== false ) {
@@ -700,6 +707,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         if (decodedPasskeysCookies.user_id !== adminUser.pk) {
           return { error: 'Invalid user' };
+        }
+        const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
+        if (!secret || secret.length === 0) {
+          return { error: 'TOTP must be set up before registering a passkey' };
         }
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const expectedOrigin = body.origin;
