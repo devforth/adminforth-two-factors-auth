@@ -1,4 +1,4 @@
-import {  AdminForthPlugin, Filters, suggestIfTypo } from "adminforth";
+import {  AdminForthPlugin, Filters, suggestIfTypo, HttpExtra } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
@@ -341,9 +341,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
-      async({ adminUser, response, extra }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: any} )=> {
-        if (extra?.body?.loginAllowedByPasskeyDirectSignIn === true) {
-          return { body: { loginAllowed: true }, ok: true };
+      async({ adminUser, response, extra, rememberMeDays }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: HttpExtra,  rememberMeDays?: number} )=> {
+        if ( extra?.meta?.loginAllowedByPasskeyDirectSignIn === true) {
+          return { meta: { loginAllowed: true }, ok: true };
         }
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
@@ -356,7 +356,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
         const rememberMe = extra?.body?.rememberMe || false;
-        const rememberMeDays = rememberMe ? adminforth.config.auth.rememberMeDays || 30 : 1;
+        // const rememberMeDays = rememberMe ? adminforth.config.auth.rememberMeDays || 30 : 1;
         let newSecret = null;
 
         const userNeeds2FA = this.options.usersFilterToApply ? this.options.usersFilterToApply(adminUser) : true;
@@ -543,16 +543,25 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         };
         
         const toReturn = { allowedLogin: true, error: '' };
+        const rememberMe = body?.rememberMe || false;
 
-        await this.adminforth.restApi.processLoginCallbacks(adminUser, toReturn, response, {
-          headers,
-          cookies,
-          requestUrl,
-          query,
-          body: {
-            loginAllowedByPasskeyDirectSignIn: true
+        await this.adminforth.restApi.processLoginCallbacks(
+          adminUser, 
+          toReturn, 
+          response, 
+          {
+            headers,
+            cookies,
+            requestUrl,
+            query,
+            body: {},
+            meta: { 
+              loginAllowedByPasskeyDirectSignIn: true 
+            },
           },
-        });
+          // rememberMeDays: rememberMe ? this.adminforth.config.auth.rememberMeDays || 30 : 1, 
+
+        );
 
         if ( toReturn.allowedLogin === true ) {
           this.adminforth.auth.setAuthCookie({
