@@ -559,7 +559,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               loginAllowedByPasskeyDirectSignIn: true 
             },
           },
-          // rememberMeDays: rememberMe ? this.adminforth.config.auth.rememberMeDays || 30 : 1, 
+          rememberMe ? this.adminforth.config.auth.rememberMeDays || 30 : 1, 
 
         );
 
