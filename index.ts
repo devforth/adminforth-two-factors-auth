@@ -341,9 +341,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
-      async({ adminUser, response, extra, rememberMeDays }: { adminUser: AdminUser, response: IAdminForthHttpResponse, extra?: HttpExtra,  rememberMeDays?: number} )=> {
+      async({ adminUser, response, adminforth, extra, rememberMeDays }: { adminUser: AdminUser, response: IAdminForthHttpResponse, adminforth: IAdminForth, extra?: HttpExtra,  rememberMeDays?: number} )=> {
         if ( extra?.meta?.loginAllowedByPasskeyDirectSignIn === true) {
-          return { meta: { loginAllowed: true }, ok: true };
+          return { body: { loginAllowed: true }, ok: true };
         }
         const secret = adminUser.dbUser[this.options.twoFaSecretFieldName]
         const userName = adminUser.dbUser[adminforth.config.auth.usernameField]
