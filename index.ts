@@ -437,7 +437,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               await connector.updateRecord({resource:this.authResource, recordId:decoded.pk, newValues:{[this.options.twoFaSecretFieldName]: decoded.newSecret}})
             }
             this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Wrong or expired OTP code'}
@@ -468,7 +468,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           }
           if (verified) {
             this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDays: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Verification failed'}
@@ -559,7 +559,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               loginAllowedByPasskeyDirectSignIn: true 
             },
           },
-          rememberMe ? this.adminforth.config.auth.rememberMeDays || 30 : 1, 
+          rememberMe ? this.adminforth.config.auth.rememberMeDuration || '30d' : '1d', 
 
         );
 
@@ -568,7 +568,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             response,
             username,
             pk: user.id,
-            expireInDays: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDays,
+            expireInDuration: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDuration,
           });
         }
         return toReturn;
