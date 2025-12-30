@@ -341,7 +341,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
-      async({ adminUser, response, adminforth, extra, rememberMeDays }: { adminUser: AdminUser, response: IAdminForthHttpResponse, adminforth: IAdminForth, extra?: HttpExtra,  rememberMeDays?: number} )=> {
+      async({ adminUser, response, adminforth, extra, sessionDuration }: { adminUser: AdminUser, response: IAdminForthHttpResponse, adminforth: IAdminForth, extra?: HttpExtra,  sessionDuration?: string} )=> {
         if ( extra?.meta?.loginAllowedByPasskeyDirectSignIn === true) {
           return { body: { loginAllowed: true }, ok: true };
         }
@@ -355,8 +355,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const authResource = adminforth.config.resources.find((res)=>res.resourceId === adminforth.config.auth.usersResourceId )
         const authPk = authResource.columns.find((col)=>col.primaryKey).name
         const userPk = adminUser.dbUser[authPk]
-        const rememberMe = extra?.body?.rememberMe || false;
-        // const rememberMeDays = rememberMe ? adminforth.config.auth.rememberMeDays || 30 : 1;
         let newSecret = null;
 
         const userNeeds2FA = this.options.usersFilterToApply ? this.options.usersFilterToApply(adminUser) : true;
@@ -368,8 +366,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!secret){
           const tempSecret = twofactor.generateSecret({name: issuerName,account: userName})
           newSecret = tempSecret.secret;
-
-          const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
+          const totpTemporaryJWT = this.adminforth.auth.issueJWT({userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
           this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: totpTemporaryJWT, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
 
           return {
@@ -381,7 +378,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           }
 
         } else {
-          const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, rememberMeDays }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
+          const value = this.adminforth.auth.issueJWT({userName, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration }, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
           this.adminforth.auth.setCustomCookie({response, payload: {name: "2FaTemporaryJWT", value: value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
 
           return {
@@ -437,7 +434,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
               await connector.updateRecord({resource:this.authResource, recordId:decoded.pk, newValues:{[this.options.twoFaSecretFieldName]: decoded.newSecret}})
             }
             this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Wrong or expired OTP code'}
@@ -468,7 +465,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           }
           if (verified) {
             this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.rememberMeDays, response, username:decoded.userName, pk:decoded.pk})
+            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
             return {error: 'Verification failed'}
@@ -562,13 +559,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           rememberMe ? this.adminforth.config.auth.rememberMeDuration || '30d' : '1d', 
 
         );
-
+        
+        const rememberDaysAfterPasskeyLogin = (this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin.toString().concat('d') : null);
         if ( toReturn.allowedLogin === true ) {
           this.adminforth.auth.setAuthCookie({
             response,
             username,
             pk: user.id,
-            expireInDuration: this.options.passkeys.rememberDaysAfterPasskeyLogin ? this.options.passkeys.rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDuration,
+            expireInDuration: rememberDaysAfterPasskeyLogin ? rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDuration,
           });
         }
         return toReturn;
