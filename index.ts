@@ -59,7 +59,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const ip = this.adminforth.auth.getClientIp(headers);
     const userAgent = headers['user-agent'] || '';
     const acceptLanguage = headers['accept-language'] || '';
-    if (!ip || ip === 'unknown' || !userAgent || !acceptLanguage) {
+    if (!ip || !userAgent || !acceptLanguage) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
     } else {
       return crypto.createHmac('sha256', `${process.env.ADMINFORTH_SECRET.slice(0, 10)}_${acceptLanguage}_${userAgent}_${ip}`).digest('hex');
