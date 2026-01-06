@@ -16,6 +16,8 @@ export type PluginOptions = {
      */
     timeStepWindow?: number;
 
+    stepUpMfaGracePeriodSeconds?: number;
+
     customBrandPrefix?: string;
 
     /**
