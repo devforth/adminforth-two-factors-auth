@@ -62,11 +62,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if (!ip || ip === 'unknown' || !userAgent || !acceptLanguage) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
     } else {
-      return crypto.hash('sha256', `${process.env.ADMINFORTH_SECRET.slice(0, 10)}_${acceptLanguage}_${userAgent}_${ip}`);
+      return crypto.createHmac('sha256', `${process.env.ADMINFORTH_SECRET.slice(0, 10)}_${acceptLanguage}_${userAgent}_${ip}`).digest('hex');
     }
   }
 
-  private issueTempSkip2FAGraceJWT(opts) {
+  private issueTempSkip2FAGraceJWT(opts): void {
     if (opts.response) {
       if (opts.extra.headers) {
         const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers);
@@ -81,7 +81,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  private async isTempSkip2FAGraceValid(headers, cookies): Promise<boolean> {
+  private async isTempSkip2FAGraceValid(headers, cookies, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
     const hash = this.generateHashForStepUpMfaGraceCookie(headers);
     const jwt = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "TempSkip2FA_Modal_JWT"});
     const jwtVerificationResult = await this.adminforth.auth.verify(jwt, 'skip2FA', false) 
@@ -89,6 +89,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       return false;
     }
     const JWTHash = jwtVerificationResult['hash'];
+    if (checkIfJWTAboutToExpire && (jwtVerificationResult["exp"] - ( Date.now() / 1000)) < 30 ) {
+      console.error("❗️❗️❗️ Cannot validate step-up MFA grace cookie: token is expired or about to expire ❗️❗️❗️");
+      return false;
+    }
     if (hash === JWTHash) {
       return true;
     }
@@ -112,7 +116,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     }
-    if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers ) {
+    if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
       const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, opts.cookies);
       if ( verificationResult === true ) {
         return { ok: true };
@@ -678,7 +682,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
 
         if ( this.options.stepUpMfaGracePeriodSeconds ) {
-          const verificationResult = await this.isTempSkip2FAGraceValid(headers, cookies);
+          const verificationResult = await this.isTempSkip2FAGraceValid(headers, cookies, true);
           if ( verificationResult === true ) {
             return { skipAllowed: true };
           }
