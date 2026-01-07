@@ -55,16 +55,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return { skipAllowed: false };
   }
 
-  private generateHashForStepUpMfaGraceCookie(headers): string {
+  private generateHashForStepUpMfaGraceCookie(headers, cookies): string {
     const ip = this.adminforth.auth.getClientIp(headers);
     const userAgent = headers['user-agent'] || '';
     const acceptLanguage = headers['accept-language'] || '';
-    if (!ip || !userAgent || !acceptLanguage) {
+    const session_cookie = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "jwt"});
+    if (!ip || !userAgent || !acceptLanguage || !session_cookie) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
       return null;
     } else {
       const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)
-        .update(`${acceptLanguage}_${userAgent}_${ip}`)
+        .update(`${acceptLanguage}_${userAgent}_${ip}_${session_cookie}`)
         .digest('hex');
       return hmac;
     }
@@ -73,7 +74,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   private issueTempSkip2FAGraceJWT(opts): void {
     if (opts.response) {
       if (opts.extra.headers) {
-        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers);
+        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers, opts.cookies);
         if (!hash) {
           return;
         }
@@ -88,7 +89,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   private async isTempSkip2FAGraceValid(headers, cookies, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
-    const hash = this.generateHashForStepUpMfaGraceCookie(headers);
+    const hash = this.generateHashForStepUpMfaGraceCookie(headers, cookies);
     if (!hash) {
       return false;
     }
