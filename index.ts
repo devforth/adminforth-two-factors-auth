@@ -61,8 +61,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const acceptLanguage = headers['accept-language'] || '';
     if (!ip || !userAgent || !acceptLanguage) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
+      return null;
     } else {
-      return crypto.createHmac('sha256', `${process.env.ADMINFORTH_SECRET.slice(0, 10)}_${acceptLanguage}_${userAgent}_${ip}`).digest('hex');
+      const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)
+        .update(`${acceptLanguage}_${userAgent}_${ip}`)
+        .digest('hex');
+      return hmac;
     }
   }
 
@@ -73,8 +77,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!hash) {
           return;
         }
-        const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'skip2FA', `${this.options.stepUpMfaGracePeriodSeconds}s`);
-        this.adminforth.auth.setCustomCookie({response: opts.response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expiry: undefined, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
+        const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
+        //TODO: fix ts-ignore after releasing new version of adminforth with updated types
+        //@ts-ignore 
+        this.adminforth.auth.setCustomCookie({response: opts.response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
       }
     } else {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
@@ -83,17 +89,20 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   private async isTempSkip2FAGraceValid(headers, cookies, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
     const hash = this.generateHashForStepUpMfaGraceCookie(headers);
+    if (!hash) {
+      return false;
+    }
     const jwt = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "TempSkip2FA_Modal_JWT"});
-    const jwtVerificationResult = await this.adminforth.auth.verify(jwt, 'skip2FA', false) 
+    const jwtVerificationResult = await this.adminforth.auth.verify(jwt, 'MfaGrace', false) 
     if (!jwtVerificationResult) {
       return false;
     }
-    const JWTHash = jwtVerificationResult['hash'];
+    const jwtHash = jwtVerificationResult['hash'];
     if (checkIfJWTAboutToExpire && (jwtVerificationResult["exp"] - ( Date.now() / 1000)) < 30 ) {
       console.error("❗️❗️❗️ Cannot validate step-up MFA grace cookie: token is expired or about to expire ❗️❗️❗️");
       return false;
     }
-    if (hash === JWTHash) {
+    if (hash === jwtHash) {
       return true;
     }
     return false;
