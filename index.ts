@@ -10,6 +10,7 @@ import {
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
 import aaguids from './custom/aaguid.json';
+import crypto from 'crypto';
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -54,9 +55,62 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return { skipAllowed: false };
   }
 
+  private generateHashForStepUpMfaGraceCookie(headers): string {
+    const ip = this.adminforth.auth.getClientIp(headers);
+    const userAgent = headers['user-agent'] || '';
+    const acceptLanguage = headers['accept-language'] || '';
+    if (!ip || !userAgent || !acceptLanguage) {
+      console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
+      return null;
+    } else {
+      const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)
+        .update(`${acceptLanguage}_${userAgent}_${ip}`)
+        .digest('hex');
+      return hmac;
+    }
+  }
+
+  private issueTempSkip2FAGraceJWT(opts): void {
+    if (opts.response) {
+      if (opts.extra.headers) {
+        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers);
+        if (!hash) {
+          return;
+        }
+        const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
+        //TODO: fix ts-ignore after releasing new version of adminforth with updated types
+        //@ts-ignore 
+        this.adminforth.auth.setCustomCookie({response: opts.response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
+      }
+    } else {
+      console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
+    }
+  }
+
+  private async isTempSkip2FAGraceValid(headers, cookies, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
+    const hash = this.generateHashForStepUpMfaGraceCookie(headers);
+    if (!hash) {
+      return false;
+    }
+    const jwt = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "TempSkip2FA_Modal_JWT"});
+    const jwtVerificationResult = await this.adminforth.auth.verify(jwt, 'MfaGrace', false) 
+    if (!jwtVerificationResult) {
+      return false;
+    }
+    const jwtHash = jwtVerificationResult['hash'];
+    if (checkIfJWTAboutToExpire && (jwtVerificationResult["exp"] - ( Date.now() / 1000)) < 30 ) {
+      console.error("❗️❗️❗️ Cannot validate step-up MFA grace cookie: token is expired or about to expire ❗️❗️❗️");
+      return false;
+    }
+    if (hash === jwtHash) {
+      return true;
+    }
+    return false;
+  }
+
   public async verify(
     confirmationResult: Record<string, any>,
-    opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any }
+    opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
     if (this.options.usersFilterToApply) {
@@ -71,6 +125,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         return { ok: true };
       }
     }
+    if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
+      const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, opts.cookies);
+      if ( verificationResult === true ) {
+        return { ok: true };
+      }
+    }
+
     if (confirmationResult.mode === "totp") {
       const code = confirmationResult.result;
       const authRes = this.adminforth.config.resources
@@ -92,7 +153,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!secret) return { error: "2FA is not set up for this user" };
 
       const verified = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
-      return verified ? { ok: true } : { error: "Wrong or expired OTP code" };
+
+      //* SET GRACE COOKIE *//
+      if ( verified ) { 
+        if (this.options.stepUpMfaGracePeriodSeconds) {
+          this.issueTempSkip2FAGraceJWT(opts);
+        }
+        return { ok: true } 
+      } else { 
+        return { error: "Wrong or expired OTP code" } 
+      };
     } else if (confirmationResult.mode === "passkey") {
       const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: opts.cookies, name: `passkeyLoginTemporaryJWT`});
       if (!passkeysCookies) {
@@ -106,6 +176,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const verificationResult = await this.verifyPasskeyResponse(confirmationResult.result, opts.userPk, decodedPasskeysCookies );
 
       if (verificationResult.ok && verificationResult.passkeyConfirmed) {
+
+        //* SET GRACE COOKIE *//
+        if (this.options.stepUpMfaGracePeriodSeconds) {
+          this.issueTempSkip2FAGraceJWT(opts);
+        }
         return  { ok: true }
       }
       return { error: "Invalid passkey" }
@@ -601,7 +676,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     server.endpoint({
       method: "GET",
       path: "/plugin/twofa/skip-allow-modal",
-      handler: async ({ adminUser }) => {
+      handler: async ({ adminUser, headers, cookies }) => {
         if ( this.options.usersFilterToApply ) {
           const res = this.options.usersFilterToApply(adminUser);
           if ( res === false ) {
@@ -614,6 +689,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             return { skipAllowed: true };
           }
         }
+
+        if ( this.options.stepUpMfaGracePeriodSeconds ) {
+          const verificationResult = await this.isTempSkip2FAGraceValid(headers, cookies, true);
+          if ( verificationResult === true ) {
+            return { skipAllowed: true };
+          }
+        }
+
         return { skipAllowed: false };
       },
     });
@@ -641,14 +724,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ body, adminUser, response, cookies }) => {
+      handler: async ({ body, adminUser, response, cookies, extra }) => {
         const mode = body?.mode;
 
         const confirmationResult = body?.confirmationResult;
         const verificationResult = await this.verify(confirmationResult, {
           adminUser: adminUser,
           userPk: adminUser.pk, 
-          cookies: cookies
+          cookies: cookies,
+          response: response,
+          extra: { ...extra }
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
           return { ok: false, error: 'Verification failed' };

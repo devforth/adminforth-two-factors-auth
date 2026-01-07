@@ -16,6 +16,12 @@ export type PluginOptions = {
      */
     timeStepWindow?: number;
 
+    /**
+     * Number of seconds for step-up MFA grace period.
+     * During this period, user will not be challenged with 2FA on sensitive actions.
+     */
+    stepUpMfaGracePeriodSeconds?: number;
+
     customBrandPrefix?: string;
 
     /**
