@@ -85,9 +85,9 @@
   declare global {
     interface Window {
       adminforthTwoFaModal: {
-        get2FaConfirmationResult: (        
-          verifyingCallback?: (confirmationResult: string) => Promise<boolean>,
-          title?: string
+        get2FaConfirmationResult: (
+          title?: string,
+          verifyingCallback?: (confirmationResult: string) => Promise<boolean>
         ) => Promise<any>;
       };
     }
@@ -127,7 +127,7 @@
 
 
   window.adminforthTwoFaModal = {
-    get2FaConfirmationResult: (verifyingCallback?: (confirmationResult: string) => Promise<boolean>, title?: string) =>
+    get2FaConfirmationResult: (title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean>) =>
       new Promise(async (resolve, reject) => {
       if (modelShow.value) throw new Error('Modal is already open');
       const skipAllowModal = await checkIfSkipAllowModal();
