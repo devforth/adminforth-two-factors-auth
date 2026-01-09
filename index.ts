@@ -60,7 +60,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const userAgent = headers['user-agent'] || '';
     const acceptLanguage = headers['accept-language'] || '';
     const session_cookie = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "jwt"});
-    console.log("👺👺👺👺👺👺👺👺👺 Generating hash for Step-Up MFA grace cookie with ip:", ip, "userAgent:", userAgent, "acceptLanguage:", acceptLanguage, "session_cookie:", session_cookie);
     if (!ip || !userAgent || !acceptLanguage || !session_cookie) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
       return null;
@@ -68,24 +67,19 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)
         .update(`${acceptLanguage}_${userAgent}_${ip}_${session_cookie}`)
         .digest('hex');
-      console.log("👺👺👺👺👺👺👺👺👺 Generated hash for Step-Up MFA grace cookie:", hmac);
       return hmac;
     }
   }
 
   private issueTempSkip2FAGraceJWT(opts): void {
-    console.log("👺👺👺👺👺👺👺👺👺 Issuing TempSkip2FAGraceJWT");
     if (opts.response) {
       if (opts.extra.headers) {
-        console.log("👺👺👺👺👺👺👺👺👺 Issuing TempSkip2FAGraceJWT with headers:", opts.extra.headers);
         const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers, opts.cookies);
         if (!hash) {
           return;
         }
-        console.log("👺👺👺👺👺👺👺👺👺 Issuing TempSkip2FAGraceJWT with hash:", hash);
         const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
         //TODO: fix ts-ignore after releasing new version of adminforth with updated types
-        console.log("👺👺👺👺👺👺👺👺👺 Issuing TempSkip2FAGraceJWT with jwt:", jwt);
         //@ts-ignore 
         this.adminforth.auth.setCustomCookie({response: opts.response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
       }
@@ -119,35 +113,27 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     confirmationResult: Record<string, any>,
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
-    console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify called with confirmationResult:", confirmationResult);
     if (!confirmationResult) return { error: "Confirmation result is required" };
     if (this.options.usersFilterToApply) {
-      console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify called with adminUser:", opts.adminUser);
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
-        console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify skipped due to usersFilterToApply");
         return { ok: true };
       }
     }
     if (this.options.usersFilterToAllowSkipSetup) {
-      console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify called with adminUser for usersFilterToAllowSkipSetup:", opts.adminUser);
       const res = await this.checkIfSkipSetupAllowSkipVerify(opts.adminUser);
       if ( res.skipAllowed === true ) {
-        console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify skipped due to usersFilterToAllowSkipVerify");
         return { ok: true };
       }
     }
     if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
-      console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify called with stepUpMfaGracePeriodSeconds and no mode");
       const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, opts.cookies);
       if ( verificationResult === true ) {
-        console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify skipped due to valid step-up MFA grace cookie");
         return { ok: true };
       }
     }
 
     if (confirmationResult.mode === "totp") {
-      console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify called with mode totp");
       const code = confirmationResult.result;
       const authRes = this.adminforth.config.resources
         .find(r => r.resourceId === this.adminforth.config.auth.usersResourceId);
@@ -172,7 +158,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //* SET GRACE COOKIE *//
       if ( verified ) { 
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Setting grace cookie due to stepUpMfaGracePeriodSeconds");
           this.issueTempSkip2FAGraceJWT(opts);
         }
         return { ok: true } 
@@ -192,10 +177,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const verificationResult = await this.verifyPasskeyResponse(confirmationResult.result, opts.userPk, decodedPasskeysCookies );
 
       if (verificationResult.ok && verificationResult.passkeyConfirmed) {
-        console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Verify passed with mode passkey");
+
         //* SET GRACE COOKIE *//
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          console.log("🥵🥵🥵🥵🥵🥵🥵🥵TFA Setting grace cookie due to stepUpMfaGracePeriodSeconds");
           this.issueTempSkip2FAGraceJWT(opts);
         }
         return  { ok: true }
