@@ -186,6 +186,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       }
       return { error: "Invalid passkey" }
     }
+    return { error: "Unsupported confirmation mode" };
   }
 
   public parsePeriod(period?: string): number {
