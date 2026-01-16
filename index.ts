@@ -28,6 +28,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
+  shouldHaveSingleInstancePerWholeApp(): boolean {
+    return true;
+  }
+
   public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
     if (this.options.usersFilterToAllowSkipSetup) {
       const res = await this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
