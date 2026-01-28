@@ -631,6 +631,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             requestUrl,
             query,
             body: {},
+            response,
             meta: { 
               loginAllowedByPasskeyDirectSignIn: true 
             },
