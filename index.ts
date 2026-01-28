@@ -22,15 +22,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
     this.options = options;
+    this.shouldHaveSingleInstancePerWholeApp = () => true;
   }
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `single`;
   }
 
-  shouldHaveSingleInstancePerWholeApp(): boolean {
-    return true;
-  }
 
   public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
     if (this.options.usersFilterToAllowSkipSetup) {
