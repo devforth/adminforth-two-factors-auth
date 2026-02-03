@@ -73,17 +73,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  private issueTempSkip2FAGraceJWT(opts): void {
-    if (opts.response) {
+  private issueTempSkip2FAGraceJWT(opts, cookies, response): void {
+    if (response) {
       if (opts.extra.headers) {
-        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers, opts.cookies);
+        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers, cookies);
         if (!hash) {
           return;
         }
         const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
         //TODO: fix ts-ignore after releasing new version of adminforth with updated types
         //@ts-ignore 
-        this.adminforth.auth.setCustomCookie({response: opts.response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
+        this.adminforth.auth.setCustomCookie({response: response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
       }
     } else {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
@@ -113,16 +113,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   public async verify(
     confirmationResult: Record<string, any>,
-    opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
+    opts?: { adminUser?: AdminUser; userPk?: string; extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
     if (!opts.adminUser) return { error: "Admin user is required" };
     if (!opts.userPk) return    { error: "User PK is required" };
-    if (!opts.response) return  { error: "Response object is required" };
-    if (!opts.cookies) return   { error: "Cookies are required" };
-    if (!opts?.cookies) {
-      opts.cookies = opts.extra?.cookies;
-    }
+    const cookies = opts.extra.cookies;
     if (this.options.usersFilterToApply) {
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
@@ -136,7 +132,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       }
     }
     if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
-      const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, opts.cookies);
+      const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, cookies);
       if ( verificationResult === true ) {
         return { ok: true };
       }
@@ -167,14 +163,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //* SET GRACE COOKIE *//
       if ( verified ) { 
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts);
+          this.issueTempSkip2FAGraceJWT(opts, cookies, opts.extra.response);
         }
         return { ok: true } 
       } else { 
         return { error: "Wrong or expired OTP code" } 
       };
     } else if (confirmationResult.mode === "passkey") {
-      const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: opts.cookies, name: `passkeyLoginTemporaryJWT`});
+      //TODO: fix ts-ignore after releasing new version of adminforth with updated types
+      //@ts-ignore
+      const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyLoginTemporaryJWT`});
       if (!passkeysCookies) {
         return { error: 'Passkey token is required' };
       }
@@ -189,7 +187,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         //* SET GRACE COOKIE *//
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts);
+          this.issueTempSkip2FAGraceJWT(opts, cookies, opts.extra.response);
         }
         return  { ok: true }
       }
