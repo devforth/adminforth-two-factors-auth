@@ -113,12 +113,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   public async verify(
     confirmationResult: Record<string, any>,
-    opts?: { adminUser?: AdminUser; userPk?: string; extra?: HttpExtra }
+    opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
     if (!opts.adminUser) return { error: "Admin user is required" };
     if (!opts.userPk) return    { error: "User PK is required" };
-    const cookies = opts.extra.cookies;
+    const cookies = opts.extra.cookies || opts.cookies;
+    const response = opts.extra.response || opts.response;
     if (this.options.usersFilterToApply) {
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
@@ -163,7 +164,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //* SET GRACE COOKIE *//
       if ( verified ) { 
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts, cookies, opts.extra.response);
+          this.issueTempSkip2FAGraceJWT(opts, cookies, response);
         }
         return { ok: true } 
       } else { 
@@ -187,7 +188,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         //* SET GRACE COOKIE *//
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts, cookies, opts.extra.response);
+          this.issueTempSkip2FAGraceJWT(opts, cookies, response);
         }
         return  { ok: true }
       }
