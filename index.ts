@@ -116,6 +116,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
+    if (!opts?.cookies) {
+      opts.cookies = opts.extra?.cookies;
+    }
     if (this.options.usersFilterToApply) {
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
