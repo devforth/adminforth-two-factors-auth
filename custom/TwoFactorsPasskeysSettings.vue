@@ -238,7 +238,7 @@
         isFetchingPasskey.value = true;
         let confirmationResult;
         try {
-            confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult(undefined, "To add passkey first verify yourself");
+            confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult("To add passkey first verify yourself");
         } catch (e) {
             isFetchingPasskey.value = false;
             return;
