@@ -83,7 +83,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
         //TODO: fix ts-ignore after releasing new version of adminforth with updated types
         //@ts-ignore 
-        this.adminforth.auth.setCustomCookie({response: response, payload: {name: "TempSkip2FA_Modal_JWT", value: jwt, expirySeconds: this.options.stepUpMfaGracePeriodSeconds, httpOnly: true}});
+        this.adminforth.auth.setCustomCookie({response: response, payload: {name: "TempSkip2FA_Modal_JWT", sessionBased: true, value: jwt, httpOnly: true}});
       }
     } else {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
