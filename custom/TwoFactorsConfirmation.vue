@@ -200,6 +200,7 @@
     if ( newRoute.hash === '#passkey' ) {
       cancelPendingWebAuthn('switch-to-passkey');
       confirmationMode.value = 'passkey';
+      usePasskeyButton();
     } else if ( newRoute.hash === '#code' ) {
       cancelPendingWebAuthn('switch-to-code');
       confirmationMode.value = 'code';
