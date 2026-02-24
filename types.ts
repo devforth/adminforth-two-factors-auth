@@ -34,7 +34,7 @@ export type PluginOptions = {
         credentialUserIdFieldName: string,
 
         /**
-         * KeyValueAdapter is required to make sure
+         * KeyValueAdapter is required to make sure that generated challenge can't be reused more than once
          */
         keyValueAdapter: KeyValueAdapter,
 

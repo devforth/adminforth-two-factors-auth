@@ -34,14 +34,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
   }
 
-  private deleteChallengeFromStorage(challenge: string): void {
-    this.options.passkeys.keyValueAdapter.delete(challenge);
-  }
-
-  private async checkIfChallengeGeneratedByBackend(challenge: string): Promise<boolean> {
+  private async checkIfChallengeInBlackList(challenge: string): Promise<boolean> {
     const res = await this.options.passkeys.keyValueAdapter.get(challenge);
-    this.deleteChallengeFromStorage(challenge);
-    return !!res;
+    if (!res) {
+      this.saveChallengeToStorage(challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
+      return true;
+    }
+    return false;
   }
 
   private async validateCookiesForPasskeyLogin(cookies: any): Promise<{ok: boolean, decodedPasskeysCookies?: any, error?: string}> {
@@ -51,7 +50,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
 
     const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempLoginPasskeyChallenge', false);
-    const isChallangeValid = await this.checkIfChallengeGeneratedByBackend(decodedPasskeysCookies.challenge);
+    const isChallangeValid = await this.checkIfChallengeInBlackList(decodedPasskeysCookies.challenge);
 
     if (!decodedPasskeysCookies || !isChallangeValid) {
       return { ok: false, error: 'Invalid passkey' };
@@ -904,7 +903,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
           });
           const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempLoginPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
-          this.saveChallengeToStorage(options.challenge, this.options.passkeys?.challengeValidityPeriod || '1m');
           this.adminforth.auth.setCustomCookie({response, payload: {name: `passkeyLoginTemporaryJWT`, value: value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
           return { ok: true, data: options };
         } catch (e) {
