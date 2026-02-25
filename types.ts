@@ -1,4 +1,4 @@
-import { AdminUser } from "adminforth";
+import { AdminUser, KeyValueAdapter } from "adminforth";
 
 export type PluginOptions = {
 
@@ -32,6 +32,13 @@ export type PluginOptions = {
         credentialIdFieldName: string,
         credentialMetaFieldName: string,
         credentialUserIdFieldName: string,
+
+        
+        /**
+         * KeyValueAdapter is required to make sure that generated challenge can't be reused more than once
+         */
+        keyValueAdapter: KeyValueAdapter,
+
 
         /** 
          * Allow login with Passkeys even if 2FA is not set up. Default is true.
