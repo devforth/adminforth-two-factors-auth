@@ -29,15 +29,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
-  private saveChallengeToStorage(challenge: string, expiresIn?: string): void {
+  private useChellenge(challenge: string, expiresIn?: string): void {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
     this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
   }
 
-  private async checkIfChallengeInBlackList(challenge: string): Promise<boolean> {
+  private async checkIfChellengeNotUsed(challenge: string): Promise<boolean> {
     const res = await this.options.passkeys.keyValueAdapter.get(challenge);
     if (!res) {
-      this.saveChallengeToStorage(challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
       return true;
     }
     return false;
@@ -50,7 +49,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
 
     const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempLoginPasskeyChallenge', false);
-    const isChallangeValid = await this.checkIfChallengeInBlackList(decodedPasskeysCookies.challenge);
+    const isChallangeValid = await this.checkIfChellengeNotUsed(decodedPasskeysCookies.challenge);
+    if (isChallangeValid) {
+      this.useChellenge(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
+    }
 
     if (!decodedPasskeysCookies || !isChallangeValid) {
       return { ok: false, error: 'Invalid passkey' };
