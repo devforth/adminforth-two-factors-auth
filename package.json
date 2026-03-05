@@ -14,7 +14,6 @@
   },
   "type": "module",
   "scripts": {
-    "prepare": "npm link adminforth",
     "build": "tsc && rsync -av --exclude 'node_modules' custom dist/"
   },
   "keywords": [
@@ -29,7 +28,7 @@
     "node-2fa": "^2.0.3"
   },
   "peerDependencies": {
-    "adminforth": "next"
+    "adminforth": "^2.24.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
@@ -46,6 +45,7 @@
       [
         "semantic-release-slack-bot",
         {
+          "packageName": "@adminforth/two-factors-auth",
           "notifyOnSuccess": true,
           "notifyOnFail": true,
           "slackIcon": ":package:",
