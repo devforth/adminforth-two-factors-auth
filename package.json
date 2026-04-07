@@ -22,7 +22,7 @@
     "2fa"
   ],
   "author": "devforth",
-  "license": "ISC",
+  "license": "MIT",
   "dependencies": {
     "@simplewebauthn/server": "^13.2.1",
     "node-2fa": "^2.0.3"
