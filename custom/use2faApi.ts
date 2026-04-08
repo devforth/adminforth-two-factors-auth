@@ -36,7 +36,7 @@ export const use2faApi = defineStore('2fa', () => {
     addEventListenerForOTPInput.value = fn;
   }
   
-  async function setCustomDialogTitle(title: string) {
+  function setCustomDialogTitle(title: string) {
     customDialogTitle.value = title;
   }
 
@@ -81,7 +81,7 @@ export const use2faApi = defineStore('2fa', () => {
     }
   }
 
-  async function get2FaConfirmationResult(title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean> | boolean) {
+  function get2FaConfirmationResult(title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean> | boolean) {
     return new Promise(async (resolve, reject) => {
       if (isOpened.value) throw new Error('Modal is already open');
       const skipAllowModal = await checkIfSkipAllowModal();
