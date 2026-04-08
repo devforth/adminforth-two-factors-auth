@@ -286,14 +286,7 @@
 
   async function checkIfUserHasPasskeys() {
     isLoading.value = true;
-    const hasPasskeys = await twofaApi.checkIfUserHasPasskeys();
-    if (hasPasskeys) {
-      twofaApi.setDoesUserHavePasskeys(true);
-      twofaApi.setModalMode("passkey");
-    } else {
-      twofaApi.setDoesUserHavePasskeys(false);
-      twofaApi.setModalMode("totp");
-    }
+    await twofaApi.checkIfUserHasPasskeys();
     isLoading.value = false;
   }
 
