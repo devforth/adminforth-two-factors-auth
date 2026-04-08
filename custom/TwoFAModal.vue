@@ -28,7 +28,6 @@
             <Button
               class="px-4 py-2 rounded border"
               @click="onCancel"
-              :disabled="inProgress"
             >{{ $t('Cancel') }}</Button>
           </div>
         </div>
@@ -73,16 +72,13 @@
 
   import VOtpInput from 'vue3-otp-input';
   import { ref, nextTick, watch, onMounted } from 'vue';
-  import { useUserStore } from '@/stores/user';
-  import { useI18n } from 'vue-i18n';
-  import { callAdminForthApi } from '@/utils';
-  import { Link, Button } from '@/afcl';
+  import { Button } from '@/afcl';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import { getPasskey } from './utils.js' 
-  import adminforth from '@/adminforth';
   import { use2faApi } from './use2faApi';
 
   const twofaApi = use2faApi();
+  const isFetchingPasskey = ref(false);
 
   declare global {
     interface Window {
@@ -124,55 +120,26 @@
     // Abort any in-flight WebAuthn request when leaving the component
   }
 
-
-  const modelShow = ref(false);
-  // let resolveFn: ((confirmationResult: any) => void) | null = null;
-  // let verifyingCallback: ((confirmationResult: string) => boolean) | null = null;
-  // let verifyFn: null | ((confirmationResult: string) => Promise<boolean> | boolean) = null;
-  // let rejectFn: ((err?: any) => void) | null = null;
-
-
   window.adminforthTwoFaModal = {
-    get2FaConfirmationResult: (title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean>) =>
-      new Promise(async (resolve, reject) => {
-      if (twofaApi.isOpened) throw new Error('Modal is already open');
-      const skipAllowModal = await checkIfSkipAllowModal();
-      if (skipAllowModal) {
-        resolve({ code: "123456" }); // dummy code
-        return;
-      }
-      await checkIfUserHasPasskeys();
-      if (title) {
-        twofaApi.setCustomDialogTitle(title);
-      }
-      twofaApi.setIsOpened(true);
-      if (twofaApi.modalMode === 'totp') {
-        await addEventListenerForOTPInput();
-      }
-      twofaApi.registerResolveFn(resolve);
-      twofaApi.registerRejectFn(reject);
-      twofaApi.registerVerifyFn(verifyingCallback ?? null);
-    }),
+    get2FaConfirmationResult: twofaApi.get2FaConfirmationResult
   };
   
-  const { t } = useI18n();
-  const user = useUserStore();
   
   const confirmationResult = ref<any>(null);
   const otpRoot = ref<HTMLElement | null>(null);
   const bindValue = ref('');
-  const doesUserHavePasskeys = ref(false);
-  const modalMode = ref<"totp" | "passkey">("totp");
   const isLoading = ref(false);
-  const customDialogTitle = ref("");
   
   async function usePasskeyButtonClick() {
     let passkeyData;
+    isFetchingPasskey.value = true;
     try {
       passkeyData = await getPasskey();
     } catch (error) {
       onCancel();
       return null;
+    } finally {
+      isFetchingPasskey.value = false;
     }
     twofaApi.setIsOpened(false);
     const dataToReturn = {
@@ -284,12 +251,6 @@
   }
 });
 
-  async function checkIfUserHasPasskeys() {
-    isLoading.value = true;
-    await twofaApi.checkIfUserHasPasskeys();
-    isLoading.value = false;
-  }
-
   function getOtpInputs() {
     const root = otpRoot.value;
     if (!root) return [];
@@ -329,25 +290,6 @@
       }
     });
   }
-
-
-  async function checkIfSkipAllowModal(){
-    try {
-      const response = await callAdminForthApi({
-        method: "GET",
-        path: "/plugin/twofa/skip-allow-modal",
-      });
-      if ( response.skipAllowed === true ) {
-        return true;
-      } else {
-        return false;
-      }
-    } catch (error) {
-      console.error('Error checking skip allow modal:', error);
-      return false;
-    }
-  }
-
 </script>
   
 <style scoped>
