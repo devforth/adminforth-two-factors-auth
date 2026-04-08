@@ -12,24 +12,8 @@ export const use2faApi = defineStore('2fa', () => {
   const doesUserHavePasskeys = ref(false);
   const modalMode = ref<"totp" | "passkey">("totp");
 
-  function setDoesUserHavePasskeys(value: boolean) {
-    doesUserHavePasskeys.value = value;
-  }
-
   function setModalMode(mode: "totp" | "passkey") {
     modalMode.value = mode;
-  }
-  
-  function registerVerifyFn(fn: (confirmationResult: string) => Promise<boolean> | boolean) {
-    verifyFn.value = fn;
-  }
-
-  function registerRejectFn(fn: (err?: any) => void) {
-    rejectFn.value = fn;
-  }
-
-  function registerResolveFn(fn: (confirmationResult: any) => void) {
-    resolveFn.value = fn;
   }
   
   function registerAddEventListenerForOTPInput(fn: () => Promise<void>) {
@@ -113,16 +97,10 @@ export const use2faApi = defineStore('2fa', () => {
     get2FaConfirmationResult,
     setIsOpened,
     setCustomDialogTitle,
-    checkIfSkipAllowModal,
     registerAddEventListenerForOTPInput,
     resolveFn,
     verifyFn,
     rejectFn,
-    registerVerifyFn,
-    registerRejectFn,
-    registerResolveFn,
-    checkIfUserHasPasskeys,
-    setDoesUserHavePasskeys,
     setModalMode,
     doesUserHavePasskeys,
     modalMode,
