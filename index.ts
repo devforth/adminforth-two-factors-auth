@@ -753,7 +753,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ body, adminUser, response, cookies, extra }) => {
+      handler: async ({ body, adminUser, response, cookies, extra, headers }) => {
         const mode = body?.mode;
 
         const confirmationResult = body?.confirmationResult;
@@ -762,7 +762,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           userPk: adminUser.pk, 
           cookies: cookies,
           response: response,
-          extra: { ...extra }
+          extra: {...extra, cookies: cookies, headers: headers}
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
           return { ok: false, error: 'Verification failed' };
