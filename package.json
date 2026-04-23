@@ -21,7 +21,7 @@
     "two-factors-auth",
     "2fa"
   ],
-  "author": "devforth",
+  "author": "DevForth (https://devforth.io)",
   "license": "MIT",
   "dependencies": {
     "@simplewebauthn/server": "^13.2.1",
