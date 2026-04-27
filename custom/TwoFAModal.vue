@@ -79,8 +79,9 @@
   import { Link, Button } from '@/afcl';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import { getPasskey } from './utils.js' 
-  import adminforth from '@/adminforth';
-
+  import { useAdminforth } from '@/adminforth';
+  import websocket from '@/websocket';
+  import type { AdminUser } from '@/types/Common';
 
   declare global {
     interface Window {
@@ -94,7 +95,51 @@
   }
   const props = defineProps<{
     autoFinishLogin?: boolean
+    adminUser?: AdminUser
   }>();
+
+  const { alert } = useAdminforth();
+
+  let currentSessionId: string | null = null;
+  watch( props, () => {
+    if (props.adminUser) {
+      websocket.unsubscribeByPrefix(`/user2fa/`);
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
+        currentSessionId = data.sessionId;
+        let confirmationResult;
+        try {
+          confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+        } catch (error) {
+          console.error('Error during 2FA confirmation:', error);
+        }
+        try {
+          const response = await callAdminForthApi({
+            method: "POST",
+            path: "/plugin/passkeys/resolveVerifyAuto",
+            body: { confirmationResult, sessionId: data.sessionId }
+          });
+          if (!response.ok && response.error === 'No session ID or confirmation result'){
+            alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
+          } else if (!response.ok) {
+            alert({message: 'Verification failed', variant: 'danger'});
+          } else if (response.ok) {
+            alert({message: 'Verification successful', variant: 'success'});
+          }
+        } catch (error) {
+          console.error('Error resolving automatic 2FA verification:', error);
+        }
+        currentSessionId = null;
+      });
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
+        if (currentSessionId === data.sessionId && rejectFn && modelShow.value) {
+          onCancel();
+          currentSessionId = null;
+        }
+      });
+    }
+  })
+
+
   const emit = defineEmits<{
     (e: 'resolved', payload: any): void
     (e: 'rejected', err?: any): void
