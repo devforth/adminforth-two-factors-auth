@@ -777,7 +777,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ body, adminUser, response, cookies, extra }) => {
+      handler: async ({ body, adminUser, response, cookies }) => {
         const mode = body?.mode;
 
         const confirmationResult = body?.confirmationResult;
@@ -785,8 +785,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           adminUser: adminUser,
           userPk: adminUser.pk, 
           cookies: cookies,
-          response: response,
-          extra: { ...extra }
+          response: response
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
           return { ok: false, error: 'Verification failed' };
@@ -1077,7 +1076,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/resolveVerifyAuto`,
       noAuth: false,
-      handler: async ({ body, adminUser, response, cookies, extra }) => {
+      handler: async ({ body, adminUser, response, cookies }) => {
         const sessionId = body?.sessionId;
         const confirmationResult = body?.confirmationResult;
         if (!sessionId || !confirmationResult) {
@@ -1088,8 +1087,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           adminUser: adminUser,
           userPk: adminUser.pk, 
           cookies: cookies,
-          response: response,
-          extra: { ...extra }
+          response: response
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
           this.resolveResponse(sessionId, { ok: false, error: 'Verification failed' });
