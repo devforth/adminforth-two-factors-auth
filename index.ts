@@ -161,6 +161,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const sessionId = crypto.randomUUID();
     this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId });
     const result = await this.waitForResponse(sessionId);
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId });
     return result;
   }
 
@@ -1079,6 +1080,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       handler: async ({ body, adminUser, response, cookies, extra }) => {
         const sessionId = body?.sessionId;
         const confirmationResult = body?.confirmationResult;
+        if (!sessionId || !confirmationResult) {
+          this.resolveResponse(sessionId, { ok: false, error: 'No session ID or confirmation result' });
+          return { ok: false, error: 'No session ID or confirmation result' };
+        }
         const verificationResult = await this.verify(confirmationResult, {
           adminUser: adminUser,
           userPk: adminUser.pk, 

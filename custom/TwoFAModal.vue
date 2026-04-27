@@ -100,23 +100,40 @@
 
   const { alert } = useAdminforth();
 
-
+  let currentSessionId: string | null = null;
   watch( props, () => {
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
-        const confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+        currentSessionId = data.sessionId;
+        let confirmationResult;
+        try {
+          confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+        } catch (error) {
+          console.error('Error during 2FA confirmation:', error);
+        }
         try {
           const response = await callAdminForthApi({
             method: "POST",
             path: "/plugin/passkeys/resolveVerifyAuto",
             body: { confirmationResult, sessionId: data.sessionId }
           });
-          if (!response.ok) {
+          if (!response.ok && response.error === 'No session ID or confirmation result'){
+            alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
+          } else if (!response.ok) {
             alert({message: 'Verification failed', variant: 'danger'});
+          } else if (response.ok) {
+            alert({message: 'Verification successful', variant: 'success'});
           }
         } catch (error) {
           console.error('Error resolving automatic 2FA verification:', error);
+        }
+        currentSessionId = null;
+      });
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
+        if (currentSessionId === data.sessionId && rejectFn && modelShow.value) {
+          onCancel();
+          currentSessionId = null;
         }
       });
     }
