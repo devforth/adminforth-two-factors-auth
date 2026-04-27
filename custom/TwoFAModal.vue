@@ -79,8 +79,9 @@
   import { Link, Button } from '@/afcl';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import { getPasskey } from './utils.js' 
-  import adminforth from '@/adminforth';
-
+  import { useAdminforth } from '@/adminforth';
+  import websocket from '@/websocket';
+  import type { AdminUser } from '@/types/Common';
 
   declare global {
     interface Window {
@@ -94,7 +95,33 @@
   }
   const props = defineProps<{
     autoFinishLogin?: boolean
+    adminUser?: AdminUser
   }>();
+
+  const { alert } = useAdminforth();
+
+
+  watch( props, () => {
+    if (props.adminUser) {
+      websocket.subscribe(`/user2fa/${props.adminUser?.pk}`, async (data: {sessionId: string}) => {
+        const confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+        try {
+          const response = await callAdminForthApi({
+            method: "POST",
+            path: "/plugin/passkeys/resolveVerifyAuto",
+            body: { confirmationResult, sessionId: data.sessionId }
+          });
+          if (!response.ok) {
+            alert({message: 'Verification failed', variant: 'danger'});
+          }
+        } catch (error) {
+          console.error('Error resolving automatic 2FA verification:', error);
+        }
+      });
+    }
+  })
+
+
   const emit = defineEmits<{
     (e: 'resolved', payload: any): void
     (e: 'rejected', err?: any): void

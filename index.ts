@@ -141,6 +141,29 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return false;
   }
 
+  private pending = new Map<string, (value: any) => void>();
+
+  private waitForResponse(id: string): Promise<any> {
+    return new Promise((resolve) => {
+      this.pending.set(id, resolve);
+    });
+  }
+
+  private resolveResponse(id: string, data: any) {
+    const resolve = this.pending.get(id);
+    if (resolve) {
+      resolve(data);
+      this.pending.delete(id);
+    }
+  }
+
+  public async verifyAuto(adminUser: AdminUser) {
+    const sessionId = crypto.randomUUID();
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId });
+    const result = await this.waitForResponse(sessionId);
+    return result;
+  }
+
   public async verify(
     confirmationResult: Record<string, any>,
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
@@ -1047,6 +1070,28 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         } else {
           return { ok: true, hasPasskeys: false };
         }
+      }
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/resolveVerifyAuto`,
+      noAuth: false,
+      handler: async ({ body, adminUser, response, cookies, extra }) => {
+        const sessionId = body?.sessionId;
+        const confirmationResult = body?.confirmationResult;
+        const verificationResult = await this.verify(confirmationResult, {
+          adminUser: adminUser,
+          userPk: adminUser.pk, 
+          cookies: cookies,
+          response: response,
+          extra: { ...extra }
+        });
+        if ( !verificationResult || !('ok' in verificationResult) ) {
+          this.resolveResponse(sessionId, { ok: false, error: 'Verification failed' });
+          return { ok: false, error: 'Verification failed' };
+        }
+        this.resolveResponse(sessionId, { ok: true, passkeyConfirmed: verificationResult });
+        return { ok: true };
       }
     });
   }
