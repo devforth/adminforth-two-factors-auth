@@ -103,7 +103,8 @@
 
   watch( props, () => {
     if (props.adminUser) {
-      websocket.subscribe(`/user2fa/${props.adminUser?.pk}`, async (data: {sessionId: string}) => {
+      websocket.unsubscribeByPrefix(`/user2fa/`);
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
         const confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
         try {
           const response = await callAdminForthApi({
