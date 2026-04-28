@@ -102,29 +102,47 @@
 
   const { alert } = useAdminforth();
 
-  let isAwaiting2FAResult = false;
+  const isAwaiting2FAResult = ref(false);
+  let allowAddNewSessions = true;
+  const ALLOW_NEW_SESSIONS_PERIOD = 1000;
   const sessionsIdsToResolve = ref<string[]>([]);
+
+  watch(isAwaiting2FAResult, (awaiting) => {
+    if (awaiting) {
+      allowAddNewSessions = true;
+      setTimeout(() => {
+        if (isAwaiting2FAResult.value) {
+          allowAddNewSessions = false;
+        }
+      }, ALLOW_NEW_SESSIONS_PERIOD);
+    }
+  });
+  
   watch( props, () => {
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
+        if (!allowAddNewSessions) {
+          alert({message: 'Some process or user tries to add new actions to confirm. Action was blocked', variant: 'warning'});
+          return;
+        }
         sessionsIdsToResolve.value.push(data.sessionId);
         let confirmationResult;
-        if (isAwaiting2FAResult) {
+        if (isAwaiting2FAResult.value) {
           return;
         }
         try {
-          isAwaiting2FAResult = true;
+          isAwaiting2FAResult.value = true;
           confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
         } catch (error) {
           console.error('Error during 2FA confirmation:', error);
         }
-        isAwaiting2FAResult = false;
+        isAwaiting2FAResult.value = false;
         try {
           const response = await callAdminForthApi({
             method: "POST",
             path: "/plugin/passkeys/resolveVerifyAuto",
-            body: { confirmationResult, sessionId: data.sessionId, sessionsIds: sessionsIdsToResolve.value }
+            body: { confirmationResult, sessionsIds: sessionsIdsToResolve.value }
           });
           if (!response.ok && response.error === 'No session ID or confirmation result'){
             alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
@@ -137,6 +155,7 @@
         } catch (error) {
           console.error('Error resolving automatic 2FA verification:', error);
         }
+        allowAddNewSessions = true;
       });
       websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
         if (sessionsIdsToResolve.value.includes(data.sessionId) && rejectFn && modelShow.value) {
