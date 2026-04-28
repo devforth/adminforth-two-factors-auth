@@ -1081,9 +1081,13 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: false,
       handler: async ({ body, adminUser, response, cookies, headers }) => {
         const sessionId = body?.sessionId;
+        const sessionsIds = body?.sessionsIds;
         const confirmationResult = body?.confirmationResult;
-        if (!sessionId || !confirmationResult) {
-          this.resolveResponse(sessionId, { ok: false, error: 'No session ID or confirmation result' });
+        const idsToResolve = sessionsIds && Array.isArray(sessionsIds) ? sessionsIds : [sessionId];
+        if (!(sessionId || sessionsIds) || !confirmationResult) {
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: false, error: 'No session ID or confirmation result' });
+          }
           return { ok: false, error: 'No session ID or confirmation result' };
         }
         const verificationResult = await this.verify(confirmationResult, {
@@ -1096,10 +1100,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           } as HttpExtra
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
-          this.resolveResponse(sessionId, { ok: false, error: 'Verification failed' });
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: false, error: 'Verification failed' });
+          }
           return { ok: false, error: 'Verification failed' };
         }
-        this.resolveResponse(sessionId, { ok: true, passkeyConfirmed: verificationResult });
+        for (const id of idsToResolve) {
+          this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+        }
         return { ok: true };
       }
     });

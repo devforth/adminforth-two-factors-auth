@@ -4,6 +4,7 @@
       <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp flex flex-col items-center relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
         <div id="mfaCode-label" class="mb-4 text-gray-700 dark:text-gray-100 text-center">
           <p> {{ customDialogTitle }} </p>
+          <p class="text-red-500 font-semibold text-xl" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
           <p>{{ $t('Please enter your authenticator code') }}</p>
         </div>
         
@@ -51,6 +52,7 @@
         <p class="text-4xl font-semibold mb-4 text:gray-900 dark:text-gray-200 ">{{$t('Passkey')}}</p>
         <div class="mb-2 max-w-[300px] text:gray-900 dark:text-gray-200">
           <p class="mb-2">{{customDialogTitle}} </p>
+          <p class="text-red-500 font-semibold text-xl text-center mb-12" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
           <p>{{$t('Authenticate yourself using the button below')}}</p>
         </div>
         <Button @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
@@ -100,23 +102,29 @@
 
   const { alert } = useAdminforth();
 
-  let currentSessionId: string | null = null;
+  let isAwaiting2FAResult = false;
+  const sessionsIdsToResolve = ref<string[]>([]);
   watch( props, () => {
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
-        currentSessionId = data.sessionId;
+        sessionsIdsToResolve.value.push(data.sessionId);
         let confirmationResult;
+        if (isAwaiting2FAResult) {
+          return;
+        }
         try {
+          isAwaiting2FAResult = true;
           confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
         } catch (error) {
           console.error('Error during 2FA confirmation:', error);
         }
+        isAwaiting2FAResult = false;
         try {
           const response = await callAdminForthApi({
             method: "POST",
             path: "/plugin/passkeys/resolveVerifyAuto",
-            body: { confirmationResult, sessionId: data.sessionId }
+            body: { confirmationResult, sessionId: data.sessionId, sessionsIds: sessionsIdsToResolve.value }
           });
           if (!response.ok && response.error === 'No session ID or confirmation result'){
             alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
@@ -125,15 +133,15 @@
           } else if (response.ok) {
             alert({message: 'Verification successful', variant: 'success'});
           }
+          sessionsIdsToResolve.value = [];
         } catch (error) {
           console.error('Error resolving automatic 2FA verification:', error);
         }
-        currentSessionId = null;
       });
       websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
-        if (currentSessionId === data.sessionId && rejectFn && modelShow.value) {
+        if (sessionsIdsToResolve.value.includes(data.sessionId) && rejectFn && modelShow.value) {
           onCancel();
-          currentSessionId = null;
+          sessionsIdsToResolve.value = sessionsIdsToResolve.value.filter(id => id !== data.sessionId);
         }
       });
     }
