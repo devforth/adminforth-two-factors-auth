@@ -1093,16 +1093,16 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
 
         if (!(sessionsIds) || !confirmationResult) {
-          resolveAllIdsAsFailed('Confirmation window was closed or did not return required data');
+          return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
         }
 
         for (const id of idsToResolve) {
           const validationResult = await this.adminforth.auth.verify(id, 'auto2FA', false);
           if (!validationResult) {
-            resolveAllIdsAsFailed('Invalid session ID or confirmation result');
+            return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
           }
           if (validationResult.adminUserPk !== adminUser.pk) {
-            resolveAllIdsAsFailed('Session does not belong to the authenticated user');
+            return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
           }
         }
 
@@ -1116,13 +1116,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           } as HttpExtra
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
-          resolveAllIdsAsFailed('Verification failed');
+          return(resolveAllIdsAsFailed('Verification failed'));
         }
-
-        for (const id of idsToResolve) {
-          this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+        if ('ok' in verificationResult && verificationResult.ok){
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+          }
+          return { ok: true };
         }
-        return { ok: true };
       }
     });
   }
