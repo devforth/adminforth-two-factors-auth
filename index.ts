@@ -764,8 +764,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           response: response,
           extra: { ...extra }
         });
-        if ( !verificationResult || !('ok' in verificationResult) ) {
-          return { ok: false, error: 'Verification failed' };
+        if (!verificationResult || !('ok' in verificationResult)) {
+          return { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' };
         }
 
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
