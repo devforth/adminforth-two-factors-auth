@@ -1,6 +1,7 @@
 import { AdminUser, KeyValueAdapter } from "adminforth";
+import  {type PluginsCommonOptions } from "adminforth";
 
-export type PluginOptions = {
+export interface PluginOptions extends PluginsCommonOptions {
 
     /**
      * Name of the field in the auth resource which will store 2FA secret.

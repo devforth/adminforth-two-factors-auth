@@ -7,7 +7,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://adminforth.dev/docs/tutorial/Plugins/TwoFactorsAuth/",
+  "homepage": "https://adminforth.dev/docs/tutorial/Plugins/two-factors-auth/",
   "repository": {
     "type": "git",
     "url": "https://github.com/devforth/adminforth-two-factors-auth.git"
@@ -21,14 +21,14 @@
     "two-factors-auth",
     "2fa"
   ],
-  "author": "devforth",
-  "license": "ISC",
+  "author": "DevForth (https://devforth.io)",
+  "license": "MIT",
   "dependencies": {
     "@simplewebauthn/server": "^13.2.1",
     "node-2fa": "^2.0.3"
   },
   "peerDependencies": {
-    "adminforth": "^2.24.0"
+    "adminforth": "^2.42.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",

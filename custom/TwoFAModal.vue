@@ -37,11 +37,11 @@
             @on-complete="handleOnComplete"
           />
         </div>
-
-        <p class="af-2fa-totp-footer text-center text-xs text-gray-500 dark:text-gray-400">
+        <p v-if="doesUserHavePasskeys" class="af-2fa-totp-footer text-center text-xs text-gray-500 dark:text-gray-400">
           {{$t('Having trouble?')}}
-          <button v-if="doesUserHavePasskeys" type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
+          <button type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
         </p>
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
       </div>
 
       <div v-else-if="modalMode === 'passkey'" class="af-two-factor-modal-passkeys flex flex-col gap-4 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
@@ -89,6 +89,7 @@
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-totp text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'totp'">{{$t('Use TOTP instead')}}</button>
         </p>
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
       </div>
     </div>
   </template>
@@ -103,8 +104,9 @@
   import { Link, Button } from '@/afcl';
   import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
   import { getPasskey } from './utils.js' 
-  import adminforth from '@/adminforth';
-
+  import { useAdminforth } from '@/adminforth';
+  import websocket from '@/websocket';
+  import type { AdminUser } from '@/types/Common';
 
   type TwoFaConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> };
 
@@ -120,7 +122,76 @@
   }
   const props = defineProps<{
     autoFinishLogin?: boolean
+    adminUser?: AdminUser
   }>();
+
+  const { alert } = useAdminforth();
+
+  const isAwaiting2FAResult = ref(false);
+  let allowAddNewSessions = true;
+  const ALLOW_NEW_SESSIONS_PERIOD = 1000;
+  const sessionsIdsToResolve = ref<string[]>([]);
+
+  watch(isAwaiting2FAResult, (awaiting) => {
+    if (awaiting) {
+      allowAddNewSessions = true;
+      setTimeout(() => {
+        if (isAwaiting2FAResult.value) {
+          allowAddNewSessions = false;
+        }
+      }, ALLOW_NEW_SESSIONS_PERIOD);
+    }
+  });
+  
+  watch( props, () => {
+    if (props.adminUser) {
+      websocket.unsubscribeByPrefix(`/user2fa/`);
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
+        if (!allowAddNewSessions) {
+          alert({message: 'Some process or user tries to add new actions to confirm. Action was blocked', variant: 'warning'});
+          return;
+        }
+        sessionsIdsToResolve.value.push(data.sessionId);
+        let confirmationResult;
+        if (isAwaiting2FAResult.value) {
+          return;
+        }
+        try {
+          isAwaiting2FAResult.value = true;
+          confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+        } catch (error) {
+          console.error('Error during 2FA confirmation:', error);
+        }
+        isAwaiting2FAResult.value = false;
+        try {
+          const response = await callAdminForthApi({
+            method: "POST",
+            path: "/plugin/passkeys/resolveVerifyAuto",
+            body: { confirmationResult, sessionsIds: sessionsIdsToResolve.value }
+          });
+          if (!response.ok && response.error === 'No session ID or confirmation result'){
+            alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
+          } else if (!response.ok) {
+            alert({message: 'Verification failed', variant: 'danger'});
+          } else if (response.ok) {
+            alert({message: 'Verification successful', variant: 'success'});
+          }
+          sessionsIdsToResolve.value = [];
+        } catch (error) {
+          console.error('Error resolving automatic 2FA verification:', error);
+        }
+        allowAddNewSessions = true;
+      });
+      websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
+        if (sessionsIdsToResolve.value.includes(data.sessionId) && rejectFn && modelShow.value) {
+          onCancel();
+          sessionsIdsToResolve.value = sessionsIdsToResolve.value.filter(id => id !== data.sessionId);
+        }
+      });
+    }
+  })
+
+
   const emit = defineEmits<{
     (e: 'resolved', payload: any): void
     (e: 'rejected', err?: any): void

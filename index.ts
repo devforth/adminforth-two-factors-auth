@@ -141,6 +141,31 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return false;
   }
 
+  private pending = new Map<string, (value: any) => void>();
+
+  private waitForResponse(id: string): Promise<any> {
+    return new Promise((resolve) => {
+      this.pending.set(id, resolve);
+    });
+  }
+
+  private resolveResponse(id: string, data: any) {
+    const resolve = this.pending.get(id);
+    if (resolve) {
+      resolve(data);
+      this.pending.delete(id);
+    }
+  }
+
+  public async verifyAuto(adminUser: AdminUser) {
+    const sessionId = crypto.randomUUID();
+    const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId: jwt });
+    const result = await this.waitForResponse(jwt);
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId: jwt });
+    return result;
+  }
+
   public async verify(
     confirmationResult: Record<string, any>,
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
@@ -148,8 +173,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if (!confirmationResult) return { error: "Confirmation result is required" };
     if (!opts.adminUser) return { error: "Admin user is required" };
     if (!opts.userPk) return    { error: "User PK is required" };
-    const cookies = opts.extra.cookies || opts.cookies;
-    const response = opts.extra.response || opts.response;
+    const cookies = opts.extra?.cookies || opts.cookies;
+    const response = opts.extra?.response || opts.response;
     if (this.options.usersFilterToApply) {
       const res = this.options.usersFilterToApply(opts.adminUser);
       if ( res === false ) {
@@ -753,7 +778,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       method: 'POST',
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
-      handler: async ({ body, adminUser, response, cookies, extra }) => {
+      handler: async ({ body, adminUser, response, cookies, headers }) => {
         const mode = body?.mode;
 
         const confirmationResult = body?.confirmationResult;
@@ -762,7 +787,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           userPk: adminUser.pk, 
           cookies: cookies,
           response: response,
-          extra: { ...extra }
+          extra: {
+            headers,
+          } as HttpExtra
         });
         if (!verificationResult || !('ok' in verificationResult)) {
           return { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' };
@@ -1046,6 +1073,56 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { ok: true, hasPasskeys: true };
         } else {
           return { ok: true, hasPasskeys: false };
+        }
+      }
+    });
+    server.endpoint({
+      method: 'POST',
+      path: `/plugin/passkeys/resolveVerifyAuto`,
+      noAuth: false,
+      handler: async ({ body, adminUser, response, cookies, headers }) => {
+        const sessionsIds = body?.sessionsIds;
+        const confirmationResult = body?.confirmationResult;
+        const idsToResolve = sessionsIds;
+
+        const resolveAllIdsAsFailed = (message) => {
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: false, error: message });
+          }
+          return { ok: false, error: message };
+        }
+
+        if (!(sessionsIds) || !confirmationResult) {
+          return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
+        }
+
+        for (const id of idsToResolve) {
+          const validationResult = await this.adminforth.auth.verify(id, 'auto2FA', false);
+          if (!validationResult) {
+            return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
+          }
+          if (validationResult.adminUserPk !== adminUser.pk) {
+            return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
+          }
+        }
+
+        const verificationResult = await this.verify(confirmationResult, {
+          adminUser: adminUser,
+          userPk: adminUser.pk, 
+          cookies: cookies,
+          response: response,
+          extra: {
+            headers: headers,            
+          } as HttpExtra
+        });
+        if ( !verificationResult || !('ok' in verificationResult) ) {
+          return(resolveAllIdsAsFailed('Verification failed'));
+        }
+        if ('ok' in verificationResult && verificationResult.ok){
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+          }
+          return { ok: true };
         }
       }
     });
