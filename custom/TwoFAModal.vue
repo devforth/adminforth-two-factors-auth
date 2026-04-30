@@ -41,8 +41,8 @@
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
         </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 0">
-          {{$t('You are confirming')}} {{ sessionsIdsToResolve.length }} {{ sessionsIdsToResolve.length === 1 ? $t('action') : $t('actions') }}
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
+          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
         </p>
       </div>
 
@@ -91,8 +91,8 @@
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-totp text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'totp'">{{$t('Use TOTP instead')}}</button>
         </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 0">
-          {{$t('You are confirming')}} {{ sessionsIdsToResolve.length }} {{ sessionsIdsToResolve.length === 1 ? $t('action') : $t('actions') }}
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
+          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
         </p>
       </div>
     </div>
