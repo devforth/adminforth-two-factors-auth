@@ -11,9 +11,6 @@ importers:
       '@simplewebauthn/server':
         specifier: ^13.2.1
         version: 13.2.3
-      adminforth:
-        specifier: ^2.42.0
-        version: 2.48.0(@types/node@22.19.13)(typescript@5.9.3)
       node-2fa:
         specifier: ^2.0.3
         version: 2.0.3
@@ -21,6 +18,9 @@ importers:
       '@types/node':
         specifier: ^22.10.7
         version: 22.19.13
+      adminforth:
+        specifier: ^2.50.1
+        version: 2.50.1(@types/node@22.19.13)(typescript@5.9.3)
       semantic-release:
         specifier: ^24.2.1
         version: 24.2.9(typescript@5.9.3)
@@ -455,8 +455,8 @@ packages:
     resolution: {integrity: sha512-PYAthTa2m2VKxuvSD3DPC/Gy+U+sOA1LAuT8mkmRuvw+NACSaeXEQ+NHcVF7rONl6qcaxV3Uuemwawk+7+SJLw==}
     engines: {node: '>= 0.6'}
 
-  adminforth@2.48.0:
-    resolution: {integrity: sha512-VesaleJWmenY/KN8gEMXxsmWdO6JyL4pcgm/KaDX1T9QoS7BdxG3OU4cI1Nud96eYVU23hjkZmojTXCzO7iHgA==}
+  adminforth@2.50.1:
+    resolution: {integrity: sha512-MHsLlmNLcnlxZhIZ57UIyUYjLPMczKVLa0/lnmASBiotQ0JFmJre9PFzKkHShsxHGXR8o8RjU71FdKwID6Vg7A==}
     hasBin: true
 
   agent-base@7.1.4:
@@ -3069,7 +3069,7 @@ snapshots:
       mime-types: 2.1.35
       negotiator: 0.6.3
 
-  adminforth@2.48.0(@types/node@22.19.13)(typescript@5.9.3):
+  adminforth@2.50.1(@types/node@22.19.13)(typescript@5.9.3):
     dependencies:
       '@babel/parser': 7.29.0
       '@clickhouse/client': 1.18.1
