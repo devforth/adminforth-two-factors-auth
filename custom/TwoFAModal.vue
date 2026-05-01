@@ -41,7 +41,9 @@
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
         </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
+          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
+        </p>
       </div>
 
       <div v-else-if="modalMode === 'passkey'" class="af-two-factor-modal-passkeys flex flex-col gap-4 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
@@ -89,7 +91,9 @@
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-totp text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'totp'">{{$t('Use TOTP instead')}}</button>
         </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1"> You are confirming {{ sessionsIdsToResolve.length }} actions</p>
+        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
+          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
+        </p>
       </div>
     </div>
   </template>
@@ -148,7 +152,7 @@
       websocket.unsubscribeByPrefix(`/user2fa/`);
       websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
         if (!allowAddNewSessions) {
-          alert({message: 'Some process or user tries to add new actions to confirm. Action was blocked', variant: 'warning'});
+          alert({message: t('Some process or user tries to add new actions to confirm. Action was blocked'), variant: 'warning'});
           return;
         }
         sessionsIdsToResolve.value.push(data.sessionId);
@@ -160,7 +164,7 @@
           isAwaiting2FAResult.value = true;
           confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
         } catch (error) {
-          console.error('Error during 2FA confirmation:', error);
+          console.error(t('Error during 2FA confirmation:', error));
         }
         isAwaiting2FAResult.value = false;
         try {
@@ -170,15 +174,15 @@
             body: { confirmationResult, sessionsIds: sessionsIdsToResolve.value }
           });
           if (!response.ok && response.error === 'No session ID or confirmation result'){
-            alert({message: 'Verification session finished or cancelled.', variant: 'warning'});
+            alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
           } else if (!response.ok) {
-            alert({message: 'Verification failed', variant: 'danger'});
+            alert({message: t('Verification failed'), variant: 'danger'});
           } else if (response.ok) {
-            alert({message: 'Verification successful', variant: 'success'});
+            alert({message: t('Verification successful'), variant: 'success'});
           }
           sessionsIdsToResolve.value = [];
         } catch (error) {
-          console.error('Error resolving automatic 2FA verification:', error);
+          console.error(t('Error resolving automatic 2FA verification:', error));
         }
         allowAddNewSessions = true;
       });
@@ -226,7 +230,7 @@
   window.adminforthTwoFaModal = {
     get2FaConfirmationResult: (title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean>) =>
       new Promise(async (resolve, reject) => {
-      if (modelShow.value) throw new Error('Modal is already open');
+      if (modelShow.value) throw new Error(t('Modal is already open'));
       const skipAllowModal = await checkIfSkipAllowModal();
       if (skipAllowModal) {
         resolve({ code: "123456" }); // dummy code
@@ -303,12 +307,12 @@
   }
   
   async function sendConfirmationResult(value: string) {
-    if (!resolveFn) throw new Error('Modal is not initialized properly');
+    if (!resolveFn) throw new Error(t('Modal is not initialized properly'));
     if (verifyFn) {
       try {
         const ok = await verifyFn(value);
         if (!ok) {
-          rejectFn?.(new Error('Invalid code'));
+          rejectFn?.(new Error(t('Invalid code')));
           return;
         }
       } catch (err) {
@@ -393,7 +397,7 @@
         }
       }
     } catch (error) {
-      console.error('Error checking passkeys:', error);
+      console.error(t('Error checking passkeys:', error));
       // Fallback to TOTP if there's an error
       doesUserHavePasskeys.value = false;
       modalMode.value = "totp";
@@ -455,7 +459,7 @@
         return false;
       }
     } catch (error) {
-      console.error('Error checking skip allow modal:', error);
+      console.error(t('Error checking skip allow modal:', error));
       return false;
     }
   }
