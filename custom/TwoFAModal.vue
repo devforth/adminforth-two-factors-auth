@@ -176,7 +176,7 @@
           if (!response.ok && response.error === 'No session ID or confirmation result'){
             alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
           } else if (!response.ok) {
-            alert({message: t('Verification failed'), variant: 'danger'});
+            alert({message: response.error || t('Verification failed'), variant: 'danger'}); 
           } else if (response.ok) {
             alert({message: t('Verification successful'), variant: 'success'});
           }
