@@ -299,7 +299,7 @@
         }
       });
     } catch (error) {
-      console.error('Error checking if user has passkeys:', error);
+      console.error(t('Error checking if user has passkeys:', error));
     }
   }
 
@@ -318,7 +318,7 @@
     try {
       options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     } catch (e) {
-      console.error('Error parsing request options:', e);
+      console.error(t('Error parsing request options:', e));
       adminforth.alert({message: t('Error initiating passkey authentication.'), variant: 'warning'});
       return;
     }
@@ -345,14 +345,14 @@
         method: 'POST',
       });
     } catch (error) {
-      console.error('Error creating sign-in request:', error);
+      console.error(t('Error creating sign-in request:', error));
       return;
     }
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
       adminforth.alert({message: t('Error creating sign-in request.'), variant: 'warning'});
-      codeError.value = 'Error creating sign-in request.';
+      codeError.value = t('Error creating sign-in request.');
     }
   }
 
@@ -378,7 +378,7 @@
       });
       return credential;
     } catch (error) {
-      console.error('Error during authentication:', error);
+      console.error(t('Error during authentication:', error));
       // Handle specific concurrent/pending request error cases gracefully
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
