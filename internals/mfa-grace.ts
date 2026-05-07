@@ -1,12 +1,15 @@
 import crypto from 'crypto';
 
-export function generateHashForStepUpMfaGraceCookie(plugin: any, headers: any, cookies: any): string {
+export function generateHashForStepUpMfaGraceCookie(plugin: any, headers: any, cookies: any): string | null {
   const ip = plugin.adminforth.auth.getClientIp(headers);
   const userAgent = headers['user-agent'] || '';
   const acceptLanguage = headers['accept-language'] || '';
   const session_cookie = plugin.adminforth.auth.getCustomCookie({cookies: cookies, name: "jwt"});
   if (!ip || !userAgent || !acceptLanguage || !session_cookie) {
     console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
+    return null;
+  } else if (!process.env.ADMINFORTH_SECRET) {
+    console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: ADMINFORTH_SECRET is not configured ❗️❗️❗️");
     return null;
   } else {
     const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)

@@ -400,6 +400,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/twofa/confirmLoginWithPasskey`,
       noAuth: true,
       handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
+        if (!this.options.passkeys) {
+          return { error: 'Passkeys are not enabled' };
+        }
         if ( this.options.passkeys.allowLoginWithPasskeys !== true ) {
           return { error: 'Login with passkeys is not allowed' };
         }
@@ -483,7 +486,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           this.adminforth.auth.setAuthCookie({
             response,
             username,
-            pk: user.id,
+            pk: user[usersPrimaryKeyFieldName],
             expireInDuration: rememberDaysAfterPasskeyLogin ? rememberDaysAfterPasskeyLogin : this.adminforth.config.auth.rememberMeDuration,
           });
         }
@@ -568,6 +571,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/registerPasskeyRequest`,
       noAuth: false,
       handler: async ({ body, adminUser, response, cookies, headers }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         const mode = body?.mode;
 
         const confirmationResult = body?.confirmationResult;
@@ -634,6 +640,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/finishRegisteringPasskey`,
       noAuth: false,
       handler: async ({body, adminUser, cookies }) => {
+        if (!this.options.passkeys) {
+          return { error: 'Passkeys are not enabled' };
+        }
         const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "registerPasskeyTemporaryJWT"});
         if (!passkeysCookies) {
           return { error: 'Passkey token is required' };
@@ -715,6 +724,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/signInRequest`,
       noAuth: true,
       handler: async ({ response }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         try {
           const options = await generateAuthenticationOptions({
             rpID: this.options.passkeys.settings.rp.id,
@@ -733,6 +745,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/getPasskeys`,
       noAuth: false,
       handler: async ({ adminUser }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         let passkeys;
         try {
           passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)] );
@@ -759,6 +774,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/deletePasskey`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         const credentialID = body.passkeyId;
         if (!credentialID) {
           return { ok: false, error: 'Passkey ID is required' };
@@ -796,6 +814,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/renamePasskey`,
       noAuth: false,
       handler: async ({body, adminUser }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         const credentialID = body.passkeyId;
         const newName = body.newName;
         if (!credentialID) {
@@ -866,6 +887,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/resolveVerifyAuto`,
       noAuth: false,
       handler: async ({ body, adminUser, response, cookies, headers }) => {
+        if (!this.options.passkeys) {
+          return { ok: false, error: 'Passkeys are not enabled' };
+        }
         const sessionsIds = body?.sessionsIds;
         if (!Array.isArray(sessionsIds) || sessionsIds.length === 0) {
           return { ok: false, error: 'No sessions to resolve' };

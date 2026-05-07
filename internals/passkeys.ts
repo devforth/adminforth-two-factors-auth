@@ -94,6 +94,7 @@ export async function verifyPasskeyResponse(plugin: any, body: any, user_id: str
       plugin.unlockChellenge(expectedChallenge);
     }
   } catch (e) {
-    return { ok: false, error: 'Error authenticating passkey: ' + e };
+    const errorMessage = e instanceof Error ? e.message : String(e);
+    return { ok: false, error: 'Error authenticating passkey: ' + errorMessage };
   }
 }

@@ -31,14 +31,18 @@ export async function confirmNewTotpSetup(plugin: any, body: any, decoded: any, 
   return finishTotpLogin(plugin, response, decoded);
 }
 
-export async function confirmPasskeyLogin(plugin: any, passkeyOptions: any, userPk: string, cookies: any): Promise<boolean> {
+export async function confirmPasskeyLogin(plugin: any, passkeyOptions: any, userPk: string, cookies: any): Promise<{ ok: true } | { error: string }> {
   const cookiesValidationResult = await validateCookiesForPasskeyLogin(plugin, cookies);
   if (!cookiesValidationResult.ok) {
-    return false;
+    return { error: cookiesValidationResult.error };
   }
 
   const res = await verifyPasskeyResponse(plugin, passkeyOptions, userPk, cookiesValidationResult.decodedPasskeysCookies);
-  return res.ok && res.passkeyConfirmed;
+  if (!res.ok || !res.passkeyConfirmed) {
+    return { error: res.error || 'Passkey verification failed' };
+  }
+
+  return { ok: true };
 }
 
 export async function confirmTotpLogin(plugin: any, userPk: string, code: string): Promise<boolean> {
@@ -48,9 +52,16 @@ export async function confirmTotpLogin(plugin: any, userPk: string, code: string
 }
 
 export async function confirmExistingSecondFactor(plugin: any, body: any, decoded: any, response: IAdminForthHttpResponse, cookies: any) {
-  const verified = body.usePasskey && plugin.options.passkeys
-    ? await confirmPasskeyLogin(plugin, body.passkeyOptions, decoded.pk, cookies)
-    : await confirmTotpLogin(plugin, decoded.pk, body.code);
+  if (body.usePasskey && plugin.options.passkeys) {
+    const verificationResult = await confirmPasskeyLogin(plugin, body.passkeyOptions, decoded.pk, cookies);
+    if ('error' in verificationResult) {
+      return { error: verificationResult.error };
+    }
+
+    return finishTotpLogin(plugin, response, decoded);
+  }
+
+  const verified = await confirmTotpLogin(plugin, decoded.pk, body.code);
 
   if (!verified) {
     return { error: 'Verification failed' };
