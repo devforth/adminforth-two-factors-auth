@@ -1,22 +1,24 @@
-import {  AdminForthPlugin, Filters, suggestIfTypo, HttpExtra, convertPeriodToSeconds } from "adminforth";
+import {  AdminForthPlugin, Filters, HttpExtra, convertPeriodToSeconds } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
-  generateAuthenticationOptions,
-  verifyAuthenticationResponse
+  generateAuthenticationOptions
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
 import aaguids from './custom/aaguid.json';
 import crypto from 'crypto';
+import { issueTempSkip2FAGraceJWT, isTempSkip2FAGraceValid } from "./internals/mfa-grace.js";
+import { getPasskeysRpID, validateCookiesForPasskeyLogin, verifyPasskeyResponse } from "./internals/passkeys.js";
+import { confirmExistingSecondFactor, confirmNewTotpSetup } from "./internals/totp.js";
+import { validatePluginConfig } from "./internals/config-validation.js";
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
   adminforth: IAdminForth;
   authResource: AdminForthResource;
-  connectors: any;
   adminForthAuth: IAdminForthAuth;
 
   constructor(options: PluginOptions) {
@@ -27,37 +29,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   instanceUniqueRepresentation(pluginOptions: any) : string {
     return `single`;
-  }
-
-  private useChellenge(challenge: string, expiresIn?: string): void {
-    const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
-    this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
-  }
-
-  private async checkIfChellengeNotUsed(challenge: string): Promise<boolean> {
-    const res = await this.options.passkeys.keyValueAdapter.get(challenge);
-    if (!res) {
-      return true;
-    }
-    return false;
-  }
-
-  private async validateCookiesForPasskeyLogin(cookies: any): Promise<{ok: boolean, decodedPasskeysCookies?: any, error?: string}> {
-    const passkeysCookies = this.adminforth.auth.getCustomCookie({cookies: cookies, name: `passkeyLoginTemporaryJWT`});
-    if (!passkeysCookies) {
-      return { ok: false, error: 'Passkey token is required' };
-    }
-
-    const decodedPasskeysCookies = await this.adminforth.auth.verify(passkeysCookies, 'tempLoginPasskeyChallenge', false);
-    const isChallangeValid = await this.checkIfChellengeNotUsed(decodedPasskeysCookies.challenge);
-    if (isChallangeValid) {
-      this.useChellenge(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
-    }
-
-    if (!decodedPasskeysCookies || !isChallangeValid) {
-      return { ok: false, error: 'Invalid passkey' };
-    }
-    return { ok: true, decodedPasskeysCookies };
   }
 
   public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
@@ -76,7 +47,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //check if user has 2FA set up
       const users2FASecret = userRecord[this.options.twoFaSecretFieldName];
       //check if user has any passkeys registered
-      const passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.dbUser[userPkFieldName])] );
+      const passkeys = this.options.passkeys
+        ? await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.dbUser[userPkFieldName])] )
+        : [];
 
       // If user has either 2FA secret or any passkeys, they cannot skip
       if (users2FASecret || (passkeys && passkeys.length > 0)) {
@@ -87,65 +60,53 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return { skipAllowed: false };
   }
 
-  private generateHashForStepUpMfaGraceCookie(headers, cookies): string {
-    const ip = this.adminforth.auth.getClientIp(headers);
-    const userAgent = headers['user-agent'] || '';
-    const acceptLanguage = headers['accept-language'] || '';
-    const session_cookie = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "jwt"});
-    if (!ip || !userAgent || !acceptLanguage || !session_cookie) {
-      console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
-      return null;
-    } else {
-      const hmac = crypto.createHmac('sha256', process.env.ADMINFORTH_SECRET)
-        .update(`${acceptLanguage}_${userAgent}_${ip}_${session_cookie}`)
-        .digest('hex');
-      return hmac;
-    }
-  }
+  private challengeUseLocks = new Set<string>();
 
-  private issueTempSkip2FAGraceJWT(opts, cookies, response): void {
-    if (response) {
-      if (opts.extra.headers) {
-        const hash = this.generateHashForStepUpMfaGraceCookie(opts.extra.headers, cookies);
-        if (!hash) {
-          return;
-        }
-        const jwt = this.adminforth.auth.issueJWT({ hash: hash }, 'MfaGrace', `${this.options.stepUpMfaGracePeriodSeconds}s`);
-        //TODO: fix ts-ignore after releasing new version of adminforth with updated types
-        //@ts-ignore 
-        this.adminforth.auth.setCustomCookie({response: response, payload: {name: "TempSkip2FA_Modal_JWT", sessionBased: true, value: jwt, httpOnly: true}});
+  public async lockUnusedChellenge(challenge: string): Promise<boolean> {
+    if (this.challengeUseLocks.has(challenge)) {
+      return false;
+    }
+    this.challengeUseLocks.add(challenge);
+
+    try {
+      const res = await this.options.passkeys.keyValueAdapter.get(challenge);
+      if (res) {
+        this.challengeUseLocks.delete(challenge);
+        return false;
       }
-    } else {
-      console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
+      return true;
+    } catch (error) {
+      this.challengeUseLocks.delete(challenge);
+      throw error;
     }
   }
 
-  private async isTempSkip2FAGraceValid(headers, cookies, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
-    const hash = this.generateHashForStepUpMfaGraceCookie(headers, cookies);
-    if (!hash) {
-      return false;
-    }
-    const jwt = this.adminforth.auth.getCustomCookie({cookies: cookies, name: "TempSkip2FA_Modal_JWT"});
-    const jwtVerificationResult = await this.adminforth.auth.verify(jwt, 'MfaGrace', false) 
-    if (!jwtVerificationResult) {
-      return false;
-    }
-    const jwtHash = jwtVerificationResult['hash'];
-    if (checkIfJWTAboutToExpire && (jwtVerificationResult["exp"] - ( Date.now() / 1000)) < 30 ) {
-      console.error("❗️❗️❗️ Cannot validate step-up MFA grace cookie: token is expired or about to expire ❗️❗️❗️");
-      return false;
-    }
-    if (hash === jwtHash) {
-      return true;
-    }
-    return false;
+  public async useChellenge(challenge: string, expiresIn?: string): Promise<void> {
+    const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
+    await this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
+  }
+
+  public unlockChellenge(challenge: string): void {
+    this.challengeUseLocks.delete(challenge);
   }
 
   private pending = new Map<string, (value: any) => void>();
 
-  private waitForResponse(id: string): Promise<any> {
+  private waitForResponse(id: string, timeoutMs: number): Promise<any> {
     return new Promise((resolve) => {
-      this.pending.set(id, resolve);
+      let timeout: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.pending.delete(id);
+      };
+      timeout = setTimeout(() => {
+        cleanup();
+        resolve({ ok: false, error: 'Verification timed out' });
+      }, timeoutMs);
+      this.pending.set(id, (value: any) => {
+        cleanup();
+        resolve(value);
+      });
     });
   }
 
@@ -153,16 +114,20 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const resolve = this.pending.get(id);
     if (resolve) {
       resolve(data);
-      this.pending.delete(id);
     }
   }
 
   public async verifyAuto(adminUser: AdminUser) {
     const sessionId = crypto.randomUUID();
     const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
+    const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
+
     this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId: jwt });
-    const result = await this.waitForResponse(jwt);
+
+    const result = await resultPromise;
+
     this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId: jwt });
+
     return result;
   }
 
@@ -171,7 +136,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     opts?: { adminUser?: AdminUser; userPk?: string; cookies?: any, response?: IAdminForthHttpResponse, extra?: HttpExtra }
   ): Promise<{ ok: true } | { error: string }> {
     if (!confirmationResult) return { error: "Confirmation result is required" };
-    if (!opts.adminUser) return { error: "Admin user is required" };
+    if (!opts?.adminUser) return { error: "Admin user is required" };
     if (!opts.userPk) return    { error: "User PK is required" };
     const cookies = opts.extra?.cookies || opts.cookies;
     const response = opts.extra?.response || opts.response;
@@ -188,7 +153,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       }
     }
     if ( this.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
-      const verificationResult = await this.isTempSkip2FAGraceValid(opts.extra.headers, cookies);
+      const verificationResult = await isTempSkip2FAGraceValid(this, opts.extra.headers, cookies);
       if ( verificationResult === true ) {
         return { ok: true };
       }
@@ -219,24 +184,24 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //* SET GRACE COOKIE *//
       if ( verified ) { 
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts, cookies, response);
+          issueTempSkip2FAGraceJWT(this, opts, cookies, response);
         }
         return { ok: true } 
       } else { 
         return { error: "Wrong or expired OTP code" } 
       };
     } else if (confirmationResult.mode === "passkey") {
-      const cookiesValidationResult = await this.validateCookiesForPasskeyLogin(cookies);
+      const cookiesValidationResult = await validateCookiesForPasskeyLogin(this, cookies);
       if (!cookiesValidationResult.ok) {
         return { error: cookiesValidationResult.error };
       }
-      const verificationResult = await this.verifyPasskeyResponse(confirmationResult.result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
+      const verificationResult = await verifyPasskeyResponse(this, confirmationResult.result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
 
       if (verificationResult.ok && verificationResult.passkeyConfirmed) {
 
         //* SET GRACE COOKIE *//
         if (this.options.stepUpMfaGracePeriodSeconds) {
-          this.issueTempSkip2FAGraceJWT(opts, cookies, response);
+          issueTempSkip2FAGraceJWT(this, opts, cookies, response);
         }
         return  { ok: true }
       }
@@ -263,72 +228,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  public async verifyPasskeyResponse(body: any, user_id: string, cookies: any) {
-    const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
-    const expectedOrigin = body.origin;
-    const expectedChallenge = cookies.challenge;
-    const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
-    const response = JSON.parse(body.response);
-    try {
-      if (settingsOrigin !== expectedOrigin) {
-        throw new Error(`Origin mismatch. Allowed in settings: ${settingsOrigin}, received from client: ${expectedOrigin}`);
-      }
-      const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
-      if (!cred) {
-        throw new Error('Credential not found.');
-      }
-      const credMeta = JSON.parse(cred[this.options.passkeys.credentialMetaFieldName]);
-      if (!credMeta || !credMeta.public_key) {
-        throw new Error('Credential public key not found.');
-      }
-      const userResourceId = this.adminforth.config.auth.usersResourceId;
-      const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
-      const usersPrimaryKeyColumn = usersResource.columns.find((col) => col.primaryKey);
-      const usersPrimaryKeyFieldName = usersPrimaryKeyColumn.name;
-      const user = await this.adminforth.resource(userResourceId).get([Filters.EQ(usersPrimaryKeyFieldName, cred[this.options.passkeys.credentialUserIdFieldName])]);
-      if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
-        throw new Error('User not found.');
-      }
-      const { verified, authenticationInfo } = await verifyAuthenticationResponse({
-        response,
-        expectedChallenge,
-        expectedOrigin: settingsOrigin,
-        expectedRPID,
-        credential: {
-          id: cred[this.options.passkeys.credentialIdFieldName],
-          publicKey: isoBase64URL.toBuffer(credMeta.public_key),
-          counter: credMeta.counter,
-          transports: credMeta.transports,
-        },
-        requireUserVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification === 'discouraged' ? false : true,
-      });
-
-      if (!verified) {
-        return { ok: false, error: 'User verification failed.' };
-      }
-      credMeta.counter = authenticationInfo.newCounter;
-      credMeta.last_used_at = new Date().toISOString();
-      const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
-      const credResourcePKColumn = credResource?.columns.find(c => c.primaryKey);
-      if (!credResource || !credResourcePKColumn) {
-        throw new Error('Credential resource or its primary key is not configured correctly');
-      }
-      const credResourcePKName = credResourcePKColumn.name;
-      await this.adminforth
-        .resource(this.options.passkeys.credentialResourceID)
-        .update(cred[credResourcePKName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
-      return { ok: true, passkeyConfirmed: true };
-    } catch (e) {
-      return { ok: false, error: 'Error authenticating passkey: ' + e };
-    }
-  }
-
   modifyResourceConfig(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
     super.modifyResourceConfig(adminforth, resourceConfig);
     this.adminforth = adminforth;
     this.adminForthAuth = adminforth.auth;
     const suggestionPeriod = this.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
-    const isPasskeysEnabled = this.options.passkeys ? true : false;
+    const isPasskeysEnabled = Boolean(this.options.passkeys);
 
     const customPages = this.adminforth.config.customization.customPages
     customPages.push({
@@ -372,88 +277,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   validateConfigAfterDiscover(adminforth: IAdminForth, resourceConfig: AdminForthResource) {
-    if (this.options.passkeys) {
-
-      const adminForthResources = [];
-      for (const res of adminforth.config.resources) {
-        adminForthResources.push(res.resourceId);
-      }
-      if (!this.options.passkeys.credentialResourceID) {
-        throw new Error('Passkeys credentialResourceID is required');
-      }
-      if ( !(adminForthResources.includes(this.options.passkeys.credentialResourceID)) ) {
-        throw new Error('Passkeys credentialResourceID is not valid');
-      }
-      if (!this.options.passkeys.credentialIdFieldName) {
-        throw new Error('Passkeys credentialIdFieldName is required');
-      }
-
-      if (!this.options.passkeys.keyValueAdapter) {
-        throw new Error('Passkeys keyValueAdapter is required');
-      }
-
-      const credentialResource = adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID); 
-      const credentialIDField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialIdFieldName);
-      if ( !credentialIDField ) {
-        const similar = suggestIfTypo(credentialResource.columns.map(c => c.name), this.options.passkeys.credentialIdFieldName);
-        throw new Error(
-          `Passkeys credentialIdFieldName '${this.options.passkeys.credentialIdFieldName}' not found in resource '${this.options.passkeys.credentialResourceID}'. ${
-            similar ? `Did you mean '${similar}'?` : ''
-          }`
-        );
-      }
-      credentialIDField.backendOnly = true;
-
-      if (!this.options.passkeys.credentialMetaFieldName) {
-        throw new Error('Passkeys credentialMetaFieldName is required');
-      }
-
-      const metaResource = adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialMetaFieldName); 
-      const metaField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialMetaFieldName);
-      if ( !metaField ) {
-        const similar = suggestIfTypo(metaResource.columns.map(c => c.name), this.options.passkeys.credentialMetaFieldName);
-        throw new Error(
-          `Passkeys credentialMetaFieldName '${this.options.passkeys.credentialMetaFieldName}' not found in resource '${this.options.passkeys.credentialMetaFieldName}'. ${
-            similar ? `Did you mean '${similar}'?` : ''
-          }`
-        );
-      }
-      metaField.backendOnly = true;
-
-
-      if (!this.options.passkeys.credentialUserIdFieldName) {
-        throw new Error('Passkeys credentialUserIdFieldName is required');
-      }
-      if (!this.options.passkeys.settings) {
-        throw new Error('Passkeys settings are required when passkeys option is enabled');
-      }
-      if (!this.options.passkeys.settings.expectedOrigin) {
-        throw new Error('Passkeys settings.expectedOrigin is required');
-      }
-      const origin = new URL( this.options.passkeys.settings.expectedOrigin ).origin;
-      if ( origin !== this.options.passkeys.settings.expectedOrigin ) {
-        throw new Error('Passkeys settings.expectedOrigin is not valid');
-      }
-      if (this.options.passkeys.settings.authenticatorSelection) {
-        if (this.options.passkeys.settings.authenticatorSelection.authenticatorAttachment) {
-          if ( !['platform', 'cross-platform', 'both'].includes(this.options.passkeys.settings.authenticatorSelection.authenticatorAttachment) ) {
-            throw new Error('Passkeys settings.authenticatorSelection.authenticatorAttachment is not valid');
-          }
-        }
-        if (this.options.passkeys.settings.authenticatorSelection.userVerification) {
-          if ( !['required', 'discouraged'].includes(this.options.passkeys.settings.authenticatorSelection.userVerification) ) {
-            throw new Error('Passkeys settings.authenticatorSelection.userVerification is not valid');
-          }
-        }
-      }
-
-      if (!this.options.passkeys.settings.user) {
-        throw new Error('Passkeys settings.user is required');
-      }
-      if (!this.options.passkeys.settings.user.nameField) {
-        throw new Error('Passkeys settings.user.nameField is required');
-      }
-    }
+    validatePluginConfig(this, adminforth);
   }
 
   activate ( resourceConfig: AdminForthResource, adminforth: IAdminForth ){
@@ -476,7 +300,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
 
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
-    const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
+    const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation)
+      ? beforeLoginConfirmation
+      : beforeLoginConfirmation
+        ? [beforeLoginConfirmation]
+        : [];
     beforeLoginConfirmationArray.push(
       async({ adminUser, response, adminforth, extra, sessionDuration }: { adminUser: AdminUser, response: IAdminForthHttpResponse, adminforth: IAdminForth, extra?: HttpExtra,  sessionDuration?: string} )=> {
         if ( extra?.meta?.loginAllowedByPasskeyDirectSignIn === true) {
@@ -528,6 +356,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         
       })
+    this.adminforth.config.auth.beforeLoginConfirmation = beforeLoginConfirmationArray as BeforeLoginConfirmationFunction[];
   }
 
   setupEndpoints(server: IHttpServer): void {
@@ -561,49 +390,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { error: 'Login session expired. Please log in again.' }
         }
 
-        if (decoded.newSecret) {
-          // set up standard TOTP request - ensured by presence of newSecret in temp2FA token
-          const verified = body.skip && decoded.userCanSkipSetup ? true : twofactor.verifyToken(decoded.newSecret, body.code, this.options.timeStepWindow);
-          if (verified) {
-            this.connectors = this.adminforth.connectors
-            if (!body.skip) {
-              const connector = this.connectors[this.authResource.dataSource];
-              await connector.updateRecord({resource:this.authResource, recordId:decoded.pk, newValues:{[this.options.twoFaSecretFieldName]: decoded.newSecret}})
-            }
-            this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
-            return { status: 'ok', allowedLogin: true }
-          } else {
-            return {error: 'Wrong or expired OTP code'}
-          }
-        } else {
-          // login with confirming existing TOTP or Passkey
-          let verified = null;
-          if (body.usePasskey && this.options.passkeys) {
-            // passkeys are enabled and user wants to use them
-            const cookiesValidationResult = await this.validateCookiesForPasskeyLogin(cookies);
-            if (!cookiesValidationResult.ok) {
-              return { error: cookiesValidationResult.error };
-            }
-            const res = await this.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, cookiesValidationResult.decodedPasskeysCookies);
-            if (res.ok && res.passkeyConfirmed) {
-              verified = true;
-            }
-          } else {
-            // user already has TOTP secret, get it
-            this.connectors = this.adminforth.connectors
-            const connector = this.connectors[this.authResource.dataSource];
-            const user = await connector.getRecordByPrimaryKey(this.authResource, decoded.pk)
-            verified = twofactor.verifyToken(user[this.options.twoFaSecretFieldName], body.code, this.options.timeStepWindow);
-          }
-          if (verified) {
-            this.adminforth.auth.removeCustomCookie({response, name:'2FaTemporaryJWT'})
-            this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
-            return { status: 'ok', allowedLogin: true }
-          } else {
-            return {error: 'Verification failed'}
-          }
-        }
+        return decoded.newSecret
+          ? confirmNewTotpSetup(this, body, decoded, response)
+          : confirmExistingSecondFactor(this, body, decoded, response, cookies);
       }
     })
     server.endpoint({
@@ -620,7 +409,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { error: 'Passkey response is required' };
         }
 
-        const cookiesValidationResult = await this.validateCookiesForPasskeyLogin(cookies);
+        const cookiesValidationResult = await validateCookiesForPasskeyLogin(this, cookies);
         if (!cookiesValidationResult.ok) {
           return { error: cookiesValidationResult.error };
         }
@@ -655,7 +444,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { error: 'User not found' };
         }
 
-        const verificationResult = await this.verifyPasskeyResponse(passkeyResponse, userPk, cookiesValidationResult.decodedPasskeysCookies);
+        const verificationResult = await verifyPasskeyResponse(this, passkeyResponse, userPk, cookiesValidationResult.decodedPasskeysCookies);
         if (!verificationResult.ok || !verificationResult.passkeyConfirmed) {
           return { error: 'Passkey verification failed' };
         }
@@ -663,7 +452,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         const adminUser = { 
           dbUser: user,
-          pk: user.id,
+          pk: user[usersPrimaryKeyFieldName],
           username,
         };
         
@@ -745,7 +534,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
 
         if ( this.options.stepUpMfaGracePeriodSeconds ) {
-          const verificationResult = await this.isTempSkip2FAGraceValid(headers, cookies, true);
+          const verificationResult = await isTempSkip2FAGraceValid(this, headers, cookies, true);
           if ( verificationResult === true ) {
             return { skipAllowed: true };
           }
@@ -797,8 +586,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const rp = {
-          name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
-          id: this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname,
+          name: this.options.passkeys?.settings?.rp?.name || this.adminforth.config.customization.brandName,
+          id: getPasskeysRpID(this),
         };
         const userResourceId = this.adminforth.config.auth.usersResourceId;
         const usersResource = this.adminforth.config.resources.find(r => r.resourceId === userResourceId);
@@ -831,8 +620,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           excludeCredentials,
           authenticatorSelection: {
             authenticatorAttachment: mode,
-            requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey || true,
-            userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
+            requireResidentKey: this.options.passkeys?.settings.authenticatorSelection?.requireResidentKey ?? true,
+            userVerification: this.options.passkeys?.settings.authenticatorSelection?.userVerification || "required"
           },
         });
         const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge, "user_id": adminUser.pk }, 'registerTempPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
@@ -863,7 +652,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
         const expectedOrigin = body.origin;
         const expectedChallenge = decodedPasskeysCookies.challenge;
-        const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
+        const expectedRPID = getPasskeysRpID(this);
         const response = JSON.parse(body.credential);
         try {
           if (settingsOrigin !== expectedOrigin) {
@@ -874,7 +663,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             expectedChallenge,
             expectedOrigin,
             expectedRPID,
-            requireUserVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification === 'discouraged' ? false : true,
+            requireUserVerification: this.options.passkeys?.settings.authenticatorSelection?.userVerification === 'discouraged' ? false : true,
           });
 
           if (!verified) {
@@ -928,8 +717,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       handler: async ({ response }) => {
         try {
           const options = await generateAuthenticationOptions({
-            rpID: this.options.passkeys?.settings.rp.id,
-            userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
+            rpID: this.options.passkeys.settings.rp.id,
+            userVerification: this.options.passkeys?.settings.authenticatorSelection?.userVerification || "required"
           });
           const value = this.adminforth.auth.issueJWT({ "challenge": options.challenge }, 'tempLoginPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
           this.adminforth.auth.setCustomCookie({response, payload: {name: `passkeyLoginTemporaryJWT`, value: value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true}});
@@ -962,7 +751,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             id: pk[this.options.passkeys.credentialIdFieldName],
           });
         }
-        return { ok: true, data: dataToReturn, authenticatorAttachment: this.options.passkeys?.settings.authenticatorSelection.authenticatorAttachment || 'both' };
+        return { ok: true, data: dataToReturn, authenticatorAttachment: this.options.passkeys?.settings.authenticatorSelection?.authenticatorAttachment || 'both' };
       }
     });
     server.endpoint({
@@ -989,10 +778,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             throw new Error('Credential resource primary key not found.');
           }
           const credResourcePKName = credResourcePKColumn.name;
-          const passkeyRecord = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, credentialID), Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
-          if (!passkeyRecord) {
-            return { ok: false, error: 'Passkey not found' };
-          }
           await this.adminforth.deleteResourceRecord({
             resource: credResource,
             recordId: passkeyRecord[credResourcePKName],
@@ -1082,8 +867,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       noAuth: false,
       handler: async ({ body, adminUser, response, cookies, headers }) => {
         const sessionsIds = body?.sessionsIds;
+        if (!Array.isArray(sessionsIds) || sessionsIds.length === 0) {
+          return { ok: false, error: 'No sessions to resolve' };
+        }
         const confirmationResult = body?.confirmationResult;
-        const idsToResolve = sessionsIds;
+        const idsToResolve = Array.isArray(sessionsIds) ? sessionsIds : [];
 
         const resolveAllIdsAsFailed = (message) => {
           for (const id of idsToResolve) {
@@ -1092,7 +880,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { ok: false, error: message };
         }
 
-        if (!(sessionsIds) || !confirmationResult) {
+        if (!idsToResolve.length || !confirmationResult) {
           return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
         }
 
