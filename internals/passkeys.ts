@@ -1,8 +1,61 @@
-import { Filters } from "adminforth";
+import { Filters, convertPeriodToSeconds } from "adminforth";
 import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoBase64URL } from '@simplewebauthn/server/helpers';
+
+const challengeUseLocks = new WeakMap<object, Set<string>>();
+const warnedAboutNonAtomicChallengeReservation = new WeakSet<object>();
+
+function getChallengeLocks(plugin: object): Set<string> {
+  let locks = challengeUseLocks.get(plugin);
+  if (!locks) {
+    locks = new Set<string>();
+    challengeUseLocks.set(plugin, locks);
+  }
+  return locks;
+}
+
+async function reservePasskeyChallenge(plugin: any, challenge: string): Promise<boolean> {
+  const locks = getChallengeLocks(plugin);
+  if (locks.has(challenge)) {
+    return false;
+  }
+  locks.add(challenge);
+
+  try {
+    const expiresInSeconds = convertPeriodToSeconds(plugin.options.passkeys?.challengeValidityPeriod || '2m');
+    const adapter = plugin.options.passkeys.keyValueAdapter as any;
+    const atomicReserve = adapter.setIfNotExists || adapter.setNX || adapter.setnx;
+    if (typeof atomicReserve === 'function') {
+      const reserved = await atomicReserve.call(adapter, challenge, 'stub_value', expiresInSeconds);
+      if (!reserved) {
+        locks.delete(challenge);
+        return false;
+      }
+      return true;
+    }
+
+    if (!warnedAboutNonAtomicChallengeReservation.has(plugin)) {
+      console.warn('Passkeys keyValueAdapter does not support atomic challenge reservation; challenge replay protection is not safe for multi-instance deployments.');
+      warnedAboutNonAtomicChallengeReservation.add(plugin);
+    }
+    const existingChallenge = await adapter.get(challenge);
+    if (existingChallenge) {
+      locks.delete(challenge);
+      return false;
+    }
+    await adapter.set(challenge, 'stub_value', expiresInSeconds);
+    return true;
+  } catch (error) {
+    locks.delete(challenge);
+    throw error;
+  }
+}
+
+function releasePasskeyChallenge(plugin: any, challenge: string): void {
+  challengeUseLocks.get(plugin)?.delete(challenge);
+}
 
 export function getPasskeysRpID(plugin: any): string {
   return plugin.options.passkeys?.settings?.rp?.id || (new URL(plugin.options.passkeys.settings.expectedOrigin)).hostname;
@@ -51,8 +104,8 @@ export async function verifyPasskeyResponse(plugin: any, body: any, user_id: str
     if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
       throw new Error('User not found.');
     }
-    const isChallangeValid = await plugin.lockUnusedChellenge(expectedChallenge);
-    if (!isChallangeValid) {
+    const isChallengeValid = await reservePasskeyChallenge(plugin, expectedChallenge);
+    if (!isChallengeValid) {
       return { ok: false, error: 'Invalid passkey' };
     }
     try {
@@ -76,7 +129,6 @@ export async function verifyPasskeyResponse(plugin: any, body: any, user_id: str
       if (!verified) {
         return { ok: false, error: 'User verification failed.' };
       }
-      await plugin.useChellenge(expectedChallenge, plugin.options.passkeys?.challengeValidityPeriod || '2m');
       credMeta.sign_count = authenticationInfo.newCounter;
       delete credMeta.counter;
       credMeta.last_used_at = new Date().toISOString();
@@ -91,7 +143,7 @@ export async function verifyPasskeyResponse(plugin: any, body: any, user_id: str
         .update(cred[credResourcePKName], { [plugin.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
       return { ok: true, passkeyConfirmed: true };
     } finally {
-      plugin.unlockChellenge(expectedChallenge);
+      releasePasskeyChallenge(plugin, expectedChallenge);
     }
   } catch (e) {
     const errorMessage = e instanceof Error ? e.message : String(e);

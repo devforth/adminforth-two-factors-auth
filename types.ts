@@ -1,6 +1,13 @@
 import { AdminUser, KeyValueAdapter } from "adminforth";
 import  {type PluginsCommonOptions } from "adminforth";
 
+type AtomicChallengeReservationResult = boolean | string | number | null | undefined;
+type PasskeysKeyValueAdapter = KeyValueAdapter & {
+    setIfNotExists?: (key: string, value: string, expiresInSeconds?: number) => Promise<AtomicChallengeReservationResult>;
+    setNX?: (key: string, value: string, expiresInSeconds?: number) => Promise<AtomicChallengeReservationResult>;
+    setnx?: (key: string, value: string, expiresInSeconds?: number) => Promise<AtomicChallengeReservationResult>;
+};
+
 export interface PluginOptions extends PluginsCommonOptions {
 
     /**
@@ -38,7 +45,7 @@ export interface PluginOptions extends PluginsCommonOptions {
         /**
          * KeyValueAdapter is required to make sure that generated challenge can't be reused more than once
          */
-        keyValueAdapter: KeyValueAdapter,
+        keyValueAdapter: PasskeysKeyValueAdapter,
 
 
         /** 

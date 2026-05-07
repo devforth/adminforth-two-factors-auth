@@ -1,4 +1,4 @@
-import {  AdminForthPlugin, Filters, HttpExtra, convertPeriodToSeconds } from "adminforth";
+import {  AdminForthPlugin, Filters, HttpExtra } from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, BeforeLoginConfirmationFunction, IAdminForthHttpResponse } from "adminforth";
 import twofactor from 'node-2fa';
 import  { PluginOptions } from "./types.js"
@@ -58,36 +58,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       return { skipAllowed: res };
     }
     return { skipAllowed: false };
-  }
-
-  private challengeUseLocks = new Set<string>();
-
-  public async lockUnusedChellenge(challenge: string): Promise<boolean> {
-    if (this.challengeUseLocks.has(challenge)) {
-      return false;
-    }
-    this.challengeUseLocks.add(challenge);
-
-    try {
-      const res = await this.options.passkeys.keyValueAdapter.get(challenge);
-      if (res) {
-        this.challengeUseLocks.delete(challenge);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      this.challengeUseLocks.delete(challenge);
-      throw error;
-    }
-  }
-
-  public async useChellenge(challenge: string, expiresIn?: string): Promise<void> {
-    const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
-    await this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
-  }
-
-  public unlockChellenge(challenge: string): void {
-    this.challengeUseLocks.delete(challenge);
   }
 
   private pending = new Map<string, (value: any) => void>();

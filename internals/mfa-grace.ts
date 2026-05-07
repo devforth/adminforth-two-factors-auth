@@ -42,6 +42,9 @@ export async function isTempSkip2FAGraceValid(plugin: any, headers: any, cookies
     return false;
   }
   const jwt = plugin.adminforth.auth.getCustomCookie({cookies: cookies, name: "TempSkip2FA_Modal_JWT"});
+  if (!jwt) {
+    return false;
+  }
   const jwtVerificationResult = await plugin.adminforth.auth.verify(jwt, 'MfaGrace', false)
   if (!jwtVerificationResult) {
     return false;
