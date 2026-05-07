@@ -1,7 +1,7 @@
 <template>
     <div class="af-passkeys flex flex-col justify-center mr-6 md:mr-12">
         <h2 class="af-passkeys-title flex items-start justify-start leading-none text-gray-800 dark:text-gray-50 text-3xl font-semibold">{{$t('Passkeys')}}</h2>
-        <p class="af-passkeys-subtitle text-sm mt-3">Manage your passwordless authentication methods</p>
+        <p class="af-passkeys-subtitle text-sm mt-3"> {{$t('Manage your passwordless authentication methods')}} </p>
 
         <div class="af-passkeys-grid mt-6 flex flex-wrap gap-4">
             <div
@@ -177,13 +177,13 @@
         isFetchingPasskey.value = true;
         try {
             const confirmationResult = await window.adminforthTwoFaModal
-                .get2FaConfirmationResult('To add passkey first verify yourself');
+                .get2FaConfirmationResult(t('To add passkey first verify yourself'));
 
             if (!confirmationResult) return;
 
             const { options, error } = await requestPasskeyChallenge(confirmationResult);
             if (!options) {
-                adminforth.alert({ message: error ?? 'Verification failed.', variant: 'warning' });
+                adminforth.alert({ message: error ?? t('Verification failed.'), variant: 'warning' });
                 return;
             }
 
@@ -210,9 +210,9 @@
             passkeys.value = response.data;
             authenticatorAttachment.value = response.authenticatorAttachment;
         } catch (error) {
-            console.error('Error fetching passkeys:', error);
+            console.error(t('Error fetching passkeys:'), error);
             if (coreStore.adminUser?.username) {
-                adminforth.alert({ message: 'Error fetching passkeys.', variant: 'warning' });
+                adminforth.alert({ message: t('Error fetching passkeys.'), variant: 'warning' });
             }
         }
     }
@@ -226,12 +226,12 @@
                 method: 'POST',
                 body: { mode: addPasskeyMode.value, confirmationResult },
             });
-            if (!response.ok) return { error: response.error ?? 'Verification failed' };
+            if (!response.ok) return { error: response.error ?? t('Verification failed') };
             const options = PublicKeyCredential.parseCreationOptionsFromJSON(response.data);
             return { options, challengeId: response.challengeId };
         } catch (error) {
-            console.error('Error requesting passkey challenge:', error);
-            return { error: 'Failed to request passkey challenge' };
+            console.error(t('Error requesting passkey challenge:', error));
+            return { error: t('Failed to request passkey challenge' )};
         }
     }
 
@@ -240,8 +240,8 @@
             const credential = await navigator.credentials.create({ publicKey: options });
             return JSON.stringify((credential as PublicKeyCredential).toJSON());
         } catch (error) {
-            console.error('Error creating WebAuthn credential:', error);
-            adminforth.alert({ message: 'Error creating passkey.', variant: 'warning' });
+            console.error(t('Error creating WebAuthn credential:', error));
+            adminforth.alert({ message: t('Error creating passkey.'), variant: 'warning' });
             return null;
         }
     }
@@ -254,13 +254,13 @@
                 body: { credential, origin: window.location.origin },
             });
             if (res.ok) {
-                adminforth.alert({ message: 'Passkey registered successfully!', variant: 'success' });
+                adminforth.alert({ message: t('Passkey registered successfully!'), variant: 'success' });
                 getPasskeys();
             } else {
-                adminforth.alert({ message: 'Error registering passkey.', variant: 'warning' });
+                adminforth.alert({ message: t('Error registering passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error('Error registering passkey:', error);
+            console.error(t('Error registering passkey:', error));
         }
     }
 
@@ -283,15 +283,15 @@
                 body: { passkeyId },
             });
             if (response.ok) {
-                adminforth.alert({ message: 'Passkey deleted successfully!', variant: 'success' });
+                adminforth.alert({ message: t('Passkey deleted successfully!'), variant: 'success' });
                 getPasskeys();
             } else {
-                console.error('Error deleting passkey:', response?.error);
-                adminforth.alert({ message: 'Error deleting passkey.', variant: 'warning' });
+                console.error(t('Error deleting passkey:', response?.error));
+                adminforth.alert({ message: t('Error deleting passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error('Error deleting passkey:', error);
-            adminforth.alert({ message: 'Error deleting passkey.', variant: 'warning' });
+            console.error(t('Error deleting passkey:', error));
+            adminforth.alert({ message: t('Error deleting passkey.'), variant: 'warning' });
         }
     }
 
@@ -303,15 +303,15 @@
                 body: { passkeyId, newName: name },
             });
             if (response.ok) {
-                adminforth.alert({ message: 'Passkey updated successfully!', variant: 'success' });
+                adminforth.alert({ message: t('Passkey updated successfully!'), variant: 'success' });
                 getPasskeys();
             } else {
-                console.error('Error updating passkey:', response.error);
-                adminforth.alert({ message: 'Error updating passkey.', variant: 'warning' });
+                console.error(t('Error updating passkey:', response.error));
+                adminforth.alert({ message: t('Error updating passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error('Error updating passkey:', error);
-            adminforth.alert({ message: 'Error updating passkey.', variant: 'warning' });
+            console.error(t('Error updating passkey:', error));
+            adminforth.alert({ message: t('Error updating passkey.'), variant: 'warning' });
         }
     }
 
