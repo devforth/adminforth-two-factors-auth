@@ -174,7 +174,7 @@
           } else if (!response.ok) {
             alert({message: 'Verification failed', variant: 'danger'});
           } else if (response.ok) {
-            alert({message: 'Verification successful', variant: 'success'});
+            // alert({message: 'Verification successful', variant: 'success'});
           }
           sessionsIdsToResolve.value = [];
         } catch (error) {
