@@ -393,6 +393,7 @@
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
       if (name === 'AbortError') {
+        // Aborted intentionally; no user-facing error needed
         return null;
       } else if (name === 'NotAllowedError') {
         return null;
