@@ -398,7 +398,7 @@
         return null;
       } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
-        codeError.value = t('A previous passkey attempt was still pending. Please try again.'); 
+        codeError.value = t('A previous passkey attempt was still pending. Please try again.');
         return null;
       } else if (name === 'NotAllowedError') {
         adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'danger' });
