@@ -400,9 +400,13 @@
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
         codeError.value = t('A previous passkey attempt was still pending. Please try again.'); 
         return null;
-      } else if (name === 'NotAllowedError'){
+      } else if (name === 'NotAllowedError') {
         adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'danger' });
         codeError.value = t('The operation either timed out or was not allowed.');
+        return null;
+      } else {
+        adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
+        codeError.value = t('Error during authentication.');
         return null;
       }
     }
