@@ -7,73 +7,83 @@
       'background-blend-mode': coreStore.config?.removeBackgroundBlendMode ? 'normal' : 'darken'
     }: {}"
   >
-
-  <div v-if="isLoading===false" id="authentication-modal" tabindex="-1" class="af-two-factors-confirmation overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
-    <div class="relative p-4 w-full max-w-md max-h-full">
-        <!-- Modal content -->
-        <div class="af-login-popup relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" :class="codeError ? 'rounded-b-none' : ''">
-            <div class="p-8 w-full max-w-md max-h-full custom-auth-wrapper" >
-              <div v-if="confirmationMode === 'code'" class="af-totp-confirmation">
-                <div id="mfaCode-label" class="mx-4">{{$t('Please enter your authenticator code')}} </div>
-                <div class="mt-4 w-full flex flex-col gap-4 justify-center" ref="otpRoot">
-                  <v-otp-input
-                    ref="code"
-                    container-class="grid grid-cols-6 gap-3 w-full"
-                    input-classes="bg-gray-50 text-center justify-center otp-input  border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                    :num-inputs="6"
-                    inputType="number"
-                    inputmode="numeric"
-                    :should-auto-focus="true"
-                    :should-focus-order="true"
-                    v-model:value="bindValue"
-                    @on-complete="handleOnComplete"
-                  />
-                  <div class="flex items-center justify-between w-full">
-                    <Link v-if="confirmationMode === 'code' && doesUserHavePasskeys" :to="{ hash: '#passkey' }" class="w-max underline hover:no-underline hover:cursor-pointer text-lightPrimary whitespace-nowrap">{{$t('Use passkey')}}</Link>
-                    <Link
-                      v-if="confirmationMode === 'code'"
-                      to="/login"
-                      class="w-max"
-                    >
-                      {{$t('Back to login')}}
-                    </Link>
-                  </div>
-                </div>
-              </div>
-              <div v-else class="af-passkey-confirmation flex flex-col items-center justify-center py-4 gap-6">
-                <IconShieldOutline class="w-16 h-16 text-lightPrimary dark:text-darkPrimary"/>
-                <p class="text-4xl font-semibold mb-4">{{$t('Passkey')}}</p>
-                <p class="mb-2 max-w-[300px]">{{$t('When you are ready, authenticate using the button below')}}</p>
-                <Button @click="usePasskeyButton" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="w-full mx-16">
-                  {{$t('Use passkey')}}
-                </Button>
-                <div v-if="confirmationMode === 'passkey'" class="max-w-sm px-6 pt-3 w-full bg-white border border-gray-200 rounded-lg shadow-sm dark:bg-gray-800 dark:border-gray-700">
-                  <p class="mb-3 font-normal text-gray-700 dark:text-gray-400">
-                    {{$t('Have issues with passkey?')}}
-                    <div v-if="doesUserHavePasskeys" class="flex justify-start cursor-pointer gap-2" >
-                      <Link v-if="confirmationMode === 'passkey'" :to="{ hash: '#code' }" class="underline hover:no-underline text-lightPrimary whitespace-nowrap">{{$t('use TOTP')}}</Link>
-                      <p> {{$t('or')}}</p>
-                      <Link
-                        to="/login"
-                        class="w-full"
-                      >
-                        {{$t('back to login')}}
-                      </Link> 
-                    </div>
-                  </p>
-                </div>
-              </div>
-            </div>
-        </div>
-        <div
-          v-if="codeError"
-          class="af-two-factors-confirmation-error relative top-full left-0 bg-red-100 text-red-700 text-sm px-2 py-2 rounded-b-lg shadow"
-        >
-          <p class="pl-6">{{ codeError }} </p>
-        </div>
-        <div v-else class="h-[36px] opacity-0">
+    <div v-if="isLoading===false" id="authentication-modal" class="af-two-factors-confirmation flex items-center justify-center w-full p-4">
+      <div class="relative w-full max-w-md">
+        
+        <div class="af-login-popup relative bg-white dark:bg-gray-700 rounded-lg shadow p-6" :class="codeError ? 'rounded-b-none' : ''">
           
-        </div>   
+          <div class="af-2fa-header flex flex-col items-center justify-center gap-3 mb-6">
+            <div class="af-2fa-icon-wrap w-14 h-14 shrink-0 flex items-center justify-center rounded-full bg-lightPrimary dark:bg-darkPrimary">
+              <IconShieldOutline class="af-2fa-shield-icon w-7 h-7 text-white" />
+            </div>
+            <div class="af-2fa-title-wrap text-center">
+              <p class="text-xl font-medium text-gray-900 dark:text-white">
+                {{ confirmationMode === 'code' ? $t('Two-factor Auth') : $t('Passkey') }}
+              </p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {{ confirmationMode === 'code' 
+                   ? $t('Please enter your authenticator code') 
+                   : $t('When you are ready, authenticate using the button below') 
+                }}
+              </p>
+            </div>
+          </div>
+
+          <div v-if="confirmationMode === 'code'" class="af-2fa-otp-root flex flex-col items-center gap-6" ref="otpRoot">
+            <v-otp-input
+              ref="code"
+              container-class="grid grid-cols-6 gap-3"
+              input-classes="bg-gray-50 text-center flex justify-center otp-input border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-600 dark:border-gray-500 dark:text-white"
+              :num-inputs="6"
+              inputType="number"
+              inputmode="numeric"
+              :should-auto-focus="true"
+              v-model:value="bindValue"
+              @on-complete="handleOnComplete"
+            />
+
+            <div class="af-2fa-footer text-center text-xs text-gray-500 dark:text-gray-400">
+              <p>
+                {{$t('Having trouble?')}}
+                <button v-if="doesUserHavePasskeys" type="button" 
+                  class="hover-link bg-transparent text-[#16537E] border-none p-0 cursor-pointer ml-1" 
+                  @click="router.push({ hash: '#passkey' })">
+                  {{$t('Use passkey instead')}}
+                </button>
+                <span v-if="doesUserHavePasskeys" class="mx-1">{{$t('or')}}</span>
+                <Link to="/login" class="hover-link">
+                  {{$t('Back to login')}}
+                </Link>
+              </p>
+            </div>
+          </div>
+
+          <div v-else class="af-2fa-passkey-root flex flex-col gap-6">
+            <Button @click="usePasskeyButton" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="af-2fa-passkey-btn w-full flex items-center justify-center gap-2">
+              <IconShieldOutline class="w-4 h-4" />
+              {{$t('Use passkey to verify')}}
+            </Button>
+
+            <div class="af-2fa-footer text-center text-xs text-gray-500 dark:text-gray-400">
+              <p>
+                {{$t('Having trouble?')}}
+                <button type="button" 
+                  class="hover-link bg-transparent text-[#16537E] border-none p-0 cursor-pointer ml-1" 
+                  @click="router.push({ hash: '#code' })">
+                  {{$t('Use TOTP instead')}}
+                </button>
+                <span class="mx-1">{{$t('or')}}</span>
+                <Link to="/login" class="hover-link">
+                  {{$t('Back to login')}}
+                </Link>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="codeError" class="af-two-factors-confirmation-error relative bg-red-100 text-red-700 text-xs px-4 py-2 rounded-b-lg shadow border-t border-red-200 text-center">
+          {{ codeError }}
+        </div>
       </div>
     </div>
     <div v-else>
@@ -299,7 +309,7 @@
         }
       });
     } catch (error) {
-      console.error('Error checking if user has passkeys:', error);
+      console.error(t('Error checking if user has passkeys:', error));
     }
   }
 
@@ -318,7 +328,7 @@
     try {
       options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
     } catch (e) {
-      console.error('Error parsing request options:', e);
+      console.error(t('Error parsing request options:', e));
       adminforth.alert({message: t('Error initiating passkey authentication.'), variant: 'warning'});
       return;
     }
@@ -345,14 +355,14 @@
         method: 'POST',
       });
     } catch (error) {
-      console.error('Error creating sign-in request:', error);
+      console.error(t('Error creating sign-in request:', error));
       return;
     }
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
       adminforth.alert({message: t('Error creating sign-in request.'), variant: 'warning'});
-      codeError.value = 'Error creating sign-in request.';
+      codeError.value = t('Error creating sign-in request.');
     }
   }
 
@@ -378,7 +388,7 @@
       });
       return credential;
     } catch (error) {
-      console.error('Error during authentication:', error);
+      console.error(t('Error during authentication:', error));
       // Handle specific concurrent/pending request error cases gracefully
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
@@ -477,5 +487,26 @@
                 @apply ml-4;
             }
         }
-    }  
+    } 
+
+    :deep(.otp-input-container) {
+      display: flex;
+      gap: 0.75rem;
+    }
+
+    .hover-link {
+      text-decoration: none !important;
+      display: inline-block;
+      width: fit-content;
+      margin: 0 auto;
+
+      &:hover {
+        text-decoration: underline !important;
+      }
+    }
+
+    button.hover-link {
+      font-family: inherit;
+      font-size: inherit;
+    }
   </style>

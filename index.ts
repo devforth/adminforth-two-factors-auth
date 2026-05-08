@@ -143,9 +143,21 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   private pending = new Map<string, (value: any) => void>();
 
-  private waitForResponse(id: string): Promise<any> {
+  private waitForResponse(id: string, timeoutMs: number): Promise<any> {
     return new Promise((resolve) => {
-      this.pending.set(id, resolve);
+      let timeout: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.pending.delete(id);
+      };
+      timeout = setTimeout(() => {
+        cleanup();
+        resolve({ ok: false, error: 'Verification timed out' });
+      }, timeoutMs);
+      this.pending.set(id, (value: any) => {
+        cleanup();
+        resolve(value);
+      });
     });
   }
 
@@ -153,16 +165,20 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const resolve = this.pending.get(id);
     if (resolve) {
       resolve(data);
-      this.pending.delete(id);
     }
   }
 
   public async verifyAuto(adminUser: AdminUser) {
     const sessionId = crypto.randomUUID();
     const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
+    const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
+
     this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId: jwt });
-    const result = await this.waitForResponse(jwt);
+
+    const result = await resultPromise;
+
     this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId: jwt });
+
     return result;
   }
 
