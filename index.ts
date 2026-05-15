@@ -601,7 +601,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
-            return {error: 'Verification failed'}
+            response.status = 403;
+            return {error: 'Verification failed', }
           }
         }
       }
