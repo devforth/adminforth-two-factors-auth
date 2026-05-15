@@ -248,6 +248,10 @@
                 message = t('A passkey for this account already exists on this device.');
             }
 
+            if (error?.name === 'NotAllowedError') {
+                message = t('Passkey creation was cancelled.');
+            }
+
             if (error?.name === 'NotSupportedError') {
                 message = t('Passkeys are not supported on this device or browser.');
             }
