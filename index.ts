@@ -602,7 +602,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             return { status: 'ok', allowedLogin: true }
           } else {
             response.setStatus(403);
-            return {error: 'Verification failed', }
+            return {error: 'Wrong or expired TOTP code', }
           }
         }
       }
