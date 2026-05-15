@@ -122,7 +122,7 @@
         codeError.value = t('A previous passkey attempt was still pending. Please try again.');
         return null;
       } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'warning' });
+        adminforth.alert({ message: `The operation either timed out or was not allowed`, variant: 'danger' });
         codeError.value = 'The operation either timed out or was not allowed.';
         return null;
       } else {
