@@ -241,7 +241,19 @@
             return JSON.stringify((credential as PublicKeyCredential).toJSON());
         } catch (error) {
             console.error(t('Error creating WebAuthn credential:', error));
-            adminforth.alert({ message: t('Error creating passkey.'), variant: 'warning' });
+
+            let message = t('Failed to create passkey.');
+
+            if (error?.name === 'InvalidStateError') {
+                message = t('A passkey for this account already exists on this device.');
+            }
+
+            if (error?.name === 'NotSupportedError') {
+                message = t('Passkeys are not supported on this device or browser.');
+            }
+
+            adminforth.alert({ message, variant: 'danger'});
+
             return null;
         }
     }
