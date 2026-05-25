@@ -1100,7 +1100,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       handler: async ({ body, adminUser, response, cookies, headers }) => {
         const sessionsIds = body?.sessionsIds;
         const confirmationResult = body?.confirmationResult;
-        const idsToResolve = sessionsIds;
+        const idsToResolve = Array.isArray(sessionsIds) ? sessionsIds : [];
 
         const resolveAllIdsAsFailed = (message) => {
           for (const id of idsToResolve) {
@@ -1109,37 +1109,43 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           return { ok: false, error: message };
         }
 
-        if (!(sessionsIds) || !confirmationResult) {
-          return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
-        }
-
-        for (const id of idsToResolve) {
-          const validationResult = await this.adminforth.auth.verify(id, 'auto2FA', false);
-          if (!validationResult) {
-            return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
+        try {
+          if (!idsToResolve.length || !confirmationResult) {
+            return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
           }
-          if (validationResult.adminUserPk !== adminUser.pk) {
-            return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
-          }
-        }
 
-        const verificationResult = await this.verify(confirmationResult, {
-          adminUser: adminUser,
-          userPk: adminUser.pk, 
-          cookies: cookies,
-          response: response,
-          extra: {
-            headers: headers,            
-          } as HttpExtra
-        });
-        if ( !verificationResult || !('ok' in verificationResult) ) {
-          return(resolveAllIdsAsFailed('Verification failed'));
-        }
-        if ('ok' in verificationResult && verificationResult.ok){
           for (const id of idsToResolve) {
-            this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+            const validationResult = await this.adminforth.auth.verify(id, 'auto2FA', false);
+            if (!validationResult) {
+              return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
+            }
+            if (validationResult.adminUserPk !== adminUser.pk) {
+              return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
+            }
           }
-          return { ok: true };
+
+          const verificationResult = await this.verify(confirmationResult, {
+            adminUser: adminUser,
+            userPk: adminUser.pk, 
+            cookies: cookies,
+            response: response,
+            extra: {
+              headers: headers,            
+            } as HttpExtra
+          });
+          if ( !verificationResult || !('ok' in verificationResult) ) {
+            return(resolveAllIdsAsFailed('Verification failed'));
+          }
+          if ('ok' in verificationResult && verificationResult.ok){
+            for (const id of idsToResolve) {
+              this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+            }
+            return { ok: true };
+          }
+          return(resolveAllIdsAsFailed('Verification failed'));
+        } catch (error) {
+          console.error('[AdminForth 2FA] Error resolving automatic 2FA verification', error);
+          return(resolveAllIdsAsFailed(error instanceof Error ? error.message : 'Verification failed'));
         }
       }
     });

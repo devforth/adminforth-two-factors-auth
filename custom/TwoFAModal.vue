@@ -164,7 +164,9 @@
           isAwaiting2FAResult.value = true;
           confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
         } catch (error) {
-          console.error(t('Error during 2FA confirmation:', error));
+          if (!isTwoFaCancel(error)) {
+            console.error('[AdminForth 2FA] Error during 2FA confirmation', error);
+          }
         }
         isAwaiting2FAResult.value = false;
         try {
@@ -226,28 +228,41 @@
   let verifyFn: null | ((confirmationResult: string) => Promise<boolean> | boolean) = null;
   let rejectFn: ((err?: any) => void) | null = null;
 
+  function isTwoFaCancel(error: unknown) {
+    return error === 'Cancel';
+  }
+
 
   window.adminforthTwoFaModal = {
     get2FaConfirmationResult: (title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean>) =>
-      new Promise(async (resolve, reject) => {
-      if (modelShow.value) throw new Error(t('Modal is already open'));
-      const skipAllowModal = await checkIfSkipAllowModal();
-      if (skipAllowModal) {
-        resolve({ code: "123456" }); // dummy code
-        return;
-      }
-      await checkIfUserHasPasskeys();
-      if (title) {
-        customDialogTitle.value = title;
-      }
-      modelShow.value = true;
-      if (modalMode.value === 'totp') {
-        await addEventListenerForOTPInput();
-      }
-      resolveFn = resolve;
-      rejectFn = reject;
-      verifyFn = verifyingCallback ?? null;
-    }),
+      new Promise((resolve, reject) => {
+        (async () => {
+          if (modelShow.value) {
+            throw new Error(t('Modal is already open'));
+          }
+          const skipAllowModal = await checkIfSkipAllowModal();
+          if (skipAllowModal) {
+            resolve({ code: "123456" }); // dummy code
+            return;
+          }
+          await checkIfUserHasPasskeys();
+          if (title) {
+            customDialogTitle.value = title;
+          }
+          resolveFn = resolve;
+          rejectFn = reject;
+          verifyFn = verifyingCallback ?? null;
+          modelShow.value = true;
+          if (modalMode.value === 'totp') {
+            await addEventListenerForOTPInput();
+          }
+        })().catch((error) => {
+          if (!isTwoFaCancel(error)) {
+            console.error('[AdminForth 2FA] Failed to open 2FA modal', error);
+          }
+          reject(error);
+        });
+      }),
   };
   
   const { t } = useI18n();
