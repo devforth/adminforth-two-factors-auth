@@ -617,7 +617,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
-            response.setStatus(403);
+            response.setStatus(403, "Wrong or expired TOTP code");
             return {error: 'Wrong or expired TOTP code', }
           }
         }
