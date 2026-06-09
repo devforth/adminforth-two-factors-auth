@@ -29,6 +29,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
+  private parseIfNeeded(value: Record<string, any> | string): Record<string, any> {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        throw new Error('Failed to parse JSON string: ' + e.message);
+      }
+    }
+    return value;
+  }
+
   private useChellenge(challenge: string, expiresIn?: string): void {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
     this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
@@ -293,7 +304,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!cred) {
         throw new Error('Credential not found.');
       }
-      const credMeta = JSON.parse(cred[this.options.passkeys.credentialMetaFieldName]);
+      const credMeta = this.parseIfNeeded(cred[this.options.passkeys.credentialMetaFieldName]);
       if (!credMeta || !credMeta.public_key) {
         throw new Error('Credential public key not found.');
       }
@@ -831,7 +842,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const temp = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list([Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
         for (const rec of temp) {
           if (rec.credential_id && rec.credential_id.length > 0) {
-            const meta = JSON.parse(rec[this.options.passkeys.credentialMetaFieldName]);
+            const meta = this.parseIfNeeded(rec[this.options.passkeys.credentialMetaFieldName]);
             excludeCredentials.push({
               id: rec.credential_id,
               type: "public-key",
@@ -969,7 +980,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         let dataToReturn = [];
         for (const pk of passkeys) {
-          const parsedKey = JSON.parse(pk[this.options.passkeys.credentialMetaFieldName]);
+          const parsedKey = this.parseIfNeeded(pk[this.options.passkeys.credentialMetaFieldName]);
           dataToReturn.push({
             name: parsedKey.name,
             light_icon: aaguids[parsedKey.aaguid]?.icon_light || null,
@@ -1049,7 +1060,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!passkeyRecord) {
           return { ok: false, error: 'Passkey not found' };
         }
-        const meta = JSON.parse(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
+        const meta = this.parseIfNeeded(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
         meta.name = newName;
         const newRecord = { ...passkeyRecord, [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(meta) };
         try {
