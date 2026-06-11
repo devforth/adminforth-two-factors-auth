@@ -32,6 +32,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   private parseIfNeeded(value: Record<string, any> | string): Record<string, any> {
     if (typeof value === 'string') {
       try {
+        // Legacy compatibility: passkey meta has historically been stored as a JSON string.
+        // Returning only objects from storage would be cleaner, but dropping this parse would break existing apps.
         return JSON.parse(value);
       } catch (e) {
         throw new Error('Failed to parse JSON string: ' + e.message);
@@ -301,6 +303,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         throw new Error(`Origin mismatch. Allowed in settings: ${settingsOrigin}, received from client: ${expectedOrigin}`);
       }
       const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
+      console.log("Credential fetched from DB:", cred);
       if (!cred) {
         throw new Error('Credential not found.');
       }
@@ -343,6 +346,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const credResourcePKName = credResourcePKColumn.name;
       await this.adminforth
         .resource(this.options.passkeys.credentialResourceID)
+        // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+        // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
         .update(cred[credResourcePKName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
       return { ok: true, passkeyConfirmed: true };
     } catch (e) {
@@ -929,6 +934,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             record: {
               [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
               [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
+              // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+              // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
               [this.options.passkeys.credentialMetaFieldName]         : JSON.stringify({
                 public_key              : base64PublicKey,
                 public_key_algorithm    : response.response.publicKeyAlgorithm,
@@ -975,6 +982,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         let passkeys;
         try {
           passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)] );
+          console.log('Fetched passkeys for user', passkeys);
         } catch (error) {
           return { ok: false, error: 'Error fetching passkeys: ' + error.message };
         }
@@ -1062,6 +1070,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         const meta = this.parseIfNeeded(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
         meta.name = newName;
+        // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+        // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
         const newRecord = { ...passkeyRecord, [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(meta) };
         try {
           const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
