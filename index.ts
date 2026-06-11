@@ -29,6 +29,19 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     return `single`;
   }
 
+  private parseIfNeeded(value: Record<string, any> | string): Record<string, any> {
+    if (typeof value === 'string') {
+      try {
+        // Legacy compatibility: passkey meta has historically been stored as a JSON string.
+        // Returning only objects from storage would be cleaner, but dropping this parse would break existing apps.
+        return JSON.parse(value);
+      } catch (e) {
+        throw new Error('Failed to parse JSON string: ' + e.message);
+      }
+    }
+    return value;
+  }
+
   private useChellenge(challenge: string, expiresIn?: string): void {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
     this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
@@ -143,9 +156,21 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   private pending = new Map<string, (value: any) => void>();
 
-  private waitForResponse(id: string): Promise<any> {
+  private waitForResponse(id: string, timeoutMs: number): Promise<any> {
     return new Promise((resolve) => {
-      this.pending.set(id, resolve);
+      let timeout: ReturnType<typeof setTimeout>;
+      const cleanup = () => {
+        clearTimeout(timeout);
+        this.pending.delete(id);
+      };
+      timeout = setTimeout(() => {
+        cleanup();
+        resolve({ ok: false, error: 'Verification timed out' });
+      }, timeoutMs);
+      this.pending.set(id, (value: any) => {
+        cleanup();
+        resolve(value);
+      });
     });
   }
 
@@ -153,15 +178,20 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const resolve = this.pending.get(id);
     if (resolve) {
       resolve(data);
-      this.pending.delete(id);
     }
   }
 
   public async verifyAuto(adminUser: AdminUser) {
     const sessionId = crypto.randomUUID();
-    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId });
-    const result = await this.waitForResponse(sessionId);
-    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId });
+    const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
+    const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
+
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}`, { sessionId: jwt });
+
+    const result = await resultPromise;
+
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}-resolve`, { sessionId: jwt });
+
     return result;
   }
 
@@ -276,7 +306,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!cred) {
         throw new Error('Credential not found.');
       }
-      const credMeta = JSON.parse(cred[this.options.passkeys.credentialMetaFieldName]);
+      const credMeta = this.parseIfNeeded(cred[this.options.passkeys.credentialMetaFieldName]);
       if (!credMeta || !credMeta.public_key) {
         throw new Error('Credential public key not found.');
       }
@@ -315,6 +345,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       const credResourcePKName = credResourcePKColumn.name;
       await this.adminforth
         .resource(this.options.passkeys.credentialResourceID)
+        // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+        // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
         .update(cred[credResourcePKName], { [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(credMeta) });
       return { ok: true, passkeyConfirmed: true };
     } catch (e) {
@@ -600,7 +632,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             this.adminforth.auth.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
             return { status: 'ok', allowedLogin: true }
           } else {
-            return {error: 'Verification failed'}
+            response.setStatus(403, "Wrong or expired TOTP code");
+            return {error: 'Wrong or expired TOTP code', }
           }
         }
       }
@@ -790,8 +823,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             headers,
           } as HttpExtra
         });
-        if ( !verificationResult || !('ok' in verificationResult) ) {
-          return { ok: false, error: 'Verification failed' };
+        if (!verificationResult || !('ok' in verificationResult)) {
+          return { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' };
         }
 
         const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
@@ -813,7 +846,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const temp = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list([Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)]);
         for (const rec of temp) {
           if (rec.credential_id && rec.credential_id.length > 0) {
-            const meta = JSON.parse(rec[this.options.passkeys.credentialMetaFieldName]);
+            const meta = this.parseIfNeeded(rec[this.options.passkeys.credentialMetaFieldName]);
             excludeCredentials.push({
               id: rec.credential_id,
               type: "public-key",
@@ -900,6 +933,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
             record: {
               [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
               [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
+              // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+              // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
               [this.options.passkeys.credentialMetaFieldName]         : JSON.stringify({
                 public_key              : base64PublicKey,
                 public_key_algorithm    : response.response.publicKeyAlgorithm,
@@ -951,7 +986,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
         let dataToReturn = [];
         for (const pk of passkeys) {
-          const parsedKey = JSON.parse(pk[this.options.passkeys.credentialMetaFieldName]);
+          const parsedKey = this.parseIfNeeded(pk[this.options.passkeys.credentialMetaFieldName]);
           dataToReturn.push({
             name: parsedKey.name,
             light_icon: aaguids[parsedKey.aaguid]?.icon_light || null,
@@ -1031,8 +1066,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         if (!passkeyRecord) {
           return { ok: false, error: 'Passkey not found' };
         }
-        const meta = JSON.parse(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
+        const meta = this.parseIfNeeded(passkeyRecord[this.options.passkeys.credentialMetaFieldName]);
         meta.name = newName;
+        // Legacy compatibility: passkey meta is persisted as a JSON string even when the resource field is JSON.
+        // Switching this to a plain object would be cleaner, but would break existing schemas/connectors expecting strings.
         const newRecord = { ...passkeyRecord, [this.options.passkeys.credentialMetaFieldName]: JSON.stringify(meta) };
         try {
           const credResource = this.adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialResourceID);
@@ -1080,27 +1117,55 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       path: `/plugin/passkeys/resolveVerifyAuto`,
       noAuth: false,
       handler: async ({ body, adminUser, response, cookies, headers }) => {
-        const sessionId = body?.sessionId;
+        const sessionsIds = body?.sessionsIds;
         const confirmationResult = body?.confirmationResult;
-        if (!sessionId || !confirmationResult) {
-          this.resolveResponse(sessionId, { ok: false, error: 'No session ID or confirmation result' });
-          return { ok: false, error: 'No session ID or confirmation result' };
+        const idsToResolve = Array.isArray(sessionsIds) ? sessionsIds : [];
+
+        const resolveAllIdsAsFailed = (message) => {
+          for (const id of idsToResolve) {
+            this.resolveResponse(id, { ok: false, error: message });
+          }
+          return { ok: false, error: message };
         }
-        const verificationResult = await this.verify(confirmationResult, {
-          adminUser: adminUser,
-          userPk: adminUser.pk, 
-          cookies: cookies,
-          response: response,
-          extra: {
-            headers: headers,            
-          } as HttpExtra
-        });
-        if ( !verificationResult || !('ok' in verificationResult) ) {
-          this.resolveResponse(sessionId, { ok: false, error: 'Verification failed' });
-          return { ok: false, error: 'Verification failed' };
+
+        try {
+          if (!idsToResolve.length || !confirmationResult) {
+            return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
+          }
+
+          for (const id of idsToResolve) {
+            const validationResult = await this.adminforth.auth.verify(id, 'auto2FA', false);
+            if (!validationResult) {
+              return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
+            }
+            if (validationResult.adminUserPk !== adminUser.pk) {
+              return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
+            }
+          }
+
+          const verificationResult = await this.verify(confirmationResult, {
+            adminUser: adminUser,
+            userPk: adminUser.pk, 
+            cookies: cookies,
+            response: response,
+            extra: {
+              headers: headers,            
+            } as HttpExtra
+          });
+          if ( !verificationResult || !('ok' in verificationResult) ) {
+            return(resolveAllIdsAsFailed('Verification failed'));
+          }
+          if ('ok' in verificationResult && verificationResult.ok){
+            for (const id of idsToResolve) {
+              this.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
+            }
+            return { ok: true };
+          }
+          return(resolveAllIdsAsFailed('Verification failed'));
+        } catch (error) {
+          console.error('[AdminForth 2FA] Error resolving automatic 2FA verification', error);
+          return(resolveAllIdsAsFailed(error instanceof Error ? error.message : 'Verification failed'));
         }
-        this.resolveResponse(sessionId, { ok: true, passkeyConfirmed: verificationResult });
-        return { ok: true };
       }
     });
   }
