@@ -303,7 +303,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         throw new Error(`Origin mismatch. Allowed in settings: ${settingsOrigin}, received from client: ${expectedOrigin}`);
       }
       const cred = await this.adminforth.resource(this.options.passkeys.credentialResourceID).get([Filters.EQ(this.options.passkeys.credentialIdFieldName, response.id)]);
-      console.log("Credential fetched from DB:", cred);
       if (!cred) {
         throw new Error('Credential not found.');
       }
@@ -982,7 +981,6 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         let passkeys;
         try {
           passkeys = await this.adminforth.resource(this.options.passkeys.credentialResourceID).list( [Filters.EQ(this.options.passkeys.credentialUserIdFieldName, adminUser.pk)] );
-          console.log('Fetched passkeys for user', passkeys);
         } catch (error) {
           return { ok: false, error: 'Error fetching passkeys: ' + error.message };
         }
