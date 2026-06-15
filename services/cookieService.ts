@@ -1,5 +1,6 @@
 import type { IAdminForth, IAdminForthHttpResponse } from "adminforth";
 import type { PluginOptions } from "../types.js";
+import type { CookieList, HttpHeaders } from "../utils/types.js";
 import crypto from 'crypto';
 
 const TOTP_TEMP_COOKIE = "2FaTemporaryJWT";
@@ -8,13 +9,36 @@ const REGISTER_PASSKEY_TEMP_COOKIE = "registerPasskeyTemporaryJWT";
 const MFA_GRACE_COOKIE = "TempSkip2FA_Modal_JWT";
 const AUTH_COOKIE = "jwt";
 
+export type TotpTemporaryPayload = {
+  userName: string;
+  issuer?: string;
+  pk: string;
+  newSecret?: string;
+  userCanSkipSetup?: boolean;
+  sessionDuration?: string;
+};
+
+export type PasskeyLoginTemporaryPayload = {
+  challenge: string;
+};
+
+export type RegisterPasskeyTemporaryPayload = {
+  challenge: string;
+  user_id: string;
+};
+
+export type MfaGracePayload = {
+  hash: string;
+  exp?: number;
+};
+
 export class CookieService {
   constructor(
     private readonly adminforth: IAdminForth,
     private readonly options: PluginOptions,
   ) {}
 
-  public getAuthSessionCookie(cookies: any): string {
+  public getAuthSessionCookie(cookies: CookieList): string | null {
     return this.adminforth.auth.getCustomCookie({ cookies, name: AUTH_COOKIE });
   }
 
@@ -22,15 +46,17 @@ export class CookieService {
     this.adminforth.auth.setAuthCookie(opts);
   }
 
-  public getTotpTemporary(cookies: any): string {
+  public getTotpTemporary(cookies: CookieList): string | null {
     return this.adminforth.auth.getCustomCookie({ cookies, name: TOTP_TEMP_COOKIE });
   }
 
-  public async verifyTotpTemporary(cookies: any): Promise<any> {
-    return this.adminforth.auth.verify(this.getTotpTemporary(cookies), 'temp2FA');
+  public async verifyTotpTemporary(cookies: CookieList): Promise<TotpTemporaryPayload | null> {
+    const jwt = this.getTotpTemporary(cookies);
+    if (!jwt) return null;
+    return this.adminforth.auth.verify(jwt, 'temp2FA') as Promise<TotpTemporaryPayload | null>;
   }
 
-  public setTotpTemporary(response: IAdminForthHttpResponse, payload: Record<string, any>): void {
+  public setTotpTemporary(response: IAdminForthHttpResponse, payload: TotpTemporaryPayload): void {
     const value = this.adminforth.auth.issueJWT(payload, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
     this.adminforth.auth.setCustomCookie({
       response,
@@ -42,12 +68,14 @@ export class CookieService {
     this.adminforth.auth.removeCustomCookie({ response, name: TOTP_TEMP_COOKIE });
   }
 
-  public getPasskeyLoginTemporary(cookies: any): string {
+  public getPasskeyLoginTemporary(cookies: CookieList): string | null {
     return this.adminforth.auth.getCustomCookie({ cookies, name: PASSKEY_LOGIN_TEMP_COOKIE });
   }
 
-  public async verifyPasskeyLoginTemporary(cookies: any): Promise<any> {
-    return this.adminforth.auth.verify(this.getPasskeyLoginTemporary(cookies), 'tempLoginPasskeyChallenge', false);
+  public async verifyPasskeyLoginTemporary(cookies: CookieList): Promise<PasskeyLoginTemporaryPayload | null> {
+    const jwt = this.getPasskeyLoginTemporary(cookies);
+    if (!jwt) return null;
+    return this.adminforth.auth.verify(jwt, 'tempLoginPasskeyChallenge', false) as Promise<PasskeyLoginTemporaryPayload | null>;
   }
 
   public setPasskeyLoginTemporary(response: IAdminForthHttpResponse, challenge: string): void {
@@ -58,15 +86,17 @@ export class CookieService {
     });
   }
 
-  public getRegisterPasskeyTemporary(cookies: any): string {
+  public getRegisterPasskeyTemporary(cookies: CookieList): string | null {
     return this.adminforth.auth.getCustomCookie({ cookies, name: REGISTER_PASSKEY_TEMP_COOKIE });
   }
 
-  public async verifyRegisterPasskeyTemporary(cookies: any): Promise<any> {
-    return this.adminforth.auth.verify(this.getRegisterPasskeyTemporary(cookies), 'registerTempPasskeyChallenge', false);
+  public async verifyRegisterPasskeyTemporary(cookies: CookieList): Promise<RegisterPasskeyTemporaryPayload | null> {
+    const jwt = this.getRegisterPasskeyTemporary(cookies);
+    if (!jwt) return null;
+    return this.adminforth.auth.verify(jwt, 'registerTempPasskeyChallenge', false) as Promise<RegisterPasskeyTemporaryPayload | null>;
   }
 
-  public setRegisterPasskeyTemporary(response: IAdminForthHttpResponse, payload: { challenge: string; user_id: string }): void {
+  public setRegisterPasskeyTemporary(response: IAdminForthHttpResponse, payload: RegisterPasskeyTemporaryPayload): void {
     const value = this.adminforth.auth.issueJWT(payload, 'registerTempPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
     this.adminforth.auth.setCustomCookie({
       response,
@@ -81,17 +111,18 @@ export class CookieService {
     this.adminforth.auth.setCustomCookie({ response, payload: { name: MFA_GRACE_COOKIE, sessionBased: true, value, httpOnly: true } });
   }
 
-  public async verifyMfaGrace(cookies: any): Promise<any> {
+  public async verifyMfaGrace(cookies: CookieList): Promise<MfaGracePayload | null> {
     const jwt = this.adminforth.auth.getCustomCookie({ cookies, name: MFA_GRACE_COOKIE });
-    return this.adminforth.auth.verify(jwt, 'MfaGrace', false);
+    if (!jwt) return null;
+    return this.adminforth.auth.verify(jwt, 'MfaGrace', false) as Promise<MfaGracePayload | null>;
   }
 
-  private generateMfaGraceHash(headers: any, cookies: any): string {
+  private generateMfaGraceHash(headers: HttpHeaders, cookies: CookieList): string | null {
     const ip = this.adminforth.auth.getClientIp(headers);
     const userAgent = headers['user-agent'] || '';
     const acceptLanguage = headers['accept-language'] || '';
     const sessionCookie = this.getAuthSessionCookie(cookies);
-    if (!ip || !userAgent || !acceptLanguage || !sessionCookie) {
+    if (!process.env.ADMINFORTH_SECRET || !ip || !userAgent || !acceptLanguage || !sessionCookie) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: missing required request headers to identify client ❗️❗️❗️");
       return null;
     }
@@ -101,7 +132,7 @@ export class CookieService {
       .digest('hex');
   }
 
-  public issueMfaGrace(opts: { headers?: any; response?: IAdminForthHttpResponse }, cookies: any): void {
+  public issueMfaGrace(opts: { headers?: HttpHeaders; response?: IAdminForthHttpResponse }, cookies: CookieList): void {
     if (!opts.response) {
       console.error("❗️❗️❗️ Cannot set step-up MFA grace cookie: response object is missing. You probably called verify() method without response parameter ❗️❗️❗️");
       return;
@@ -116,7 +147,7 @@ export class CookieService {
     }
   }
 
-  public async isMfaGraceValid(headers: any, cookies: any, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
+  public async isMfaGraceValid(headers: HttpHeaders, cookies: CookieList, checkIfJWTAboutToExpire: boolean = false): Promise<boolean> {
     const hash = this.generateMfaGraceHash(headers, cookies);
     if (!hash) {
       return false;
@@ -125,7 +156,7 @@ export class CookieService {
     if (!jwtVerificationResult) {
       return false;
     }
-    if (checkIfJWTAboutToExpire && (jwtVerificationResult["exp"] - ( Date.now() / 1000)) < 30 ) {
+    if (checkIfJWTAboutToExpire && jwtVerificationResult.exp && (jwtVerificationResult.exp - ( Date.now() / 1000)) < 30 ) {
       console.error("❗️❗️❗️ Cannot validate step-up MFA grace cookie: token is expired or about to expire ❗️❗️❗️");
       return false;
     }

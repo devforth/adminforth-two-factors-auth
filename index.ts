@@ -3,7 +3,7 @@ import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminFor
 import  { PluginOptions } from "./types.js"
 import { PasskeyService } from "./services/passkeyService.js";
 import { TotpService } from "./services/totpService.js";
-import { verifyMfaConfirmation, type VerifyOptions } from "./services/verifyMfaConfirmation.js";
+import { verifyMfaConfirmation, type MfaConfirmationResult, type VerifyOptions } from "./services/verifyMfaConfirmation.js";
 import { CookieService } from "./services/cookieService.js";
 import { UserRepository } from "./repositories/userRepository.js";
 import { registerPasskeyEndpoints } from "./endpoints/registerPasskeyEndpoints.js";
@@ -101,7 +101,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   public async verify(
-    confirmationResult: Record<string, any>,
+    confirmationResult: MfaConfirmationResult,
     opts: VerifyOptions
   ): Promise<{ ok: true } | { error: string }> {
     return verifyMfaConfirmation(this.ctx, confirmationResult, opts);

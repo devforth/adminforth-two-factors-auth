@@ -13,6 +13,22 @@ import { PasskeyRepository } from "../repositories/passkeyRepository.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { CookieService } from "./cookieService.js";
 import { errorMessage, errorResult, prefixedErrorResult } from "../utils/errors.js";
+import type { CookieList } from "../utils/types.js";
+
+type PasskeyAuthenticationPayload = {
+  response: string;
+  origin: string;
+};
+
+type PasskeyRegistrationPayload = {
+  credential: string;
+  origin: string;
+};
+
+type PluginAuthenticatorAttachment = NonNullable<NonNullable<
+  NonNullable<PluginOptions["passkeys"]>["settings"]["authenticatorSelection"]
+>["authenticatorAttachment"]>;
+type WebAuthnAuthenticatorAttachment = Exclude<PluginAuthenticatorAttachment, "both">;
 
 export class PasskeyService {
   constructor(
@@ -33,7 +49,7 @@ export class PasskeyService {
     return !res;
   }
 
-  public async validateLoginChallengeCookie(cookies: any): Promise<{ok: boolean, decodedPasskeysCookies?: any, error?: string}> {
+  public async validateLoginChallengeCookie(cookies: CookieList): Promise<{ok: boolean, decodedPasskeysCookies?: { challenge: string }, error?: string}> {
     const passkeysCookies = this.cookieService.getPasskeyLoginTemporary(cookies);
     if (!passkeysCookies) {
       return errorResult('Passkey token is required');
@@ -55,7 +71,7 @@ export class PasskeyService {
     return { ok: true, decodedPasskeysCookies };
   }
 
-  public async verifyPasskeyResponse(body: any, user_id: string, cookies: any) {
+  public async verifyPasskeyResponse(body: PasskeyAuthenticationPayload, user_id: string, cookies: { challenge: string }) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const expectedOrigin = body.origin;
     const expectedChallenge = cookies.challenge;
@@ -105,8 +121,9 @@ export class PasskeyService {
     }
   }
 
-  public async createRegistrationOptions(mode: any, adminUser: AdminUser, response: IAdminForthHttpResponse) {
+  public async createRegistrationOptions(mode: PluginAuthenticatorAttachment, adminUser: AdminUser, response: IAdminForthHttpResponse) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
+    const authenticatorAttachment: WebAuthnAuthenticatorAttachment | undefined = mode === "both" ? undefined : mode;
     const rp = {
       name: this.options.passkeys?.settings.rp?.name || this.adminforth.config.customization.brandName,
       id: this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname,
@@ -138,7 +155,7 @@ export class PasskeyService {
       userDisplayName: user.displayName,
       excludeCredentials,
       authenticatorSelection: {
-        authenticatorAttachment: mode,
+        authenticatorAttachment,
         requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey ?? true,
         userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
       },
@@ -147,7 +164,7 @@ export class PasskeyService {
     return { ok: true, data: options };
   }
 
-  public async finishRegistration(body: any, adminUser: AdminUser, cookies: any) {
+  public async finishRegistration(body: PasskeyRegistrationPayload, adminUser: AdminUser, cookies: CookieList) {
     const passkeysCookies = this.cookieService.getRegisterPasskeyTemporary(cookies);
     if (!passkeysCookies) {
       return { error: 'Passkey token is required' };
@@ -291,7 +308,7 @@ export class PasskeyService {
     return { ok: true };
   }
 
-  public async checkIfUserHasPasskeys(cookies: any) {
+  public async checkIfUserHasPasskeys(cookies: CookieList) {
     if (!this.options.passkeys) {
       return { ok: false, hasPasskeys: false };
     }
@@ -313,7 +330,7 @@ export class PasskeyService {
     return this.passkeyRepository.hasByUserId(userId);
   }
 
-  public async getLoginUserByPasskeyResponse(passkeyResponse: any, cookies: any) {
+  public async getLoginUserByPasskeyResponse(passkeyResponse: PasskeyAuthenticationPayload, cookies: CookieList) {
     const cookiesValidationResult = await this.validateLoginChallengeCookie(cookies);
     if (!cookiesValidationResult.ok) {
       return { error: cookiesValidationResult.error };

@@ -1,16 +1,36 @@
 import type { AdminUser, HttpExtra, IAdminForthHttpResponse } from "adminforth";
+import type { CookieList } from "../utils/types.js";
+
+type TotpConfirmationResult = {
+  mode: "totp";
+  result: string;
+};
+
+type PasskeyConfirmationResult = {
+  mode: "passkey";
+  result: {
+    response: string;
+    origin: string;
+  };
+};
+
+type GraceConfirmationResult = {
+  mode?: undefined;
+};
+
+export type MfaConfirmationResult = TotpConfirmationResult | PasskeyConfirmationResult | GraceConfirmationResult;
 
 export type VerifyOptions = {
   adminUser: AdminUser;
   userPk: string;
-  cookies?: any;
+  cookies?: CookieList;
   response?: IAdminForthHttpResponse;
   extra?: HttpExtra;
 };
 
 export async function verifyMfaConfirmation(
   ctx: any,
-  confirmationResult: Record<string, any>,
+  confirmationResult: MfaConfirmationResult,
   opts: VerifyOptions,
 ): Promise<{ ok: true } | { error: string }> {
   if (!confirmationResult) return { error: "Confirmation result is required" };
@@ -36,9 +56,13 @@ export async function verifyMfaConfirmation(
       return { ok: true };
     }
   }
+  const mode = confirmationResult.mode;
+  if (!mode) {
+    return { error: "Unsupported confirmation mode" };
+  }
 
-  if (confirmationResult.mode === "totp") {
-    const code = confirmationResult.result;
+  if (mode === "totp") {
+    const { result: code } = confirmationResult as TotpConfirmationResult;
     const verificationResult = await ctx.totpService.verifyUserCode(opts.userPk, code);
 
     if ( 'ok' in verificationResult && verificationResult.ok ) {
@@ -48,12 +72,13 @@ export async function verifyMfaConfirmation(
       return { ok: true }
     }
     return verificationResult;
-  } else if (confirmationResult.mode === "passkey") {
+  } else if (mode === "passkey") {
+    const { result } = confirmationResult as PasskeyConfirmationResult;
     const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
     if (!cookiesValidationResult.ok) {
       return { error: cookiesValidationResult.error };
     }
-    const verificationResult = await ctx.passkeyService.verifyPasskeyResponse(confirmationResult.result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
+    const verificationResult = await ctx.passkeyService.verifyPasskeyResponse(result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
 
     if (verificationResult.ok && verificationResult.passkeyConfirmed) {
       if (ctx.options.stepUpMfaGracePeriodSeconds) {
