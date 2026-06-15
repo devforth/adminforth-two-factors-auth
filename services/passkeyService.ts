@@ -352,7 +352,7 @@ export class PasskeyService {
 
     const passkeyRecord = await this.passkeyRepository.getByCredentialId(credential_id);
     if (!passkeyRecord) {
-      return { error: 'No such passkey found, most likeley it was removed on this website but you still have it on your device' };
+      return { error: 'No such passkey found, most likely it was removed on this website but you still have it on your device' };
     }
 
     const userPk = passkeyRecord[this.options.passkeys.credentialUserIdFieldName];
