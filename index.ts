@@ -164,8 +164,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         }
       });
 
-      if ( this.options.passkeys.allowLoginWithPasskeys !== false ) {
-        this.options.passkeys.allowLoginWithPasskeys = true;
+      const allowLoginWithPasskeys = this.options.passkeys.allowLoginWithPasskeys ?? true;
+      if ( allowLoginWithPasskeys ) {
         if ( !this.adminforth.config.customization.loginPageInjections ) {
           this.adminforth.config.customization.loginPageInjections = { underLoginButton: [],  panelHeader: [], underInputs: [] };
         } 

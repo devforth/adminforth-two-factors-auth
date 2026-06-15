@@ -64,7 +64,7 @@ export function createTwoFaHandlers(ctx: any) {
     },
 
     confirmLoginWithPasskey: async ({ body, response, cookies, headers, requestUrl, query }) => {
-      if (!ctx.options.passkeys || ctx.options.passkeys.allowLoginWithPasskeys !== true) {
+      if (!ctx.options.passkeys || ctx.options.passkeys.allowLoginWithPasskeys === false) {
         return { error: 'Login with passkeys is not allowed' };
       }
 

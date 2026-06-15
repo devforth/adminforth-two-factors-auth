@@ -94,7 +94,7 @@ export class PasskeyService {
       if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
         throw new Error('User not found.');
       }
-      const counter = credMeta.counter ?? credMeta.sign_count ?? 0;
+      const counter = credMeta.sign_count ?? 0;
       const { verified, authenticationInfo } = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
@@ -112,7 +112,7 @@ export class PasskeyService {
       if (!verified) {
         return errorResult('User verification failed.');
       }
-      credMeta.counter = authenticationInfo.newCounter;
+      credMeta.sign_count = authenticationInfo.newCounter;
       credMeta.last_used_at = new Date().toISOString();
       await this.passkeyRepository.updateMeta(cred, credMeta);
       return { ok: true, passkeyConfirmed: true };
@@ -217,7 +217,7 @@ export class PasskeyService {
           [this.options.passkeys.credentialMetaFieldName]         : {
             public_key              : base64PublicKey,
             public_key_algorithm    : response.response.publicKeyAlgorithm,
-            counter                 : 0,
+            sign_count              : 0,
             transports              : response.response.transports,
             created_at              : new Date().toISOString(),
             last_used_at            : new Date().toISOString(),
