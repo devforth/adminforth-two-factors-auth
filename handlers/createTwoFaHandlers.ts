@@ -58,8 +58,7 @@ export function createTwoFaHandlers(ctx: any) {
         ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
         return { status: 'ok', allowedLogin: true }
       } else {
-        response.setStatus(403, verificationError);
-        return {error: verificationError, }
+        return {error: verificationError}
       }
     },
 

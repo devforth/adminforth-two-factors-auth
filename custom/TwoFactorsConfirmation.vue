@@ -388,20 +388,18 @@
       });
       return credential;
     } catch (error) {
-      console.error('Error during authentication:', error);
       // Handle specific concurrent/pending request error cases gracefully
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
       if (name === 'AbortError') {
         // Aborted intentionally; no user-facing error needed
         return null;
+      } else if (name === 'NotAllowedError') {
+        // User cancelled or ignored the browser passkey prompt.
+        return null;
       } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
         codeError.value = t('A previous passkey attempt was still pending. Please try again.');
-        return null;
-      } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'danger' });
-        codeError.value = t('The operation either timed out or was not allowed.');
         return null;
       } else {
         console.error('Error during authentication:', error);
