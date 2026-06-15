@@ -10,6 +10,7 @@ import { registerPasskeyEndpoints } from "./endpoints/registerPasskeyEndpoints.j
 import { registerTwoFaEndpoints } from "./endpoints/registerTwoFaEndpoints.js";
 import { createPasskeyHandlers } from "./handlers/createPasskeyHandlers.js";
 import { createTwoFaHandlers } from "./handlers/createTwoFaHandlers.js";
+import { parsePeriod } from "./utils/parsePeriod.js";
 import crypto from 'crypto';
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
@@ -35,7 +36,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
     if (this.options.usersFilterToAllowSkipSetup) {
-      const res = await this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
+      const res = this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
       if (res === false) { // if false, user is not allowed to skip anyway, so doesn't matter if they have 2FA set up or not
         return { skipAllowed: false };
       }
@@ -129,7 +130,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         resolveResponse: this.resolveResponse.bind(this),
       },
     };
-    const suggestionPeriod = this.passkeyService.parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
+    const suggestionPeriod = parsePeriod(this.options.passkeys?.suggestionPeriod || "5d");
     const isPasskeysEnabled = this.options.passkeys ? true : false;
 
     const customPages = this.adminforth.config.customization.customPages

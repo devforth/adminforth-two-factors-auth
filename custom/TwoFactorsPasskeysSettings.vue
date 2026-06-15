@@ -222,7 +222,7 @@
     async function requestPasskeyChallenge(confirmationResult: ConfirmationResult) {
         try {
             const response = await callAdminForthApi({
-                path: '/plugin/passkeys/registerPasskeyRequest',
+                path: '/plugin/passkeys/registrationOptions',
                 method: 'POST',
                 body: { mode: addPasskeyMode.value, confirmationResult },
             });
@@ -265,7 +265,7 @@
     async function registerPasskey(credential: string) {
         try {
             const res = await callAdminForthApi({
-                path: '/plugin/passkeys/finishRegisteringPasskey',
+                path: '/plugin/passkeys/finishRegistration',
                 method: 'POST',
                 body: { credential, origin: window.location.origin },
             });

@@ -33,32 +33,38 @@ export function createTwoFaHandlers(ctx: any) {
         }
       }
 
-      let verified = null;
+      let verified = false;
+      let verificationError = 'Wrong or expired OTP code';
       if (body.usePasskey && ctx.options.passkeys) {
-        const cookiesValidationResult = await ctx.passkeyService.validateCookiesForPasskeyLogin(cookies);
+        const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
         if (!cookiesValidationResult.ok) {
           return { error: cookiesValidationResult.error };
         }
         const res = await ctx.passkeyService.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, cookiesValidationResult.decodedPasskeysCookies);
         if (res.ok && res.passkeyConfirmed) {
           verified = true;
+        } else {
+          verificationError = res.error ?? 'Invalid passkey';
         }
       } else {
         const verificationResult = await ctx.totpService.verifyUserCode(decoded.pk, body.code);
         verified = 'ok' in verificationResult && verificationResult.ok;
+        if (!verified) {
+          verificationError = verificationResult.error ?? verificationError;
+        }
       }
       if (verified) {
         ctx.cookieService.removeTotpTemporary(response)
         ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
         return { status: 'ok', allowedLogin: true }
       } else {
-        response.setStatus(403, "Wrong or expired TOTP code");
-        return {error: 'Wrong or expired TOTP code', }
+        response.setStatus(403, verificationError);
+        return {error: verificationError, }
       }
     },
 
     confirmLoginWithPasskey: async ({ body, response, cookies, headers, requestUrl, query }) => {
-      if ( ctx.options.passkeys.allowLoginWithPasskeys !== true ) {
+      if (!ctx.options.passkeys || ctx.options.passkeys.allowLoginWithPasskeys !== true) {
         return { error: 'Login with passkeys is not allowed' };
       }
 
@@ -73,15 +79,22 @@ export function createTwoFaHandlers(ctx: any) {
       }
       const user = passkeyLoginResult.user;
       const username = user[ctx.adminforth.config.auth.usernameField];
+      const userPk = user[ctx.userRepository.getUserPkField()];
 
       const adminUser = {
         dbUser: user,
-        pk: user.id,
+        pk: userPk,
         username,
       };
 
       const toReturn = { allowedLogin: true, error: '' };
       const rememberMe = body?.rememberMe || false;
+      const rememberDaysAfterPasskeyLogin = ctx.options.passkeys.rememberDaysAfterPasskeyLogin
+        ? ctx.options.passkeys.rememberDaysAfterPasskeyLogin.toString().concat('d')
+        : null;
+      const expireInDuration = rememberMe
+        ? (rememberDaysAfterPasskeyLogin ?? ctx.adminforth.config.auth.rememberMeDuration ?? '30d')
+        : '1d';
 
       await ctx.adminforth.restApi.processLoginCallbacks(
         adminUser,
@@ -98,16 +111,15 @@ export function createTwoFaHandlers(ctx: any) {
             loginAllowedByPasskeyDirectSignIn: true
           },
         },
-        rememberMe ? ctx.adminforth.config.auth.rememberMeDuration || '30d' : '1d',
+        expireInDuration,
       );
 
-      const rememberDaysAfterPasskeyLogin = (ctx.options.passkeys.rememberDaysAfterPasskeyLogin ? ctx.options.passkeys.rememberDaysAfterPasskeyLogin.toString().concat('d') : null);
       if ( toReturn.allowedLogin === true ) {
         ctx.cookieService.setAuthCookie({
           response,
           username,
-          pk: user.id,
-          expireInDuration: rememberDaysAfterPasskeyLogin ? rememberDaysAfterPasskeyLogin : ctx.adminforth.config.auth.rememberMeDuration,
+          pk: userPk,
+          expireInDuration,
         });
       }
       return toReturn;

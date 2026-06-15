@@ -54,7 +54,7 @@ export async function verifyMfaConfirmation(
     }
     return verificationResult;
   } else if (confirmationResult.mode === "passkey") {
-    const cookiesValidationResult = await ctx.passkeyService.validateCookiesForPasskeyLogin(cookies);
+    const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
     if (!cookiesValidationResult.ok) {
       return { error: cookiesValidationResult.error };
     }

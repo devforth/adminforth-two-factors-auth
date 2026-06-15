@@ -318,7 +318,7 @@
     cancelPendingWebAuthn('button-pressed');
     codeError.value = null;
     isFetchingPasskey.value = true;
-    const signIn = await createSignInRequest();
+    const signIn = await createLoginOptions();
     if (!signIn) {
       isFetchingPasskey.value = false;
       return;
@@ -347,11 +347,11 @@
     isFetchingPasskey.value = false;
   }
 
-  async function createSignInRequest() {
+  async function createLoginOptions() {
     let response;
     try {
       response = await callAdminForthApi({
-        path: `/plugin/passkeys/signInRequest`,
+        path: `/plugin/passkeys/loginOptions`,
         method: 'POST',
       });
     } catch (error) {

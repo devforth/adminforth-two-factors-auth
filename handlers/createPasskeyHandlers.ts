@@ -3,7 +3,7 @@ import { errorMessage } from "../utils/errors.js";
 
 export function createPasskeyHandlers(ctx: any) {
   return {
-    registerPasskeyRequest: async ({ body, adminUser, response, cookies, headers }) => {
+    createRegistrationOptions: async ({ body, adminUser, response, cookies, headers }) => {
       const mode = body?.mode;
 
       const confirmationResult = body?.confirmationResult;
@@ -20,15 +20,15 @@ export function createPasskeyHandlers(ctx: any) {
         return { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' };
       }
 
-      return ctx.passkeyService.createRegisterPasskeyRequest(mode, adminUser, response);
+      return ctx.passkeyService.createRegistrationOptions(mode, adminUser, response);
     },
 
-    finishRegisteringPasskey: async ({ body, adminUser, cookies }) => {
-      return ctx.passkeyService.finishRegisteringPasskey(body, adminUser, cookies);
+    finishRegistration: async ({ body, adminUser, cookies }) => {
+      return ctx.passkeyService.finishRegistration(body, adminUser, cookies);
     },
 
-    createSignInRequest: async ({ response }) => {
-      return ctx.passkeyService.createSignInRequest(response);
+    createLoginOptions: async ({ response }) => {
+      return ctx.passkeyService.createLoginOptions(response);
     },
 
     getPasskeys: async ({ adminUser }) => {
@@ -84,7 +84,7 @@ export function createPasskeyHandlers(ctx: any) {
           } as HttpExtra
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
-          return(resolveAllIdsAsFailed('Verification failed'));
+          return(resolveAllIdsAsFailed(verificationResult?.error ?? 'Verification failed'));
         }
         if ('ok' in verificationResult && verificationResult.ok){
           for (const id of idsToResolve) {

@@ -57,7 +57,7 @@
     }
 
     export async function getPasskey() {
-    const { _options } = await createSignInRequest();
+    const { _options } = await createLoginOptions();
     let options;
     try {
       options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
@@ -79,11 +79,11 @@
     return passkeyOptions;
   }
 
-  async function createSignInRequest() {
+  async function createLoginOptions() {
     let response;
     try {
       response = await callAdminForthApi({
-        path: `/plugin/passkeys/signInRequest`,
+        path: `/plugin/passkeys/loginOptions`,
         method: 'POST',
       });
     } catch (error) {

@@ -3,24 +3,24 @@ import type { IHttpServer } from "adminforth";
 export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): void {
   server.endpoint({
     method: 'POST',
-    path: `/plugin/passkeys/registerPasskeyRequest`,
+    path: `/plugin/passkeys/registrationOptions`,
     noAuth: false,
     handler: async ({ body, adminUser, response, cookies, headers }) =>
-      handlers.registerPasskeyRequest({ body, adminUser, response, cookies, headers }),
+      handlers.createRegistrationOptions({ body, adminUser, response, cookies, headers }),
   });
 
   server.endpoint({
     method: 'POST',
-    path: `/plugin/passkeys/finishRegisteringPasskey`,
+    path: `/plugin/passkeys/finishRegistration`,
     noAuth: false,
-    handler: async ({ body, adminUser, cookies }) => handlers.finishRegisteringPasskey({ body, adminUser, cookies }),
+    handler: async ({ body, adminUser, cookies }) => handlers.finishRegistration({ body, adminUser, cookies }),
   });
 
   server.endpoint({
     method: 'POST',
-    path: `/plugin/passkeys/signInRequest`,
+    path: `/plugin/passkeys/loginOptions`,
     noAuth: true,
-    handler: async ({ response }) => handlers.createSignInRequest({ response }),
+    handler: async ({ response }) => handlers.createLoginOptions({ response }),
   });
 
   server.endpoint({

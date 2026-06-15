@@ -13,7 +13,6 @@ import { PasskeyRepository } from "../repositories/passkeyRepository.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { CookieService } from "./cookieService.js";
 import { errorMessage, errorResult, prefixedErrorResult } from "../utils/errors.js";
-import { parsePeriod } from "../utils/parsePeriod.js";
 
 export class PasskeyService {
   constructor(
@@ -24,30 +23,30 @@ export class PasskeyService {
     private readonly cookieService = new CookieService(adminforth, options),
   ) {}
 
-  public parsePeriod(period?: string): number {
-    return parsePeriod(period);
-  }
-
-  private useChallenge(challenge: string, expiresIn?: string): void {
+  private markChallengeAsUsed(challenge: string, expiresIn?: string): void {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
     this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
   }
 
-  private async checkIfChallengeNotUsed(challenge: string): Promise<boolean> {
+  private async isChallengeUnused(challenge: string): Promise<boolean> {
     const res = await this.options.passkeys.keyValueAdapter.get(challenge);
     return !res;
   }
 
-  public async validateCookiesForPasskeyLogin(cookies: any): Promise<{ok: boolean, decodedPasskeysCookies?: any, error?: string}> {
+  public async validateLoginChallengeCookie(cookies: any): Promise<{ok: boolean, decodedPasskeysCookies?: any, error?: string}> {
     const passkeysCookies = this.cookieService.getPasskeyLoginTemporary(cookies);
     if (!passkeysCookies) {
       return errorResult('Passkey token is required');
     }
 
     const decodedPasskeysCookies = await this.cookieService.verifyPasskeyLoginTemporary(cookies);
-    const isChallangeValid = await this.checkIfChallengeNotUsed(decodedPasskeysCookies.challenge);
+    if (!decodedPasskeysCookies?.challenge) {
+      return errorResult('Invalid passkey');
+    }
+
+    const isChallangeValid = await this.isChallengeUnused(decodedPasskeysCookies.challenge);
     if (isChallangeValid) {
-      this.useChallenge(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
+      this.markChallengeAsUsed(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
     }
 
     if (!decodedPasskeysCookies || !isChallangeValid) {
@@ -61,8 +60,8 @@ export class PasskeyService {
     const expectedOrigin = body.origin;
     const expectedChallenge = cookies.challenge;
     const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
-    const response = JSON.parse(body.response);
     try {
+      const response = JSON.parse(body.response);
       if (settingsOrigin !== expectedOrigin) {
         throw new Error(`Origin mismatch. Allowed in settings: ${settingsOrigin}, received from client: ${expectedOrigin}`);
       }
@@ -79,6 +78,7 @@ export class PasskeyService {
       if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
         throw new Error('User not found.');
       }
+      const counter = credMeta.counter ?? credMeta.sign_count ?? 0;
       const { verified, authenticationInfo } = await verifyAuthenticationResponse({
         response,
         expectedChallenge,
@@ -87,7 +87,7 @@ export class PasskeyService {
         credential: {
           id: cred[this.options.passkeys.credentialIdFieldName],
           publicKey: isoBase64URL.toBuffer(credMeta.public_key),
-          counter: credMeta.counter,
+          counter,
           transports: credMeta.transports,
         },
         requireUserVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification === 'discouraged' ? false : true,
@@ -105,7 +105,7 @@ export class PasskeyService {
     }
   }
 
-  public async createRegisterPasskeyRequest(mode: any, adminUser: AdminUser, response: IAdminForthHttpResponse) {
+  public async createRegistrationOptions(mode: any, adminUser: AdminUser, response: IAdminForthHttpResponse) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const rp = {
       name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
@@ -113,17 +113,18 @@ export class PasskeyService {
     };
     const userInfo = await this.userRepository.getAuthUser(adminUser.pk);
     const user = {
-      id: adminUser.pk,
+      pk: adminUser.pk,
       name: userInfo[this.options.passkeys?.settings.user.nameField],
       displayName: userInfo[this.options.passkeys?.settings.user.displayNameField] ? userInfo[this.options.passkeys?.settings.user.displayNameField] : userInfo[this.options.passkeys?.settings.user.nameField],
     };
     const excludeCredentials = [];
     const temp = await this.passkeyRepository.listByUserId(adminUser.pk);
     for (const rec of temp) {
-      if (rec.credential_id && rec.credential_id.length > 0) {
+      const credentialId = rec[this.options.passkeys.credentialIdFieldName];
+      if (credentialId) {
         const meta = rec[this.options.passkeys.credentialMetaFieldName];
         excludeCredentials.push({
-          id: rec.credential_id,
+          id: credentialId,
           type: "public-key",
           transports: meta.transports || []
         });
@@ -132,13 +133,13 @@ export class PasskeyService {
     const options = await generateRegistrationOptions({
       rpName: rp.name,
       rpID: rp.id,
-      userID: isoUint8Array.fromUTF8String(user.id),
+      userID: isoUint8Array.fromUTF8String(user.pk),
       userName: user.name,
       userDisplayName: user.displayName,
       excludeCredentials,
       authenticatorSelection: {
         authenticatorAttachment: mode,
-        requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey || true,
+        requireResidentKey: this.options.passkeys?.settings.authenticatorSelection.requireResidentKey ?? true,
         userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
       },
     });
@@ -146,7 +147,7 @@ export class PasskeyService {
     return { ok: true, data: options };
   }
 
-  public async finishRegisteringPasskey(body: any, adminUser: AdminUser, cookies: any) {
+  public async finishRegistration(body: any, adminUser: AdminUser, cookies: any) {
     const passkeysCookies = this.cookieService.getRegisterPasskeyTemporary(cookies);
     if (!passkeysCookies) {
       return { error: 'Passkey token is required' };
@@ -199,7 +200,7 @@ export class PasskeyService {
           [this.options.passkeys.credentialMetaFieldName]         : {
             public_key              : base64PublicKey,
             public_key_algorithm    : response.response.publicKeyAlgorithm,
-            sign_count              : 0,
+            counter                 : 0,
             transports              : response.response.transports,
             created_at              : new Date().toISOString(),
             last_used_at            : new Date().toISOString(),
@@ -214,7 +215,7 @@ export class PasskeyService {
     return { ok: true };
   }
 
-  public async createSignInRequest(response: IAdminForthHttpResponse) {
+  public async createLoginOptions(response: IAdminForthHttpResponse) {
     try {
       const options = await generateAuthenticationOptions({
         rpID: this.options.passkeys?.settings.rp.id,
@@ -312,7 +313,7 @@ export class PasskeyService {
   }
 
   public async getLoginUserByPasskeyResponse(passkeyResponse: any, cookies: any) {
-    const cookiesValidationResult = await this.validateCookiesForPasskeyLogin(cookies);
+    const cookiesValidationResult = await this.validateLoginChallengeCookie(cookies);
     if (!cookiesValidationResult.ok) {
       return { error: cookiesValidationResult.error };
     }
