@@ -309,7 +309,7 @@
         }
       });
     } catch (error) {
-      console.error(t('Error checking if user has passkeys:', error));
+      console.error('Error checking if user has passkeys:', error);
     }
   }
 
@@ -318,7 +318,7 @@
     cancelPendingWebAuthn('button-pressed');
     codeError.value = null;
     isFetchingPasskey.value = true;
-    const signIn = await createSignInRequest();
+    const signIn = await createLoginOptions();
     if (!signIn) {
       isFetchingPasskey.value = false;
       return;
@@ -347,15 +347,15 @@
     isFetchingPasskey.value = false;
   }
 
-  async function createSignInRequest() {
+  async function createLoginOptions() {
     let response;
     try {
       response = await callAdminForthApi({
-        path: `/plugin/passkeys/signInRequest`,
+        path: `/plugin/passkeys/loginOptions`,
         method: 'POST',
       });
     } catch (error) {
-      console.error(t('Error creating sign-in request:', error));
+      console.error('Error creating sign-in request:', error);
       return;
     }
     if (response.ok === true) {
@@ -388,22 +388,21 @@
       });
       return credential;
     } catch (error) {
-      console.error(t('Error during authentication:', error));
       // Handle specific concurrent/pending request error cases gracefully
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
       if (name === 'AbortError') {
         // Aborted intentionally; no user-facing error needed
         return null;
+      } else if (name === 'NotAllowedError') {
+        // User cancelled or ignored the browser passkey prompt.
+        return null;
       } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
         adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
         codeError.value = t('A previous passkey attempt was still pending. Please try again.');
         return null;
-      } else if (name === 'NotAllowedError') {
-        adminforth.alert({ message: t('The operation either timed out or was not allowed'), variant: 'danger' });
-        codeError.value = t('The operation either timed out or was not allowed.');
-        return null;
       } else {
+        console.error('Error during authentication:', error);
         adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
         codeError.value = t('Error during authentication.');
         return null;

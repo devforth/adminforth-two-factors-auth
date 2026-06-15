@@ -210,7 +210,7 @@
             passkeys.value = response.data;
             authenticatorAttachment.value = response.authenticatorAttachment;
         } catch (error) {
-            console.error(t('Error fetching passkeys:'), error);
+            console.error('Error fetching passkeys:', error);
             if (coreStore.adminUser?.username) {
                 adminforth.alert({ message: t('Error fetching passkeys.'), variant: 'warning' });
             }
@@ -222,7 +222,7 @@
     async function requestPasskeyChallenge(confirmationResult: ConfirmationResult) {
         try {
             const response = await callAdminForthApi({
-                path: '/plugin/passkeys/registerPasskeyRequest',
+                path: '/plugin/passkeys/registrationOptions',
                 method: 'POST',
                 body: { mode: addPasskeyMode.value, confirmationResult },
             });
@@ -230,7 +230,7 @@
             const options = PublicKeyCredential.parseCreationOptionsFromJSON(response.data);
             return { options, challengeId: response.challengeId };
         } catch (error) {
-            console.error(t('Error requesting passkey challenge:', error));
+            console.error('Error requesting passkey challenge:', error);
             return { error: t('Failed to request passkey challenge' )};
         }
     }
@@ -240,7 +240,7 @@
             const credential = await navigator.credentials.create({ publicKey: options });
             return JSON.stringify((credential as PublicKeyCredential).toJSON());
         } catch (error) {
-            console.error(t('Error creating WebAuthn credential:', error));
+            console.error('Error creating WebAuthn credential:', error);
 
             let message = t('Failed to create passkey.');
 
@@ -265,7 +265,7 @@
     async function registerPasskey(credential: string) {
         try {
             const res = await callAdminForthApi({
-                path: '/plugin/passkeys/finishRegisteringPasskey',
+                path: '/plugin/passkeys/finishRegistration',
                 method: 'POST',
                 body: { credential, origin: window.location.origin },
             });
@@ -276,7 +276,7 @@
                 adminforth.alert({ message: t('Error registering passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error(t('Error registering passkey:', error));
+            console.error('Error registering passkey:', error);
         }
     }
 
@@ -302,11 +302,11 @@
                 adminforth.alert({ message: t('Passkey deleted successfully!'), variant: 'success' });
                 getPasskeys();
             } else {
-                console.error(t('Error deleting passkey:', response?.error));
+                console.error('Error deleting passkey:', response?.error);
                 adminforth.alert({ message: t('Error deleting passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error(t('Error deleting passkey:', error));
+            console.error('Error deleting passkey:', error);
             adminforth.alert({ message: t('Error deleting passkey.'), variant: 'warning' });
         }
     }
@@ -322,11 +322,11 @@
                 adminforth.alert({ message: t('Passkey updated successfully!'), variant: 'success' });
                 getPasskeys();
             } else {
-                console.error(t('Error updating passkey:', response.error));
+                console.error('Error updating passkey:', response.error);
                 adminforth.alert({ message: t('Error updating passkey.'), variant: 'warning' });
             }
         } catch (error) {
-            console.error(t('Error updating passkey:', error));
+            console.error('Error updating passkey:', error);
             adminforth.alert({ message: t('Error updating passkey.'), variant: 'warning' });
         }
     }
