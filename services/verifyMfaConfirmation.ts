@@ -1,8 +1,8 @@
 import type { AdminUser, HttpExtra, IAdminForthHttpResponse } from "adminforth";
 
 export type VerifyOptions = {
-  adminUser?: AdminUser;
-  userPk?: string;
+  adminUser: AdminUser;
+  userPk: string;
   cookies?: any;
   response?: IAdminForthHttpResponse;
   extra?: HttpExtra;
@@ -11,11 +11,9 @@ export type VerifyOptions = {
 export async function verifyMfaConfirmation(
   ctx: any,
   confirmationResult: Record<string, any>,
-  opts?: VerifyOptions,
+  opts: VerifyOptions,
 ): Promise<{ ok: true } | { error: string }> {
   if (!confirmationResult) return { error: "Confirmation result is required" };
-  if (!opts?.adminUser) return { error: "Admin user is required" };
-  if (!opts.userPk) return { error: "User PK is required" };
 
   const cookies = opts.extra?.cookies || opts.cookies;
   const response = opts.extra?.response || opts.response;
@@ -41,10 +39,7 @@ export async function verifyMfaConfirmation(
 
   if (confirmationResult.mode === "totp") {
     const code = confirmationResult.result;
-    const pk = opts?.userPk ?? ctx.userRepository.getUserPk(opts.adminUser);
-    if (!pk) return { error: "User PK is required" };
-
-    const verificationResult = await ctx.totpService.verifyUserCode(pk, code);
+    const verificationResult = await ctx.totpService.verifyUserCode(opts.userPk, code);
 
     if ( 'ok' in verificationResult && verificationResult.ok ) {
       if (ctx.options.stepUpMfaGracePeriodSeconds) {

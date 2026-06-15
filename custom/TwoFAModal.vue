@@ -175,7 +175,7 @@
             path: "/plugin/passkeys/resolveVerifyAuto",
             body: { confirmationResult, sessionsIds: sessionsIdsToResolve.value }
           });
-          if (!response.ok && response.error === 'No session ID or confirmation result'){
+          if (!response.ok && response.code === 'VERIFICATION_CANCELLED'){
             alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
           } else if (!response.ok) {
             alert({message: response.error || t('Verification failed'), variant: 'danger'}); 
@@ -184,7 +184,7 @@
           }
           sessionsIdsToResolve.value = [];
         } catch (error) {
-          console.error(t('Error resolving automatic 2FA verification:', error));
+          console.error('Error resolving automatic 2FA verification:', error);
         }
         allowAddNewSessions = true;
       });
@@ -412,7 +412,7 @@
         }
       }
     } catch (error) {
-      console.error(t('Error checking passkeys:', error));
+      console.error('Error checking passkeys:', error);
       // Fallback to TOTP if there's an error
       doesUserHavePasskeys.value = false;
       modalMode.value = "totp";
@@ -474,7 +474,7 @@
         return false;
       }
     } catch (error) {
-      console.error(t('Error checking skip allow modal:', error));
+      console.error('Error checking skip allow modal:', error);
       return false;
     }
   }

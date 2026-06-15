@@ -309,7 +309,7 @@
         }
       });
     } catch (error) {
-      console.error(t('Error checking if user has passkeys:', error));
+      console.error('Error checking if user has passkeys:', error);
     }
   }
 
@@ -355,7 +355,7 @@
         method: 'POST',
       });
     } catch (error) {
-      console.error(t('Error creating sign-in request:', error));
+      console.error('Error creating sign-in request:', error);
       return;
     }
     if (response.ok === true) {
@@ -388,7 +388,7 @@
       });
       return credential;
     } catch (error) {
-      console.error(t('Error during authentication:', error));
+      console.error('Error during authentication:', error);
       // Handle specific concurrent/pending request error cases gracefully
       const name = (error && (error.name || error.constructor?.name)) || '';
       const message = (error && error.message) || '';
@@ -404,6 +404,7 @@
         codeError.value = t('The operation either timed out or was not allowed.');
         return null;
       } else {
+        console.error('Error during authentication:', error);
         adminforth.alert({message: t(`Error during authentication: ${error}`), variant: 'warning'});
         codeError.value = t('Error during authentication.');
         return null;

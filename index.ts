@@ -102,7 +102,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   public async verify(
     confirmationResult: Record<string, any>,
-    opts?: VerifyOptions
+    opts: VerifyOptions
   ): Promise<{ ok: true } | { error: string }> {
     return verifyMfaConfirmation(this.ctx, confirmationResult, opts);
   }

@@ -52,16 +52,17 @@ export function createPasskeyHandlers(ctx: any) {
       const confirmationResult = body?.confirmationResult;
       const idsToResolve = Array.isArray(sessionsIds) ? sessionsIds : [];
 
-      const resolveAllIdsAsFailed = (message) => {
+      const resolveAllIdsAsFailed = (message, code?: string) => {
+        const payload = code ? { ok: false, code, error: message } : { ok: false, error: message };
         for (const id of idsToResolve) {
-          ctx.autoVerify.resolveResponse(id, { ok: false, error: message });
+          ctx.autoVerify.resolveResponse(id, payload);
         }
-        return { ok: false, error: message };
+        return payload;
       }
 
       try {
         if (!idsToResolve.length || !confirmationResult) {
-          return(resolveAllIdsAsFailed('Confirmation window was closed or did not return required data'));
+          return(resolveAllIdsAsFailed('Confirmation window was closed', 'VERIFICATION_CANCELLED'));
         }
 
         for (const id of idsToResolve) {

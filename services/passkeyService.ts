@@ -23,9 +23,9 @@ export class PasskeyService {
     private readonly cookieService = new CookieService(adminforth, options),
   ) {}
 
-  private markChallengeAsUsed(challenge: string, expiresIn?: string): void {
+  private async markChallengeAsUsed(challenge: string, expiresIn?: string): Promise<void> {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
-    this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
+    await this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
   }
 
   private async isChallengeUnused(challenge: string): Promise<boolean> {
@@ -46,7 +46,7 @@ export class PasskeyService {
 
     const isChallangeValid = await this.isChallengeUnused(decodedPasskeysCookies.challenge);
     if (isChallangeValid) {
-      this.markChallengeAsUsed(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
+      await this.markChallengeAsUsed(decodedPasskeysCookies.challenge, this.options.passkeys?.challengeValidityPeriod || '2m');
     }
 
     if (!decodedPasskeysCookies || !isChallangeValid) {
@@ -108,7 +108,7 @@ export class PasskeyService {
   public async createRegistrationOptions(mode: any, adminUser: AdminUser, response: IAdminForthHttpResponse) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const rp = {
-      name: this.options.passkeys?.settings.rp.name || this.adminforth.config.customization.brandName,
+      name: this.options.passkeys?.settings.rp?.name || this.adminforth.config.customization.brandName,
       id: this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname,
     };
     const userInfo = await this.userRepository.getAuthUser(adminUser.pk);
@@ -167,8 +167,8 @@ export class PasskeyService {
     const expectedOrigin = body.origin;
     const expectedChallenge = decodedPasskeysCookies.challenge;
     const expectedRPID = this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname;
-    const response = JSON.parse(body.credential);
     try {
+      const response = JSON.parse(body.credential);
       if (settingsOrigin !== expectedOrigin) {
         throw new Error('Invalid origin');
       }
@@ -218,7 +218,7 @@ export class PasskeyService {
   public async createLoginOptions(response: IAdminForthHttpResponse) {
     try {
       const options = await generateAuthenticationOptions({
-        rpID: this.options.passkeys?.settings.rp.id,
+        rpID: this.options.passkeys?.settings.rp?.id || (new URL(this.options.passkeys?.settings.expectedOrigin)).hostname,
         userVerification: this.options.passkeys?.settings.authenticatorSelection.userVerification || "required"
       });
       this.cookieService.setPasskeyLoginTemporary(response, options.challenge);
@@ -279,9 +279,10 @@ export class PasskeyService {
     if (!passkeyRecord) {
       return errorResult('Passkey not found');
     }
-    const meta = passkeyRecord[this.options.passkeys.credentialMetaFieldName];
-    meta.name = newName;
-    const newRecord = { ...passkeyRecord, [this.options.passkeys.credentialMetaFieldName]: meta };
+    const metaField = this.options.passkeys.credentialMetaFieldName;
+    const oldMeta = passkeyRecord[metaField];
+    const newMeta = { ...oldMeta, name: newName };
+    const newRecord = { ...passkeyRecord, [metaField]: newMeta };
     try {
       await this.passkeyRepository.update(passkeyRecord, newRecord, adminUser);
     } catch (error) {
