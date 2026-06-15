@@ -129,6 +129,9 @@ export class PasskeyService {
       id: this.options.passkeys?.settings?.rp?.id || (new URL(settingsOrigin)).hostname,
     };
     const userInfo = await this.userRepository.getAuthUser(adminUser.pk);
+    if (!userInfo) {
+       return errorResult('User not found');
+     }
     const user = {
       pk: adminUser.pk,
       name: userInfo[this.options.passkeys?.settings.user.nameField],

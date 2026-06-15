@@ -36,12 +36,12 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
   public async checkIfSkipSetupAllowSkipVerify(adminUser: AdminUser): Promise<{ skipAllowed: boolean }> {
     if (this.options.usersFilterToAllowSkipSetup) {
-      const res = this.options.usersFilterToAllowSkipSetup(adminUser); // recieve result of usersFilterToAllowSkipSetup
+      const res = this.options.usersFilterToAllowSkipSetup(adminUser); // receive result of usersFilterToAllowSkipSetup
       if (res === false) { // if false, user is not allowed to skip anyway, so doesn't matter if they have 2FA set up or not
         return { skipAllowed: false };
       }
       
-      //recieve user's record
+      //receive user's record
       const userPkFieldName = this.userRepository.getUserPkField();
       const userRecord = await this.userRepository.getAuthUser(adminUser.pk);
 
