@@ -110,6 +110,7 @@
   import { getPasskey } from './utils.js' 
   import { useAdminforth } from '@/adminforth';
   import websocket from '@/websocket';
+  import { getAdminForthClientId } from '@/utils/clientId';
   import type { AdminUser } from '@/types/Common';
 
   type TwoFaConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> };
@@ -150,7 +151,8 @@
   watch( props, () => {
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
-      websocket.subscribe(`/user2fa/${props.adminUser.pk}`, async (data: {sessionId: string}) => {
+      const user2FaTopic = `/user2fa/${props.adminUser.pk}/${getAdminForthClientId()}`;
+      websocket.subscribe(user2FaTopic, async (data: {sessionId: string}) => {
         if (!allowAddNewSessions) {
           alert({message: t('Some process or user tries to add new actions to confirm. Action was blocked'), variant: 'warning'});
           return;
@@ -188,7 +190,7 @@
         }
         allowAddNewSessions = true;
       });
-      websocket.subscribe(`/user2fa/${props.adminUser.pk}-resolve`, async (data: {sessionId: string}) => {
+      websocket.subscribe(`${user2FaTopic}/resolve`, async (data: {sessionId: string}) => {
         if (sessionsIdsToResolve.value.includes(data.sessionId) && rejectFn && modelShow.value) {
           onCancel();
           sessionsIdsToResolve.value = sessionsIdsToResolve.value.filter(id => id !== data.sessionId);
