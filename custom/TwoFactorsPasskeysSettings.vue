@@ -220,7 +220,7 @@
         }
     }
 
-    type ConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> };
+    type ConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> } | { mode?: undefined };
 
     async function requestPasskeyChallenge(confirmationResult: ConfirmationResult) {
         try {
