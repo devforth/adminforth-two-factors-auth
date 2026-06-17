@@ -28,7 +28,7 @@
     "node-2fa": "^2.0.3"
   },
   "peerDependencies": {
-    "adminforth": "3.0.1"
+    "adminforth": "3.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.7",
