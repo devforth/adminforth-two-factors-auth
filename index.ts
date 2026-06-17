@@ -1,4 +1,5 @@
 import {  AdminForthPlugin, suggestIfTypo, HttpExtra } from "adminforth";
+import * as AdminForthRuntime from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, IAdminForthHttpResponse } from "adminforth";
 import  { PluginOptions } from "./types.js"
 import { PasskeyService } from "./services/passkeyService.js";
@@ -12,6 +13,10 @@ import { createPasskeyHandlers } from "./handlers/createPasskeyHandlers.js";
 import { createTwoFaHandlers } from "./handlers/createTwoFaHandlers.js";
 import { parsePeriod } from "./utils/parsePeriod.js";
 import crypto from 'crypto';
+
+const getRequestWebsocketClientId = (AdminForthRuntime as typeof AdminForthRuntime & {
+  getRequestWebsocketClientId?: () => string | undefined;
+}).getRequestWebsocketClientId;
 
 export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   options: PluginOptions;
@@ -87,7 +92,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   public async verifyAuto(adminUser: AdminUser) {
-    const websocketClientId = this.adminforth.getRequestWebsocketClientId?.();
+    const websocketClientId = getRequestWebsocketClientId?.();
     if (!websocketClientId) {
       return { ok: false, error: '2FA auto verification requires an active browser request context' };
     }
