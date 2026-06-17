@@ -133,11 +133,13 @@
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import { useCoreStore } from '@/stores/core';
+    import { useTwoFactorsAuth } from './use2faApi';
 
     const { t } = useI18n();
     dayjs.extend(utc);
     dayjs.extend(timezone);
     const coreStore = useCoreStore();
+    const twoFactorsAuth = useTwoFactorsAuth();
 
     interface Passkey {
         id: string;
@@ -176,8 +178,9 @@
     async function startAddPasskey() {
         isFetchingPasskey.value = true;
         try {
-            const confirmationResult = await window.adminforthTwoFaModal
-                .get2FaConfirmationResult(t('To add passkey first verify yourself'));
+            const confirmationResult = await twoFactorsAuth.get2FaConfirmationResult(
+                t('To add passkey first verify yourself')
+            );
 
             if (!confirmationResult) return;
 
@@ -227,7 +230,9 @@
                 body: { mode: addPasskeyMode.value, confirmationResult },
             });
             if (!response.ok) return { error: response.error ?? t('Verification failed') };
+            console.log('Passkey challenge response:', response.data);
             const options = PublicKeyCredential.parseCreationOptionsFromJSON(response.data);
+            console.log('Parsed PublicKeyCredentialCreationOptions:', options);
             return { options, challengeId: response.challengeId };
         } catch (error) {
             console.error('Error requesting passkey challenge:', error);

@@ -101,7 +101,7 @@
   <script setup lang="ts">
 
   import VOtpInput from 'vue3-otp-input';
-  import { ref, nextTick, watch, onMounted } from 'vue';
+  import { ref, nextTick, watch } from 'vue';
   import { useUserStore } from '@/stores/user';
   import { useI18n } from 'vue-i18n';
   import { callAdminForthApi } from '@/utils';
@@ -112,25 +112,14 @@
   import websocket from '@/websocket';
   import { getAdminForthClientId } from '@/utils/clientId';
   import type { AdminUser } from '@/types/Common';
-
-  type TwoFaConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> };
-
-  declare global {
-    interface Window {
-      adminforthTwoFaModal: {
-        get2FaConfirmationResult: (
-          title?: string,
-          verifyingCallback?: (confirmationResult: string) => Promise<boolean>
-        ) => Promise<TwoFaConfirmationResult>;
-      };
-    }
-  }
+  import { useTwoFactorsAuthApi, type TwoFaConfirmationResult } from './use2faApi.js';
   const props = defineProps<{
     autoFinishLogin?: boolean
     adminUser?: AdminUser
   }>();
 
   const { alert } = useAdminforth();
+  const twoFactorsAuthApi = useTwoFactorsAuthApi();
 
   const isAwaiting2FAResult = ref(false);
   let allowAddNewSessions = true;
@@ -164,7 +153,7 @@
         }
         try {
           isAwaiting2FAResult.value = true;
-          confirmationResult = await window.adminforthTwoFaModal.get2FaConfirmationResult();
+          confirmationResult = await twoFactorsAuthApi.get2FaConfirmationResult();
         } catch (error) {
           if (!isTwoFaCancel(error)) {
             console.error('[AdminForth 2FA] Error during 2FA confirmation', error);
@@ -226,7 +215,6 @@
 
   const modelShow = ref(false);
   let resolveFn: ((confirmationResult: any) => void) | null = null;
-  let verifyingCallback: ((confirmationResult: string) => boolean) | null = null;
   let verifyFn: null | ((confirmationResult: string) => Promise<boolean> | boolean) = null;
   let rejectFn: ((err?: any) => void) | null = null;
 
@@ -235,37 +223,42 @@
   }
 
 
-  window.adminforthTwoFaModal = {
-    get2FaConfirmationResult: (title?: string, verifyingCallback?: (confirmationResult: string) => Promise<boolean>) =>
-      new Promise((resolve, reject) => {
-        (async () => {
-          if (modelShow.value) {
-            throw new Error(t('Modal is already open'));
-          }
-          const skipAllowModal = await checkIfSkipAllowModal();
-          if (skipAllowModal) {
-            resolve({ code: "123456" }); // dummy code
-            return;
-          }
-          await checkIfUserHasPasskeys();
-          if (title) {
-            customDialogTitle.value = title;
-          }
-          resolveFn = resolve;
-          rejectFn = reject;
-          verifyFn = verifyingCallback ?? null;
-          modelShow.value = true;
-          if (modalMode.value === 'totp') {
-            await addEventListenerForOTPInput();
-          }
-        })().catch((error) => {
-          if (!isTwoFaCancel(error)) {
-            console.error('[AdminForth 2FA] Failed to open 2FA modal', error);
-          }
-          reject(error);
-        });
-      }),
-  };
+  function get2FaConfirmationResult(
+    title?: string,
+    verifyingCallback?: (confirmationResult: string) => Promise<boolean> | boolean
+  ): Promise<TwoFaConfirmationResult> {
+    return new Promise((resolve, reject) => {
+      (async () => {
+        if (modelShow.value) {
+          throw new Error(t('Modal is already open'));
+        }
+        const skipAllowModal = await checkIfSkipAllowModal();
+        if (skipAllowModal) {
+          resolve({ mode: 'totp', result: '123456' });
+          return;
+        }
+        await checkIfUserHasPasskeys();
+        if (title) {
+          customDialogTitle.value = title;
+        }
+        resolveFn = resolve;
+        rejectFn = reject;
+        verifyFn = verifyingCallback ?? null;
+        modelShow.value = true;
+        if (modalMode.value === 'totp') {
+          await addEventListenerForOTPInput();
+        }
+      })().catch((error) => {
+        if (!isTwoFaCancel(error)) {
+          console.error('[AdminForth 2FA] Failed to open 2FA modal', error);
+        }
+        reject(error);
+      });
+    });
+  }
+
+  twoFactorsAuthApi.setGet2FaConfirmationResultHandler(get2FaConfirmationResult);
+  twoFactorsAuthApi.initGlobalApi();
   
   const { t } = useI18n();
   const user = useUserStore();
@@ -276,15 +269,19 @@
   const doesUserHavePasskeys = ref(false);
   const modalMode = ref<"totp" | "passkey">("totp");
   const isLoading = ref(false);
+  const isFetchingPasskey = ref(false);
   const customDialogTitle = ref("");
   
   async function usePasskeyButtonClick() {
+    isFetchingPasskey.value = true;
     let passkeyData;
     try {
       passkeyData = await getPasskey();
     } catch (error) {
       onCancel();
       return null;
+    } finally {
+      isFetchingPasskey.value = false;
     }
     modelShow.value = false;
     const dataToReturn = {
@@ -293,7 +290,7 @@
     }
     customDialogTitle.value = "";
     removeEventListenerForOTPInput();
-    resolveFn(dataToReturn);
+    resolveFn?.(dataToReturn);
   }
 
   function tagOtpInputs() {
@@ -354,7 +351,7 @@
     bindValue.value = '';
     confirmationResult.value?.clearInput();
     removeEventListenerForOTPInput();
-    rejectFn("Cancel");
+    rejectFn?.("Cancel");
     emit('rejected', new Error('cancelled'));
     emit('closed');
   }
@@ -440,10 +437,10 @@
     ((firstEmpty || inputs[0]) as HTMLInputElement).focus();
   }
 
-  function handleGlobalFocusIn(event) {
+  function handleGlobalFocusIn(event: FocusEvent) {
     const inputs = getOtpInputs();
     if (!inputs.length) return;
-    const target = event.target;
+    const target = event.target as Element | null;
     if (!target) return;
     if (!inputs.includes(target)) {
       requestAnimationFrame(() => {
