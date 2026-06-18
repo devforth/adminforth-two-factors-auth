@@ -234,7 +234,7 @@
         }
         const skipAllowModal = await checkIfSkipAllowModal();
         if (skipAllowModal) {
-          resolve({ mode: 'totp', result: '123456' });
+          resolve({});
           return;
         }
         await checkIfUserHasPasskeys();

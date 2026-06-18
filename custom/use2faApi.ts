@@ -3,7 +3,8 @@ import { defineStore } from 'pinia';
 
 export type TwoFaConfirmationResult =
   | { mode: 'totp'; result: string }
-  | { mode: 'passkey'; result: Record<string, any> };
+  | { mode: 'passkey'; result: Record<string, any> }
+  | { mode?: undefined };
 
 type VerifyFn = (confirmationResult: string) => Promise<boolean> | boolean;
 type Get2FaConfirmationResultHandler = (
