@@ -9,7 +9,12 @@ export function createTwoFaHandlers(ctx: any) {
       return toReturn
     },
 
-    confirmLogin: async ({ body, response, cookies }) => {
+    confirmLogin: async ({ body, response, cookies, headers }) => {
+      if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
+        response.setStatus(429);
+        return { error: 'Too many login attempts, please try again later' };
+      }
+
       const totpTemporaryJWT = ctx.cookieService.getTotpTemporary(cookies);
       if (!totpTemporaryJWT) {
         return { error: 'Login session expired. Please log in again.' }

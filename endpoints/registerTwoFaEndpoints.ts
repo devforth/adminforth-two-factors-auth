@@ -12,7 +12,7 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: 'POST',
     path: `/plugin/twofa/confirmLogin`,
     noAuth: true,
-    handler: async ({ body, response, cookies }) => handlers.confirmLogin({ body, response, cookies }),
+    handler: async ({ body, response, cookies, headers }) => handlers.confirmLogin({ body, response, cookies, headers }),
   });
 
   server.endpoint({
