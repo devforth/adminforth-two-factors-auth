@@ -63,6 +63,11 @@ export function createTwoFaHandlers(ctx: any) {
     },
 
     confirmLoginWithPasskey: async ({ body, response, cookies, headers, requestUrl, query }) => {
+      if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
+        response.setStatus(429);
+        return { error: 'Too many login attempts, please try again later' };
+      }
+
       if (!ctx.options.passkeys || ctx.options.passkeys.allowLoginWithPasskeys === false) {
         return { error: 'Login with passkeys is not allowed' };
       }

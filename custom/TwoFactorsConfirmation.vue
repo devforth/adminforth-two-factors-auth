@@ -361,8 +361,9 @@
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
-      adminforth.alert({message: t('Error creating sign-in request.'), variant: 'danger'});
-      codeError.value = 'Error creating sign-in request.';
+      const message = response.error || t('Error creating sign-in request.');
+      adminforth.alert({message, variant: 'danger'});
+      codeError.value = message;
     }
   }
 

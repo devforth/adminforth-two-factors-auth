@@ -20,7 +20,7 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/loginOptions`,
     noAuth: true,
-    handler: async ({ response }) => handlers.createLoginOptions({ response }),
+    handler: async ({ response, headers }) => handlers.createLoginOptions({ response, headers }),
   });
 
   server.endpoint({

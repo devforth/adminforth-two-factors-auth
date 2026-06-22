@@ -57,7 +57,11 @@
     }
 
     export async function getPasskey() {
-    const { _options } = await createLoginOptions();
+    const signIn = await createLoginOptions();
+    if (!signIn) {
+      return;
+    }
+    const { _options } = signIn;
     let options;
     try {
       options = PublicKeyCredential.parseRequestOptionsFromJSON(_options);
@@ -93,8 +97,9 @@
     if (response.ok === true) {
       return { _options: response.data, challengeId: response.challengeId };
     } else {
-      adminforth.alert({message: 'Error creating sign-in request.', variant: 'warning'});
-      codeError.value = 'Error creating sign-in request.';
+      const message = response.error || 'Error creating sign-in request.';
+      adminforth.alert({message, variant: 'warning'});
+      codeError.value = message;
     }
   }
 

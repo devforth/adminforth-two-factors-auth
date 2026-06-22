@@ -1,4 +1,4 @@
-import {  AdminForthPlugin, suggestIfTypo, HttpExtra } from "adminforth";
+import {  AdminForthPlugin, suggestIfTypo, HttpExtra, RateLimiter } from "adminforth";
 import * as AdminForthRuntime from "adminforth";
 import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, IAdminForthHttpResponse } from "adminforth";
 import  { PluginOptions } from "./types.js"
@@ -27,6 +27,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   totpService: TotpService;
   cookieService: CookieService;
   userRepository: UserRepository;
+  passkeyLoginRateLimiters: RateLimiter[] = [];
   private ctx: any;
 
   constructor(options: PluginOptions) {
@@ -124,6 +125,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     this.cookieService = new CookieService(this.adminforth, this.options);
     this.totpService = new TotpService(this.options, this.userRepository);
     this.passkeyService = new PasskeyService(this.options, this.adminforth, this.userRepository, undefined, this.cookieService);
+    this.passkeyLoginRateLimiters = (adminforth.config.auth as any).rateLimit.map((rate) => new RateLimiter(rate));
     this.ctx = {
       adminforth: this.adminforth,
       options: this.options,
@@ -132,6 +134,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       totpService: this.totpService,
       passkeyService: this.passkeyService,
       cookieService: this.cookieService,
+      checkPasskeyLoginRateLimit: async (headers) => {
+        const passkeyLoginRateLimitKey = this.adminforth.auth.getClientIp(headers) || 'unknown';
+        const rateLimitResults = await Promise.all(this.passkeyLoginRateLimiters.map((limiter) => limiter.consume(passkeyLoginRateLimitKey)));
+        return rateLimitResults.every(Boolean);
+      },
       verifyMfaConfirmation: (confirmationResult, opts) => verifyMfaConfirmation(this.ctx, confirmationResult, opts),
       checkIfSkipSetupAllowSkipVerify: this.checkIfSkipSetupAllowSkipVerify.bind(this),
       autoVerify: {

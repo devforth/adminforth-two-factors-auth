@@ -27,7 +27,11 @@ export function createPasskeyHandlers(ctx: any) {
       return ctx.passkeyService.finishRegistration(body, adminUser, cookies);
     },
 
-    createLoginOptions: async ({ response }) => {
+    createLoginOptions: async ({ response, headers }) => {
+      if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
+        response.setStatus(429);
+        return { error: 'Too many login attempts, please try again later' };
+      }
       return ctx.passkeyService.createLoginOptions(response);
     },
 
