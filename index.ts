@@ -54,10 +54,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       //check if user has 2FA set up
       const users2FASecret = this.userRepository.getSecret(userRecord);
       //check if user has any passkeys registered
-      let userHasPasskeys = false;
-      if(this.options.passkeys) {
-        userHasPasskeys = await this.passkeyService.hasPasskeysForUser(adminUser.dbUser[userPkFieldName]);
-      }
+      const userHasPasskeys = this.options.passkeys
+        ? await this.passkeyService.hasPasskeysForUser(adminUser.dbUser[userPkFieldName])
+        : false;
 
       // If user has either 2FA secret or any passkeys, they cannot skip
       if (users2FASecret || userHasPasskeys) {
