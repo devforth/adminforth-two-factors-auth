@@ -1,5 +1,5 @@
 import { AdminUser, KeyValueAdapter } from "adminforth";
-import  {type PluginsCommonOptions } from "adminforth";
+import  {type PluginsCommonOptions, PeriodString } from "adminforth";
 
 export interface PluginOptions extends PluginsCommonOptions {
 
@@ -58,11 +58,11 @@ export interface PluginOptions extends PluginsCommonOptions {
         /**
          *  Period between showing alert suggesting to set up Passkeys if not set up yet.
          */
-        suggestionPeriod?: string; // e.g. '30d', '12h', '15m'. Default is '5d'
+        suggestionPeriod?: PeriodString; // e.g. '30d', '12h', '15m'. Default is '5d'
         /**
          * Challenge period for Passkeys authentication.
          */
-        challengeValidityPeriod?: string; // e.g. '5m', '10m', '15m'. Default is '1m'
+        challengeValidityPeriod?: PeriodString; // e.g. '5m', '10m', '15m'. Default is '1m'
         /**
          *  Passkeys settings for WebAuthn API.
          */

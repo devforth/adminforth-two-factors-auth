@@ -1,5 +1,5 @@
 import { convertPeriodToSeconds } from "adminforth";
-import type { AdminUser, IAdminForth, IAdminForthHttpResponse } from "adminforth";
+import type { AdminUser, IAdminForth, IAdminForthHttpResponse, PeriodString } from "adminforth";
 import {
   generateRegistrationOptions,
   verifyRegistrationResponse,
@@ -39,7 +39,7 @@ export class PasskeyService {
     private readonly cookieService = new CookieService(adminforth, options),
   ) {}
 
-  private async markChallengeAsUsed(challenge: string, expiresIn?: string): Promise<void> {
+  private async markChallengeAsUsed(challenge: string, expiresIn?: PeriodString): Promise<void> {
     const expiresInSeconds = expiresIn ? convertPeriodToSeconds(expiresIn) : undefined;
     await this.options.passkeys.keyValueAdapter.set(challenge, 'stub_value', expiresInSeconds);
   }
