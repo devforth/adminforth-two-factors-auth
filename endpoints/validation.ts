@@ -1,21 +1,5 @@
 import { z } from "zod";
 
-export function parseBody<T>(
-  schema: z.ZodType<T>,
-  body: unknown,
-  response: { setStatus: (code: number, message: string) => void },
-): { ok: true; data: T } | { ok: false; error: { error: string; details: unknown } } {
-  const parsed = schema.safeParse(body ?? {});
-  if (!parsed.success) {
-    response.setStatus(400, '');
-    return {
-      ok: false,
-      error: { error: 'Request body validation failed', details: parsed.error.issues },
-    };
-  }
-  return { ok: true, data: parsed.data };
-}
-
 // twofa endpoints
 export const confirmLoginBodySchema = z.object({
   code: z.string().optional(),

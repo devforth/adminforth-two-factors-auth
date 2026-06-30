@@ -1,6 +1,6 @@
 import type { IHttpServer } from "adminforth";
+import { parseBody } from "adminforth";
 import {
-  parseBody,
   confirmLoginBodySchema,
   confirmLoginWithPasskeyBodySchema,
   verifyTotpBodySchema,
