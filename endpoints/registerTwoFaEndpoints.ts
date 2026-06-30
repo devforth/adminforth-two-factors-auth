@@ -19,7 +19,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     path: `/plugin/twofa/confirmLogin`,
     noAuth: true,
     handler: async ({ body, response, cookies, headers }) => {
-      if (!parseBody(confirmLoginBodySchema, body, response)) return;
+      const parsed = parseBody(confirmLoginBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.confirmLogin({ body, response, cookies, headers });
     },
   });
@@ -29,7 +30,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     path: `/plugin/twofa/confirmLoginWithPasskey`,
     noAuth: true,
     handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
-      if (!parseBody(confirmLoginWithPasskeyBodySchema, body, response)) return;
+      const parsed = parseBody(confirmLoginWithPasskeyBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.confirmLoginWithPasskey({ body, response, cookies, headers, requestUrl, query });
     },
   });
@@ -52,7 +54,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     path: `/plugin/twofa/verify`,
     noAuth: false,
     handler: async ({ adminUser, body, response }) => {
-      if (!parseBody(verifyTotpBodySchema, body, response)) return;
+      const parsed = parseBody(verifyTotpBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.verifyTotp({ adminUser, body });
     },
   });

@@ -14,7 +14,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/registrationOptions`,
     noAuth: false,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
-      if (!parseBody(registrationOptionsBodySchema, body, response)) return;
+      const parsed = parseBody(registrationOptionsBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.createRegistrationOptions({ body, adminUser, response, cookies, headers });
     },
   });
@@ -24,7 +25,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/finishRegistration`,
     noAuth: false,
     handler: async ({ body, adminUser, cookies, response }) => {
-      if (!parseBody(finishRegistrationBodySchema, body, response)) return;
+      const parsed = parseBody(finishRegistrationBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.finishRegistration({ body, adminUser, cookies });
     },
   });
@@ -48,7 +50,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/deletePasskey`,
     noAuth: false,
     handler: async ({ body, adminUser, response }) => {
-      if (!parseBody(deletePasskeyBodySchema, body, response)) return;
+      const parsed = parseBody(deletePasskeyBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.deletePasskey({ body, adminUser });
     },
   });
@@ -58,7 +61,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/renamePasskey`,
     noAuth: false,
     handler: async ({ body, adminUser, response }) => {
-      if (!parseBody(renamePasskeyBodySchema, body, response)) return;
+      const parsed = parseBody(renamePasskeyBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.renamePasskey({ body, adminUser });
     },
   });
@@ -75,7 +79,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/resolveVerifyAuto`,
     noAuth: false,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
-      if (!parseBody(resolveVerifyAutoBodySchema, body, response)) return;
+      const parsed = parseBody(resolveVerifyAutoBodySchema, body, response);
+      if ('error' in parsed) return parsed.error;
       return handlers.resolveVerifyAuto({ body, adminUser, response, cookies, headers });
     },
   });
