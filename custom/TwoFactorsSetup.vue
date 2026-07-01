@@ -249,8 +249,7 @@ async function sendCode (value) {
     method: 'POST',
     path: '/plugin/twofa/confirmLogin',
     body: {
-      code: value,
-      secret: totp.value.newSecret,
+      code: value
     }
   })
   if (resp.allowedLogin) {

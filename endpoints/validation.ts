@@ -9,7 +9,7 @@ export const confirmLoginBodySchema = z.object({
 }).strict();
 
 export const confirmLoginWithPasskeyBodySchema = z.object({
-  passkeyResponse: z.any().optional(),
+  passkeyResponse: z.record(z.string(), z.any()),
   rememberMe: z.boolean().optional(),
 }).strict();
 
@@ -20,12 +20,12 @@ export const verifyTotpBodySchema = z.object({
 // passkey endpoints
 export const registrationOptionsBodySchema = z.object({
   mode: z.string().nullish(),
-  confirmationResult: z.any().optional(),
+  confirmationResult: z.record(z.string(), z.any()),
 }).strict();
 
 export const finishRegistrationBodySchema = z.object({
   credential: z.any(),
-  origin: z.string().optional(),
+  origin: z.string(),
 }).strict();
 
 export const deletePasskeyBodySchema = z.object({
@@ -39,5 +39,5 @@ export const renamePasskeyBodySchema = z.object({
 
 export const resolveVerifyAutoBodySchema = z.object({
   sessionsIds: z.array(z.string()).nullish(),
-  confirmationResult: z.any().optional(),
+  confirmationResult: z.record(z.string(), z.any()),
 }).strict();
