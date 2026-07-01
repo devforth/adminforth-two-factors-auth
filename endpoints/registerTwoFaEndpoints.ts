@@ -1,5 +1,4 @@
 import type { IHttpServer } from "adminforth";
-import { parseBody } from "adminforth";
 import {
   confirmLoginBodySchema,
   confirmLoginWithPasskeyBodySchema,
@@ -18,9 +17,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: 'POST',
     path: `/plugin/twofa/confirmLogin`,
     noAuth: true,
+    request_schema: confirmLoginBodySchema,
     handler: async ({ body, response, cookies, headers }) => {
-      const parsed = parseBody(confirmLoginBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
       return handlers.confirmLogin({ body, response, cookies, headers });
     },
   });
@@ -29,9 +27,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: 'POST',
     path: `/plugin/twofa/confirmLoginWithPasskey`,
     noAuth: true,
+    request_schema: confirmLoginWithPasskeyBodySchema,
     handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
-      const parsed = parseBody(confirmLoginWithPasskeyBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
       return handlers.confirmLoginWithPasskey({ body, response, cookies, headers, requestUrl, query });
     },
   });
@@ -53,9 +50,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: 'POST',
     path: `/plugin/twofa/verify`,
     noAuth: false,
-    handler: async ({ adminUser, body, response }) => {
-      const parsed = parseBody(verifyTotpBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
+    request_schema: verifyTotpBodySchema,
+    handler: async ({ adminUser, body }) => {
       return handlers.verifyTotp({ adminUser, body });
     },
   });
