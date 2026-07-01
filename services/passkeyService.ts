@@ -214,6 +214,11 @@ export class PasskeyService {
       const base64CredentialID = credentialID;
       const base64PublicKey = isoBase64URL.fromBuffer(credentialPublicKey);
 
+      const existingPasskey = await this.passkeyRepository.getByCredentialId(base64CredentialID);
+      if (existingPasskey) {
+        throw new Error('This passkey is already registered');
+      }
+
       await this.passkeyRepository.create({
           [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
           [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
