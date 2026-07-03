@@ -1,5 +1,4 @@
 import type { IHttpServer } from "adminforth";
-import { parseBody } from "adminforth";
 import {
   registrationOptionsBodySchema,
   finishRegistrationBodySchema,
@@ -13,9 +12,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/registrationOptions`,
     noAuth: false,
+    request_schema: registrationOptionsBodySchema,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
-      const parsed = parseBody(registrationOptionsBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
       return handlers.createRegistrationOptions({ body, adminUser, response, cookies, headers });
     },
   });
@@ -24,9 +22,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/finishRegistration`,
     noAuth: false,
-    handler: async ({ body, adminUser, cookies, response }) => {
-      const parsed = parseBody(finishRegistrationBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
+    request_schema: finishRegistrationBodySchema,
+    handler: async ({ body, adminUser, cookies }) => {
       return handlers.finishRegistration({ body, adminUser, cookies });
     },
   });
@@ -49,9 +46,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'DELETE',
     path: `/plugin/passkeys/deletePasskey`,
     noAuth: false,
-    handler: async ({ body, adminUser, response }) => {
-      const parsed = parseBody(deletePasskeyBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
+    request_schema: deletePasskeyBodySchema,
+    handler: async ({ body, adminUser }) => {
       return handlers.deletePasskey({ body, adminUser });
     },
   });
@@ -60,9 +56,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/renamePasskey`,
     noAuth: false,
-    handler: async ({ body, adminUser, response }) => {
-      const parsed = parseBody(renamePasskeyBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
+    request_schema: renamePasskeyBodySchema,
+    handler: async ({ body, adminUser }) => {
       return handlers.renamePasskey({ body, adminUser });
     },
   });
@@ -78,9 +73,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/resolveVerifyAuto`,
     noAuth: false,
+    request_schema: resolveVerifyAutoBodySchema,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
-      const parsed = parseBody(resolveVerifyAutoBodySchema, body, response);
-      if ('error' in parsed) return parsed.error;
       return handlers.resolveVerifyAuto({ body, adminUser, response, cookies, headers });
     },
   });
