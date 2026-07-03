@@ -259,7 +259,6 @@
         code: value,
         usePasskey: usePasskey,
         passkeyOptions: passkeyOptions,
-        secret: null,
       }
     })
     if ( resp.allowedLogin ) {
