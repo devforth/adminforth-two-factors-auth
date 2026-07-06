@@ -1,4 +1,5 @@
 import type { IAdminForth, IAdminForthHttpResponse } from "adminforth";
+import { convertPeriodToSeconds } from "adminforth";
 import type { PluginOptions } from "../types.js";
 import type { CookieList, HttpHeaders } from "../utils/types.js";
 import crypto from 'crypto';
@@ -57,10 +58,11 @@ export class CookieService {
   }
 
   public setTotpTemporary(response: IAdminForthHttpResponse, payload: TotpTemporaryPayload): void {
-    const value = this.adminforth.auth.issueJWT(payload, 'temp2FA', this.options.passkeys?.challengeValidityPeriod || '1m');
+    const period = this.options.totpSetupValidityPeriod || '1m';
+    const value = this.adminforth.auth.issueJWT(payload, 'temp2FA', period);
     this.adminforth.auth.setCustomCookie({
       response,
-      payload: { name: TOTP_TEMP_COOKIE, value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true },
+      payload: { name: TOTP_TEMP_COOKIE, value, expiry: undefined, expirySeconds: convertPeriodToSeconds(period), httpOnly: true },
     });
   }
 

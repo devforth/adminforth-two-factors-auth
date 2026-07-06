@@ -23,6 +23,13 @@ export interface PluginOptions extends PluginsCommonOptions {
      */
     stepUpMfaGracePeriodSeconds?: number;
 
+    /**
+     * Time the user has to complete 2FA setup / enter the OTP code before the temporary
+     * login session expires. Increase it if users don't have enough time to scan the QR
+     * code and enter the code. Default is '5m'.
+     */
+    totpSetupValidityPeriod?: PeriodString; // e.g. '5m', '10m', '15m'. Default is '1m'
+
     customBrandPrefix?: string;
 
     /**
