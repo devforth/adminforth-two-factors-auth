@@ -1,3 +1,5 @@
+import { HttpStatus, respondWithStatus } from "../utils/errors.js";
+
 export function createTwoFaHandlers(ctx: any) {
   return {
     initSetup: async ({ cookies }) => {
@@ -11,17 +13,16 @@ export function createTwoFaHandlers(ctx: any) {
 
     confirmLogin: async ({ body, response, cookies, headers }) => {
       if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
-        response.setStatus(429);
-        return { error: 'Too many login attempts, please try again later' };
+        return respondWithStatus({ error: 'Too many login attempts, please try again later' }, response, HttpStatus.TOO_MANY_REQUESTS);
       }
 
       const totpTemporaryJWT = ctx.cookieService.getTotpTemporary(cookies);
       if (!totpTemporaryJWT) {
-        return { error: 'Login session expired. Please log in again.' }
+        return respondWithStatus({ error: 'Login session expired. Please log in again.' }, response, HttpStatus.FORBIDDEN)
       }
       const decoded = await ctx.cookieService.verifyTotpTemporary(cookies);
       if (!decoded) {
-        return { error: 'Login session expired. Please log in again.' }
+        return respondWithStatus({ error: 'Login session expired. Please log in again.' }, response, HttpStatus.FORBIDDEN)
       }
 
       if (decoded.newSecret) {
@@ -34,7 +35,7 @@ export function createTwoFaHandlers(ctx: any) {
           ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
           return { status: 'ok', allowedLogin: true }
         } else {
-          return {error: 'Wrong or expired OTP code'}
+          return respondWithStatus({ error: 'Wrong or expired OTP code' }, response, HttpStatus.FORBIDDEN)
         }
       }
 
@@ -43,7 +44,7 @@ export function createTwoFaHandlers(ctx: any) {
       if (body.usePasskey && ctx.options.passkeys) {
         const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
         if (!cookiesValidationResult.ok) {
-          return { error: cookiesValidationResult.error };
+          return respondWithStatus({ error: cookiesValidationResult.error }, response, HttpStatus.FORBIDDEN);
         }
         const res = await ctx.passkeyService.verifyPasskeyResponse(body.passkeyOptions, decoded.pk, cookiesValidationResult.decodedPasskeysCookies);
         if (res.ok && res.passkeyConfirmed) {
@@ -63,28 +64,27 @@ export function createTwoFaHandlers(ctx: any) {
         ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
         return { status: 'ok', allowedLogin: true }
       } else {
-        return {error: verificationError}
+        return respondWithStatus({ error: verificationError }, response, HttpStatus.FORBIDDEN)
       }
     },
 
     confirmLoginWithPasskey: async ({ body, response, cookies, headers, requestUrl, query }) => {
       if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
-        response.setStatus(429);
-        return { error: 'Too many login attempts, please try again later' };
+        return respondWithStatus({ error: 'Too many login attempts, please try again later' }, response, HttpStatus.TOO_MANY_REQUESTS);
       }
 
       if (!ctx.options.passkeys || ctx.options.passkeys.allowLoginWithPasskeys === false) {
-        return { error: 'Login with passkeys is not allowed' };
+        return respondWithStatus({ error: 'Login with passkeys is not allowed' }, response, HttpStatus.FORBIDDEN);
       }
 
       const passkeyResponse = body.passkeyResponse;
       if (!passkeyResponse) {
-        return { error: 'Passkey response is required' };
+        return respondWithStatus({ error: 'Passkey response is required' }, response, HttpStatus.BAD_REQUEST);
       }
 
       const passkeyLoginResult = await ctx.passkeyService.getLoginUserByPasskeyResponse(passkeyResponse, cookies);
       if (!passkeyLoginResult.ok) {
-        return { error: passkeyLoginResult.error };
+        return respondWithStatus({ error: passkeyLoginResult.error }, response, HttpStatus.FORBIDDEN);
       }
       const user = passkeyLoginResult.user;
       const username = user[ctx.adminforth.config.auth.usernameField];
@@ -134,10 +134,10 @@ export function createTwoFaHandlers(ctx: any) {
       return toReturn;
     },
 
-    skipAllow: async ({ cookies }) => {
+    skipAllow: async ({ cookies, response }) => {
       const decoded = await ctx.cookieService.verifyTotpTemporary(cookies);
       if (!decoded) {
-        return { status: "error", message: "Invalid token" };
+        return respondWithStatus({ status: "error", message: "Invalid token" }, response, HttpStatus.FORBIDDEN);
       }
       if (!decoded.newSecret) {
         return { status: "ok", skipAllowed: false };
@@ -173,10 +173,14 @@ export function createTwoFaHandlers(ctx: any) {
       return { skipAllowed: false };
     },
 
-    verifyTotp: async ({ adminUser, body }) => {
-      if (!body?.code) return { error: 'Code is required' };
+    verifyTotp: async ({ adminUser, body, response }) => {
+      if (!body?.code) return respondWithStatus({ error: 'Code is required' }, response, HttpStatus.BAD_REQUEST);
 
-      return ctx.totpService.verifyAdminUserCode(adminUser, body.code);
+      const verificationResult = await ctx.totpService.verifyAdminUserCode(adminUser, body.code);
+      if (!verificationResult.ok) {
+        return respondWithStatus(verificationResult, response, HttpStatus.FORBIDDEN);
+      }
+      return verificationResult;
     },
   };
 }

@@ -23,8 +23,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/finishRegistration`,
     noAuth: false,
     request_schema: finishRegistrationBodySchema,
-    handler: async ({ body, adminUser, cookies }) => {
-      return handlers.finishRegistration({ body, adminUser, cookies });
+    handler: async ({ body, adminUser, cookies, response }) => {
+      return handlers.finishRegistration({ body, adminUser, cookies, response });
     },
   });
 
@@ -39,7 +39,7 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'GET',
     path: `/plugin/passkeys/getPasskeys`,
     noAuth: false,
-    handler: async ({ adminUser }) => handlers.getPasskeys({ adminUser }),
+    handler: async ({ adminUser, response }) => handlers.getPasskeys({ adminUser, response }),
   });
 
   server.endpoint({
@@ -47,8 +47,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/deletePasskey`,
     noAuth: false,
     request_schema: deletePasskeyBodySchema,
-    handler: async ({ body, adminUser }) => {
-      return handlers.deletePasskey({ body, adminUser });
+    handler: async ({ body, adminUser, response }) => {
+      return handlers.deletePasskey({ body, adminUser, response });
     },
   });
 
@@ -57,8 +57,8 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     path: `/plugin/passkeys/renamePasskey`,
     noAuth: false,
     request_schema: renamePasskeyBodySchema,
-    handler: async ({ body, adminUser }) => {
-      return handlers.renamePasskey({ body, adminUser });
+    handler: async ({ body, adminUser, response }) => {
+      return handlers.renamePasskey({ body, adminUser, response });
     },
   });
 
@@ -66,7 +66,7 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
     method: 'POST',
     path: `/plugin/passkeys/checkIfUserHasPasskeys`,
     noAuth: true,
-    handler: async ({ cookies }) => handlers.checkIfUserHasPasskeys({ cookies }),
+    handler: async ({ cookies, response }) => handlers.checkIfUserHasPasskeys({ cookies, response }),
   });
 
   server.endpoint({

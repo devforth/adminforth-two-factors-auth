@@ -1,5 +1,5 @@
 import type { HttpExtra } from "adminforth";
-import { errorMessage } from "../utils/errors.js";
+import { HttpStatus, errorMessage, respondWithStatus } from "../utils/errors.js";
 
 export function createPasskeyHandlers(ctx: any) {
   return {
@@ -17,38 +17,65 @@ export function createPasskeyHandlers(ctx: any) {
         } as HttpExtra
       });
       if (!verificationResult || !('ok' in verificationResult)) {
-        return { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' };
+        return respondWithStatus(
+          { ok: false, error: 'error' in verificationResult ? verificationResult.error : 'Verification failed' },
+          response,
+          HttpStatus.FORBIDDEN,
+        );
       }
 
-      return ctx.passkeyService.createRegistrationOptions(mode, adminUser, response);
+      const registrationOptions = await ctx.passkeyService.createRegistrationOptions(mode, adminUser, response);
+      if (!registrationOptions.ok) {
+        return respondWithStatus(registrationOptions, response, HttpStatus.NOT_FOUND);
+      }
+      return registrationOptions;
     },
 
-    finishRegistration: async ({ body, adminUser, cookies }) => {
-      return ctx.passkeyService.finishRegistration(body, adminUser, cookies);
+    finishRegistration: async ({ body, adminUser, cookies, response }) => {
+      const registrationResult = await ctx.passkeyService.finishRegistration(body, adminUser, cookies);
+      if (!registrationResult.ok) {
+        return respondWithStatus(registrationResult, response, HttpStatus.FORBIDDEN);
+      }
+      return registrationResult;
     },
 
     createLoginOptions: async ({ response, headers }) => {
       if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
-        response.setStatus(429);
-        return { error: 'Too many login attempts, please try again later' };
+        return respondWithStatus({ error: 'Too many login attempts, please try again later' }, response, HttpStatus.TOO_MANY_REQUESTS);
       }
-      return ctx.passkeyService.createLoginOptions(response);
+      const loginOptions = await ctx.passkeyService.createLoginOptions(response);
+      if (!loginOptions.ok) {
+        return respondWithStatus(loginOptions, response, HttpStatus.INTERNAL_SERVER_ERROR);
+      }
+      return loginOptions;
     },
 
     getPasskeys: async ({ adminUser }) => {
       return ctx.passkeyService.getPasskeys(adminUser);
     },
 
-    deletePasskey: async ({ body, adminUser }) => {
-      return ctx.passkeyService.deletePasskey(body.passkeyId, adminUser);
+    deletePasskey: async ({ body, adminUser, response }) => {
+      const deleteResult = await ctx.passkeyService.deletePasskey(body.passkeyId, adminUser);
+      if (!deleteResult.ok) {
+        return respondWithStatus(deleteResult, response, HttpStatus.NOT_FOUND);
+      }
+      return deleteResult;
     },
 
-    renamePasskey: async ({ body, adminUser }) => {
-      return ctx.passkeyService.renamePasskey(body.passkeyId, body.newName, adminUser);
+    renamePasskey: async ({ body, adminUser, response }) => {
+      const renameResult = await ctx.passkeyService.renamePasskey(body.passkeyId, body.newName, adminUser);
+      if (!renameResult.ok) {
+        return respondWithStatus(renameResult, response, HttpStatus.NOT_FOUND);
+      }
+      return renameResult;
     },
 
-    checkIfUserHasPasskeys: async ({ cookies }) => {
-      return ctx.passkeyService.checkIfUserHasPasskeys(cookies);
+    checkIfUserHasPasskeys: async ({ cookies, response }) => {
+      const checkResult = await ctx.passkeyService.checkIfUserHasPasskeys(cookies);
+      if (checkResult.error) {
+        return respondWithStatus(checkResult, response, HttpStatus.FORBIDDEN);
+      }
+      return checkResult;
     },
 
     resolveVerifyAuto: async ({ body, adminUser, response, cookies, headers }) => {
@@ -66,16 +93,20 @@ export function createPasskeyHandlers(ctx: any) {
 
       try {
         if (!idsToResolve.length || !confirmationResult) {
-          return(resolveAllIdsAsFailed('Confirmation window was closed', 'VERIFICATION_CANCELLED'));
+          return respondWithStatus(
+            resolveAllIdsAsFailed('Confirmation window was closed', 'VERIFICATION_CANCELLED'),
+            response,
+            HttpStatus.BAD_REQUEST,
+          );
         }
 
         for (const id of idsToResolve) {
           const validationResult = await ctx.adminforth.auth.verify(id, 'auto2FA', false);
           if (!validationResult) {
-            return(resolveAllIdsAsFailed('Invalid session ID or confirmation result'));
+            return respondWithStatus(resolveAllIdsAsFailed('Invalid session ID or confirmation result'), response, HttpStatus.FORBIDDEN);
           }
           if (validationResult.adminUserPk !== adminUser.pk) {
-            return(resolveAllIdsAsFailed('Session does not belong to the authenticated user'));
+            return respondWithStatus(resolveAllIdsAsFailed('Session does not belong to the authenticated user'), response, HttpStatus.FORBIDDEN);
           }
         }
 
@@ -89,7 +120,7 @@ export function createPasskeyHandlers(ctx: any) {
           } as HttpExtra
         });
         if ( !verificationResult || !('ok' in verificationResult) ) {
-          return(resolveAllIdsAsFailed(verificationResult?.error ?? 'Verification failed'));
+          return respondWithStatus(resolveAllIdsAsFailed(verificationResult?.error ?? 'Verification failed'), response, HttpStatus.FORBIDDEN);
         }
         if ('ok' in verificationResult && verificationResult.ok){
           for (const id of idsToResolve) {
@@ -97,10 +128,10 @@ export function createPasskeyHandlers(ctx: any) {
           }
           return { ok: true };
         }
-        return(resolveAllIdsAsFailed('Verification failed'));
+        return respondWithStatus(resolveAllIdsAsFailed('Verification failed'), response, HttpStatus.FORBIDDEN);
       } catch (error) {
         console.error('[AdminForth 2FA] Error resolving automatic 2FA verification', error);
-        return(resolveAllIdsAsFailed(errorMessage(error)));
+        return respondWithStatus(resolveAllIdsAsFailed(errorMessage(error)), response, HttpStatus.INTERNAL_SERVER_ERROR);
       }
     },
   };

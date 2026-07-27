@@ -10,7 +10,7 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: 'POST',
     path: `/plugin/twofa/initSetup`,
     noAuth: true,
-    handler: async ({ cookies }) => handlers.initSetup({ cookies }),
+    handler: async ({ cookies, response }) => handlers.initSetup({ cookies, response }),
   });
 
   server.endpoint({
@@ -37,13 +37,13 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     method: "GET",
     path: "/plugin/twofa/skip-allow",
     noAuth: true,
-    handler: async ({ cookies }) => handlers.skipAllow({ cookies }),
+    handler: async ({ cookies, response }) => handlers.skipAllow({ cookies, response }),
   });
 
   server.endpoint({
     method: "GET",
     path: "/plugin/twofa/skip-allow-modal",
-    handler: async ({ adminUser, headers, cookies }) => handlers.skipAllowModal({ adminUser, headers, cookies }),
+    handler: async ({ adminUser, headers, cookies, response }) => handlers.skipAllowModal({ adminUser, headers, cookies, response }),
   });
 
   server.endpoint({
@@ -51,8 +51,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     path: `/plugin/twofa/verify`,
     noAuth: false,
     request_schema: verifyTotpBodySchema,
-    handler: async ({ adminUser, body }) => {
-      return handlers.verifyTotp({ adminUser, body });
+    handler: async ({ adminUser, body, response }) => {
+      return handlers.verifyTotp({ adminUser, body, response });
     },
   });
 }

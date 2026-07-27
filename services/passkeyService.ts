@@ -170,18 +170,18 @@ export class PasskeyService {
   public async finishRegistration(body: PasskeyRegistrationPayload, adminUser: AdminUser, cookies: CookieList) {
     const passkeysCookies = this.cookieService.getRegisterPasskeyTemporary(cookies);
     if (!passkeysCookies) {
-      return { error: 'Passkey token is required' };
+      return { ok: false, error: 'Passkey token is required' };
     }
     const decodedPasskeysCookies = await this.cookieService.verifyRegisterPasskeyTemporary(cookies);
     if (!decodedPasskeysCookies) {
-      return { error: 'Invalid passkey token' };
+      return { ok: false, error: 'Invalid passkey token' };
     }
     if (decodedPasskeysCookies.user_id !== adminUser.pk) {
-      return { error: 'Invalid user' };
+      return { ok: false, error: 'Invalid user' };
     }
     const secret = this.userRepository.getSecret(adminUser.dbUser)
     if (!secret || secret.length === 0) {
-      return { error: 'TOTP must be set up before registering a passkey' };
+      return { ok: false, error: 'TOTP must be set up before registering a passkey' };
     }
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const expectedOrigin = body.origin;
@@ -235,7 +235,7 @@ export class PasskeyService {
       }, adminUser);
     } catch (error) {
       console.error(error);
-      return { error: 'Error registering passkey: ' + errorMessage(error) };
+      return { ok: false, error: 'Error registering passkey: ' + errorMessage(error) };
     }
     return { ok: true };
   }
