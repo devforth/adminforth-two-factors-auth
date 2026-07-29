@@ -15,7 +15,8 @@
               <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
                   <div>{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
                   <div class="flex justify-center m-3" >
-                      <img :src="totpQrCode" class="af-qr-code min-w-[200px] min-h-[200px]" alt="QR code" />
+                      <img v-if="totpQrCode" :src="totpQrCode" class="af-qr-code min-w-[200px] min-h-[200px]" alt="QR code" />
+                      <div v-else class="af-qr-code min-w-[200px] min-h-[200px]"></div>
                   </div>
                     <div class="my-1">{{$t('Or copy this code to app manually:')}}</div>
                     <div class="w-full">
@@ -75,7 +76,7 @@
 
 <script setup lang="ts">
 
-import { onMounted, onBeforeUnmount, nextTick, ref, watchEffect,computed,watch, onBeforeMount } from 'vue';
+import { onMounted, onBeforeUnmount, nextTick, ref, computed, onBeforeMount } from 'vue';
 import { useCoreStore } from '@/stores/core';
 import { useUserStore } from '@/stores/user';
 import { IconEyeSolid, IconEyeSlashSolid } from '@iconify-prerendered/vue-flowbite';
@@ -90,6 +91,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { handlePasskeyAlert } from './utils.js';
 import ErrorMessage from '@/components/ErrorMessage.vue';
+import { useQRCode } from '@vueuse/integrations/useQRCode'
 
 const { t } = useI18n();
 const route = useRoute()
@@ -126,16 +128,18 @@ const skipAllowed = ref(false);
 const showPw = ref(false);
 
 const error = ref(null);
-const totp = ref({});
+const totp = ref<{ issuer?: string; userName?: string; newSecret?: string }>({});
 const totpJWT = ref(null);
 const totpUri = computed(() => {
-  if (totp.value) {
-    return `otpauth://totp/${totp.value.issuer}:${totp.value.userName}?secret=${totp.value.newSecret}&issuer=${totp.value.issuer}`;
-  }});
-const totpQrCode = computed(() => {
-  if (totpUri.value) {
-    return `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(totpUri.value)}`;
-  }});
+  const { issuer, userName, newSecret } = totp.value || {};
+  if (!issuer || !userName || !newSecret) {
+    return '';
+  }
+  const label = `${encodeURIComponent(issuer)}:${encodeURIComponent(userName)}`;
+  return `otpauth://totp/${label}?secret=${newSecret}&issuer=${encodeURIComponent(issuer)}`;
+});
+const totpQrCode = useQRCode(totpUri, { width: 200, margin: 1 });
+
   
 function parseJwt(token) {
   // Split the token into its parts
@@ -152,7 +156,7 @@ function parseJwt(token) {
 } 
 
 function onCopyClick(){
-  navigator.clipboard.writeText(totp.value.newSecret);
+  navigator.clipboard.writeText(totp.value.newSecret ?? '');
   adminforth.alert({message: t('Copied to clipboard'), variant: 'success'})
 }
 
