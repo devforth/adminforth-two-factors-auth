@@ -137,7 +137,7 @@
     }
   });
   
-  watch( props, () => {
+  watch(props, () => {
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       const user2FaTopic = `/user2fa/${props.adminUser.pk}/${getAdminForthClientId()}`;
@@ -186,7 +186,7 @@
         }
       });
     }
-  })
+  }, { immediate: true });
 
 
   const emit = defineEmits<{
