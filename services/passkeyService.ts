@@ -7,13 +7,28 @@ import {
   verifyAuthenticationResponse
 } from '@simplewebauthn/server';
 import { isoUint8Array, isoBase64URL } from '@simplewebauthn/server/helpers';
-import aaguids from '../custom/aaguid.json';
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { PluginOptions } from "../types.js";
 import { PasskeyRepository } from "../repositories/passkeyRepository.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { CookieService } from "./cookieService.js";
 import { errorMessage, errorResult, prefixedErrorResult } from "../utils/errors.js";
 import type { CookieList } from "../utils/types.js";
+
+type AaguidEntry = {
+  name: string;
+  icon_light?: string;
+  icon_dark?: string;
+};
+
+const aaguids: Record<string, AaguidEntry> = JSON.parse(
+  readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), '../custom/aaguid.json'),
+    'utf-8'
+  )
+);
 
 type PasskeyAuthenticationPayload = {
   response: string;
