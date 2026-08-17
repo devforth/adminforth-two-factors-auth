@@ -229,12 +229,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         throw new Error('Passkeys credentialMetaFieldName is required');
       }
 
-      const metaResource = adminforth.config.resources.find(r => r.resourceId === this.options.passkeys.credentialMetaFieldName); 
       const metaField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialMetaFieldName);
       if ( !metaField ) {
-        const similar = suggestIfTypo(metaResource.columns.map(c => c.name), this.options.passkeys.credentialMetaFieldName);
+        const similar = suggestIfTypo(credentialResource.columns.map(c => c.name), this.options.passkeys.credentialMetaFieldName);
         throw new Error(
-          `Passkeys credentialMetaFieldName '${this.options.passkeys.credentialMetaFieldName}' not found in resource '${this.options.passkeys.credentialMetaFieldName}'. ${
+          `Passkeys credentialMetaFieldName '${this.options.passkeys.credentialMetaFieldName}' not found in resource '${this.options.passkeys.credentialResourceID}'. ${
             similar ? `Did you mean '${similar}'?` : ''
           }`
         );
@@ -245,6 +244,18 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       if (!this.options.passkeys.credentialUserIdFieldName) {
         throw new Error('Passkeys credentialUserIdFieldName is required');
       }
+
+      const credentialUserIdField = credentialResource.columns.find(c => c.name === this.options.passkeys.credentialUserIdFieldName);
+      if ( !credentialUserIdField ) {
+        const similar = suggestIfTypo(credentialResource.columns.map(c => c.name), this.options.passkeys.credentialUserIdFieldName);
+        throw new Error(
+          `Passkeys credentialUserIdFieldName '${this.options.passkeys.credentialUserIdFieldName}' not found in resource '${this.options.passkeys.credentialResourceID}'. ${
+            similar ? `Did you mean '${similar}'?` : ''
+          }`
+        );
+      }
+      credentialUserIdField.backendOnly = true;
+
       if (!this.options.passkeys.settings) {
         throw new Error('Passkeys settings are required when passkeys option is enabled');
       }

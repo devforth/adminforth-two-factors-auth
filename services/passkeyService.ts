@@ -15,7 +15,7 @@ import { PasskeyRepository } from "../repositories/passkeyRepository.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { CookieService } from "./cookieService.js";
 import { errorMessage, errorResult, prefixedErrorResult } from "../utils/errors.js";
-import type { CookieList } from "../utils/types.js";
+import type { AnyRecord, CookieList } from "../utils/types.js";
 
 type AaguidEntry = {
   name: string;
@@ -86,7 +86,28 @@ export class PasskeyService {
     return { ok: true, decodedPasskeysCookies };
   }
 
-  public async verifyPasskeyResponse(body: PasskeyAuthenticationPayload, user_id: string, cookies: { challenge: string }) {
+  private decodeUserHandle(userHandle: unknown): string | undefined {
+    if (typeof userHandle !== 'string' || !userHandle) {
+      return undefined;
+    }
+    try {
+      return isoUint8Array.toUTF8String(isoBase64URL.toBuffer(userHandle));
+    } catch (e) {
+      return undefined;
+    }
+  }
+
+  private resolveCredentialUserPk(cred: AnyRecord): { userPk?: string, boundByUserHandle: boolean } {
+    const credMeta = cred[this.options.passkeys.credentialMetaFieldName];
+    const storedUserHandle = credMeta?.user_handle;
+    if (storedUserHandle) {
+      return { userPk: String(storedUserHandle), boundByUserHandle: true };
+    }
+    const columnUserPk = cred[this.options.passkeys.credentialUserIdFieldName];
+    return { userPk: columnUserPk ? String(columnUserPk) : undefined, boundByUserHandle: false };
+  }
+
+  public async verifyPasskeyResponse(body: PasskeyAuthenticationPayload, expectedUserPk: string | null, cookies: { challenge: string }) {
     const settingsOrigin = this.options.passkeys?.settings.expectedOrigin;
     const expectedOrigin = body.origin;
     const expectedChallenge = cookies.challenge;
@@ -104,9 +125,19 @@ export class PasskeyService {
       if (!credMeta || !credMeta.public_key) {
         throw new Error('Credential public key not found.');
       }
-      const usersPrimaryKeyFieldName = this.userRepository.getUserPkField();
-      const user = await this.userRepository.getAuthUser(cred[this.options.passkeys.credentialUserIdFieldName]);
-      if (!user || !user_id || user[usersPrimaryKeyFieldName] !== user_id) {
+      const { userPk: credentialUserPk, boundByUserHandle } = this.resolveCredentialUserPk(cred);
+      if (!credentialUserPk) {
+        throw new Error('Credential is not bound to any user.');
+      }
+      const presentedUserHandle = this.decodeUserHandle(response.response?.userHandle);
+      if (boundByUserHandle && presentedUserHandle && presentedUserHandle !== credentialUserPk) {
+        throw new Error('Passkey user handle does not match the credential owner.');
+      }
+      if (expectedUserPk !== null && (!expectedUserPk || String(expectedUserPk) !== credentialUserPk)) {
+        throw new Error('Passkey does not belong to this user.');
+      }
+      const user = await this.userRepository.getAuthUser(credentialUserPk);
+      if (!user) {
         throw new Error('User not found.');
       }
       const counter = credMeta.sign_count ?? 0;
@@ -130,7 +161,7 @@ export class PasskeyService {
       credMeta.sign_count = authenticationInfo.newCounter;
       credMeta.last_used_at = new Date().toISOString();
       await this.passkeyRepository.updateMeta(cred, credMeta);
-      return { ok: true, passkeyConfirmed: true };
+      return { ok: true, passkeyConfirmed: true, userPk: credentialUserPk };
     } catch (e) {
       return prefixedErrorResult('Error authenticating passkey: ', e);
     }
@@ -238,6 +269,7 @@ export class PasskeyService {
           [this.options.passkeys.credentialIdFieldName]           : base64CredentialID,
           [this.options.passkeys.credentialUserIdFieldName]       : adminUser.pk,
           [this.options.passkeys.credentialMetaFieldName]         : {
+            user_handle             : adminUser.pk,
             public_key              : base64PublicKey,
             public_key_algorithm    : response.response.publicKeyAlgorithm,
             sign_count              : 0,
@@ -375,19 +407,14 @@ export class PasskeyService {
       return { error: 'No such passkey found, most likely it was removed on this website but you still have it on your device' };
     }
 
-    const userPk = passkeyRecord[this.options.passkeys.credentialUserIdFieldName];
-    if (!userPk) {
-      return { error: 'User ID not found in passkey record' };
-    }
-
-    const user = await this.userRepository.getAuthUser(userPk);
-    if (!user) {
-      return { error: 'User not found' };
-    }
-
-    const verificationResult = await this.verifyPasskeyResponse(passkeyResponse, userPk, cookiesValidationResult.decodedPasskeysCookies);
+    const verificationResult = await this.verifyPasskeyResponse(passkeyResponse, null, cookiesValidationResult.decodedPasskeysCookies);
     if (!verificationResult.ok || !verificationResult.passkeyConfirmed) {
       return { error: 'Passkey verification failed' };
+    }
+
+    const user = await this.userRepository.getAuthUser(verificationResult.userPk);
+    if (!user) {
+      return { error: 'User not found' };
     }
 
     return { ok: true, user };
