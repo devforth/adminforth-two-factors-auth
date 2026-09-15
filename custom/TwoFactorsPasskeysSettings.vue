@@ -123,21 +123,16 @@
 </template>
 
 <script setup lang="ts">
-    import { callAdminForthApi } from '@/utils';
+    import { callAdminForthApi, formatDateTime } from '@/utils';
     import adminforth, { useAdminforth } from '@/adminforth';
     import { onMounted, ref, Ref } from 'vue';
     import { useI18n } from 'vue-i18n';
     import { Dialog, Tooltip, Spinner, Input } from '@/afcl';
     import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconInfoCircleOutline } from '@iconify-prerendered/vue-flowbite';
-    import dayjs from 'dayjs';
-    import utc from 'dayjs/plugin/utc';
-    import timezone from 'dayjs/plugin/timezone';
     import { useCoreStore } from '@/stores/core';
     import { useTwoFactorsAuth } from './use2faApi';
 
     const { t } = useI18n();
-    dayjs.extend(utc);
-    dayjs.extend(timezone);
     const coreStore = useCoreStore();
     const twoFactorsAuth = useTwoFactorsAuth();
 
@@ -352,12 +347,6 @@
         if (!isPasskeySupported.value) {
             addPasskeyMode.value = 'cross-platform';
         }
-    }
-
-    function formatDateTime(date: string) {
-        if (!date) return '';
-        const fmt = `${coreStore.config?.datesFormat} ${coreStore.config?.timeFormat}` || 'YYYY-MM-DD HH:mm:ss';
-        return dayjs.utc(date).local().format(fmt);
     }
 </script>
 
