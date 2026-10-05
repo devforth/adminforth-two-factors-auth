@@ -11,7 +11,8 @@ export function createTwoFaHandlers(ctx: any) {
       return toReturn
     },
 
-    confirmLogin: async ({ body, response, cookies, headers }) => {
+    confirmLogin: async ({ body, response, cookies, headers, requestUrl, query }) => {
+      const extra = { body, headers, cookies, query, requestUrl, response };
       if (!(await ctx.checkPasskeyLoginRateLimit(headers))) {
         return respondWithStatus({ error: 'Too many login attempts, please try again later' }, response, HttpStatus.TOO_MANY_REQUESTS);
       }
@@ -32,7 +33,7 @@ export function createTwoFaHandlers(ctx: any) {
             await ctx.totpService.saveSecret(decoded.pk, decoded.newSecret);
           }
           ctx.cookieService.removeTotpTemporary(response)
-          await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
+          await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk, extra})
           return { status: 'ok', allowedLogin: true }
         } else {
           return respondWithStatus({ error: 'Wrong or expired OTP code' }, response, HttpStatus.FORBIDDEN)
@@ -61,7 +62,7 @@ export function createTwoFaHandlers(ctx: any) {
       }
       if (verified) {
         ctx.cookieService.removeTotpTemporary(response)
-        await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
+        await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk, extra})
         return { status: 'ok', allowedLogin: true }
       } else {
         return respondWithStatus({ error: verificationError }, response, HttpStatus.FORBIDDEN)
@@ -105,21 +106,23 @@ export function createTwoFaHandlers(ctx: any) {
         ? (rememberDaysAfterPasskeyLogin ?? ctx.adminforth.config.auth.rememberMeDuration ?? '30d')
         : '1d';
 
+      const extra = {
+        headers,
+        cookies,
+        requestUrl,
+        query,
+        body: {},
+        response,
+        meta: {
+          loginAllowedByPasskeyDirectSignIn: true
+        },
+      };
+
       await ctx.adminforth.restApi.processLoginCallbacks(
         adminUser,
         toReturn,
         response,
-        {
-          headers,
-          cookies,
-          requestUrl,
-          query,
-          body: {},
-          response,
-          meta: {
-            loginAllowedByPasskeyDirectSignIn: true
-          },
-        },
+        extra,
         expireInDuration,
       );
 
@@ -129,6 +132,7 @@ export function createTwoFaHandlers(ctx: any) {
           username,
           pk: userPk,
           expireInDuration,
+          extra,
         });
       }
       return toReturn;

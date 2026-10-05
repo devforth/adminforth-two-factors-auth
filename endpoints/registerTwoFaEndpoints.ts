@@ -18,8 +18,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     path: `/plugin/twofa/confirmLogin`,
     noAuth: true,
     request_schema: confirmLoginBodySchema,
-    handler: async ({ body, response, cookies, headers }) => {
-      return handlers.confirmLogin({ body, response, cookies, headers });
+    handler: async ({ body, response, cookies, headers, requestUrl, query }) => {
+      return handlers.confirmLogin({ body, response, cookies, headers, requestUrl, query });
     },
   });
 

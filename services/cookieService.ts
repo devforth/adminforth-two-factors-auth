@@ -1,4 +1,4 @@
-import type { IAdminForth, IAdminForthHttpResponse } from "adminforth";
+import type { HttpExtra, IAdminForth, IAdminForthHttpResponse } from "adminforth";
 import { convertPeriodToSeconds } from "adminforth";
 import type { PluginOptions } from "../types.js";
 import type { CookieList, HttpHeaders } from "../utils/types.js";
@@ -43,7 +43,7 @@ export class CookieService {
     return this.adminforth.auth.getCustomCookie({ cookies, name: AUTH_COOKIE });
   }
 
-  public setAuthCookie(opts: { response: IAdminForthHttpResponse; username: string; pk: string; expireInDuration: string }): Promise<string> {
+  public setAuthCookie(opts: { response: IAdminForthHttpResponse; username: string; pk: string; expireInDuration: string; extra: HttpExtra }): Promise<string> {
     return this.adminforth.auth.setAuthCookie(opts);
   }
 
