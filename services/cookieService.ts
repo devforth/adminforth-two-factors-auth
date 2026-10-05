@@ -43,8 +43,8 @@ export class CookieService {
     return this.adminforth.auth.getCustomCookie({ cookies, name: AUTH_COOKIE });
   }
 
-  public setAuthCookie(opts: { response: IAdminForthHttpResponse; username: string; pk: string; expireInDuration: string }): void {
-    this.adminforth.auth.setAuthCookie(opts);
+  public setAuthCookie(opts: { response: IAdminForthHttpResponse; username: string; pk: string; expireInDuration: string }): Promise<string> {
+    return this.adminforth.auth.setAuthCookie(opts);
   }
 
   public getTotpTemporary(cookies: CookieList): string | null {

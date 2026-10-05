@@ -32,7 +32,7 @@ export function createTwoFaHandlers(ctx: any) {
             await ctx.totpService.saveSecret(decoded.pk, decoded.newSecret);
           }
           ctx.cookieService.removeTotpTemporary(response)
-          ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
+          await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
           return { status: 'ok', allowedLogin: true }
         } else {
           return respondWithStatus({ error: 'Wrong or expired OTP code' }, response, HttpStatus.FORBIDDEN)
@@ -61,7 +61,7 @@ export function createTwoFaHandlers(ctx: any) {
       }
       if (verified) {
         ctx.cookieService.removeTotpTemporary(response)
-        ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
+        await ctx.cookieService.setAuthCookie({expireInDuration: decoded.sessionDuration, response, username:decoded.userName, pk:decoded.pk})
         return { status: 'ok', allowedLogin: true }
       } else {
         return respondWithStatus({ error: verificationError }, response, HttpStatus.FORBIDDEN)
@@ -124,7 +124,7 @@ export function createTwoFaHandlers(ctx: any) {
       );
 
       if ( toReturn.allowedLogin === true ) {
-        ctx.cookieService.setAuthCookie({
+        await ctx.cookieService.setAuthCookie({
           response,
           username,
           pk: userPk,
