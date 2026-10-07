@@ -11,6 +11,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/registrationOptions`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     request_schema: registrationOptionsBodySchema,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
@@ -21,6 +24,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/finishRegistration`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     request_schema: finishRegistrationBodySchema,
     handler: async ({ body, adminUser, cookies, response }) => {
@@ -31,6 +37,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/loginOptions`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: true,
     handler: async ({ response, headers }) => handlers.createLoginOptions({ response, headers }),
   });
@@ -38,6 +47,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'GET',
     path: `/plugin/passkeys/getPasskeys`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     handler: async ({ adminUser, response }) => handlers.getPasskeys({ adminUser, response }),
   });
@@ -45,6 +57,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'DELETE',
     path: `/plugin/passkeys/deletePasskey`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     request_schema: deletePasskeyBodySchema,
     handler: async ({ body, adminUser, response }) => {
@@ -55,6 +70,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/renamePasskey`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     request_schema: renamePasskeyBodySchema,
     handler: async ({ body, adminUser, response }) => {
@@ -65,6 +83,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/checkIfUserHasPasskeys`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: true,
     handler: async ({ cookies, response }) => handlers.checkIfUserHasPasskeys({ cookies, response }),
   });
@@ -72,6 +93,9 @@ export function registerPasskeyEndpoints(server: IHttpServer, handlers: any): vo
   server.endpoint({
     method: 'POST',
     path: `/plugin/passkeys/resolveVerifyAuto`,
+    agent: {
+      hiddenFromAgents: true,
+    },
     noAuth: false,
     request_schema: resolveVerifyAutoBodySchema,
     handler: async ({ body, adminUser, response, cookies, headers }) => {
