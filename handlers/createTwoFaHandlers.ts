@@ -167,14 +167,10 @@ export function createTwoFaHandlers(ctx: any) {
         }
       }
 
-      if ( ctx.options.stepUpMfaGracePeriodSeconds ) {
-        const verificationResult = await ctx.cookieService.isMfaGraceValid(headers, cookies, true);
-        if ( verificationResult === true ) {
-          return { skipAllowed: true };
-        }
-      }
+      const gracePeriod = Boolean(ctx.options.stepUpMfaGracePeriodSeconds)
+        && await ctx.cookieService.isMfaGraceValid(headers, cookies, true);
 
-      return { skipAllowed: false };
+      return { skipAllowed: false, gracePeriod };
     },
 
     verifyTotp: async ({ adminUser, body, response }) => {

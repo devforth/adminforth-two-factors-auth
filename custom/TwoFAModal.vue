@@ -1,99 +1,57 @@
 <template>
     <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0"
     v-show ="modelShow && (isLoading === false)">
-      <div v-if="modalMode === 'totp'" class="af-two-factor-modal-totp flex flex-col gap-4 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
-        <button
-          type="button"
-          class="af-2fa-close-btn text-lightDialogCloseButton bg-transparent hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover"
-          @click="onCancel"
-        >
-          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-          </svg>
-          <span class="sr-only">{{$t('Close modal')}}</span>
-        </button>
-
-        <div class="af-2fa-totp-header flex flex-col items-center justify-center gap-3">
+      <div :class="`af-two-factor-modal-${modalMode}`" class="flex flex-col gap-4 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
+        <div class="af-2fa-header flex flex-col items-center justify-center gap-3">
           <div class="af-2fa-icon-wrap w-14 h-14 shrink-0 flex items-center justify-center rounded-full bg-lightPrimary dark:bg-darkPrimary">
             <IconShieldOutline class="af-2fa-shield-icon w-7 h-7 text-white" />
           </div>
-          <div id="mfaCode-label" class="af-2fa-totp-title-wrap">
-            <p v-if="customDialogTitle" class="af-2fa-custom-title text-xl text-center font-medium text-gray-900 dark:text-white">{{ customDialogTitle }}</p>
-            <p class="af-2fa-totp-subtitle text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{{ $t('Please enter your authenticator code') }}</p>
+          <div id="mfaCode-label" class="af-2fa-title-wrap">
+            <p class="af-2fa-title text-xl text-center font-medium text-gray-900 dark:text-white">{{ dialogTitle }}</p>
+            <p class="af-2fa-subtitle text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{{ subtitles[modalMode] }}</p>
           </div>
         </div>
 
-        <div class="af-2fa-otp-root flex justify-center" ref="otpRoot">
-          <v-otp-input
-            ref="confirmationResult"
-            container-class="grid grid-cols-6 gap-3"
-            input-classes="bg-gray-50 text-center flex justify-center otp-input border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-            :num-inputs="6"
-            inputType="number"
-            inputmode="numeric"
-            :should-auto-focus="true"
-            :should-focus-order="true"
-            v-model:value="bindValue"
-            @on-complete="handleOnComplete"
-          />
+        <pre v-if="dialogDetails" class="af-2fa-details max-h-60 overflow-auto rounded-lg bg-gray-100 p-3 text-xs text-gray-800 dark:bg-gray-900 dark:text-gray-100">{{ dialogDetails }}</pre>
+
+        <ul v-if="confirmItems.length > 1" class="af-2fa-actions-list max-h-60 overflow-auto list-disc space-y-1 pl-5 text-sm text-gray-700 dark:text-gray-200">
+          <li v-for="(item, i) in confirmItems" :key="i">{{ item }}</li>
+        </ul>
+
+        <template v-if="modalMode === 'totp'">
+          <div class="af-2fa-otp-root flex justify-center" ref="otpRoot">
+            <v-otp-input
+              ref="confirmationResult"
+              container-class="grid grid-cols-6 gap-3"
+              input-classes="bg-gray-50 text-center flex justify-center otp-input border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-10 h-10 dark:bg-gray-600 dark:border-gray-500 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+              :num-inputs="6"
+              inputType="number"
+              inputmode="numeric"
+              :should-auto-focus="true"
+              :should-focus-order="true"
+              v-model:value="bindValue"
+              @on-complete="handleOnComplete"
+            />
+          </div>
+          <p v-if="codeError" class="af-2fa-code-error text-center text-xs text-red-600 dark:text-red-400">{{ codeError }}</p>
+        </template>
+
+        <div class="af-2fa-buttons flex gap-2">
+          <Button variant="secondary" class="af-2fa-cancel-btn flex-1" @click="onCancel">{{ $t('Cancel') }}</Button>
+          <Button v-if="modalMode === 'passkey'" @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="af-2fa-passkey-btn flex-1 flex items-center justify-center gap-2">
+            <IconShieldOutline class="w-4 h-4" />
+            {{ $t('Use passkey') }}
+          </Button>
+          <Button v-else-if="modalMode === 'grace'" class="af-2fa-approve-btn flex-1" @click="approveInGracePeriod">{{ $t('Approve') }}</Button>
         </div>
-        <p v-if="codeError" class="af-2fa-code-error text-center text-xs text-red-600 dark:text-red-400">{{ codeError }}</p>
-        <p v-if="doesUserHavePasskeys" class="af-2fa-totp-footer text-center text-xs text-gray-500 dark:text-gray-400">
+
+        <p v-if="modalMode === 'totp' && doesUserHavePasskeys" class="af-2fa-totp-footer text-center text-xs text-gray-500 dark:text-gray-400">
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
         </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
-          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
-        </p>
-      </div>
-
-      <div v-else-if="modalMode === 'passkey'" class="af-two-factor-modal-passkeys flex flex-col gap-4 relative bg-white dark:bg-gray-700 rounded-lg shadow p-6 w-full max-w-md">
-        <button
-          type="button"
-          class="af-2fa-close-btn text-lightDialogCloseButton bg-transparent hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover rounded-lg text-sm w-8 h-8 ms-auto inline-flex justify-center items-center dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover"
-          @click="onCancel"
-        >
-          <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
-            <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
-          </svg>
-          <span class="sr-only">{{$t('Close modal')}}</span>
-        </button>
-
-        <div class="af-2fa-passkey-header flex flex-col items-center justify-center gap-3">
-          <div class="af-2fa-icon-wrap w-14 h-14 shrink-0 flex items-center justify-center rounded-full bg-lightPrimary dark:bg-darkPrimary">
-            <IconShieldOutline class="af-2fa-shield-icon w-7 h-7 text-white" />
-          </div>
-          <div class="af-2fa-passkey-title-wrap">
-            <p class="af-2fa-passkey-title text-xl text-center font-medium text-gray-900 dark:text-white">{{$t('Verify to add passkey')}}</p>
-            <p class="af-2fa-passkey-subtitle text-xs text-center text-gray-500 dark:text-gray-400 mt-1">{{$t("Confirm it's you before registering a new passkey on this device.")}}</p>
-          </div>
-        </div>
-
-        <div class="af-2fa-passkey-steps flex flex-col gap-2 mt-2">
-          <div
-            v-for="(step, i) in [
-              $t('Click the button below to begin'),
-              $t('Authenticate with your device biometrics or PIN'),
-              $t('Your passkey will be saved automatically'),
-            ]"
-            :key="i"
-            class="af-2fa-passkey-step flex items-center gap-2.5 px-3 py-2 rounded-lg bg-gray-50 dark:bg-gray-600/50 text-xs text-gray-600 dark:text-gray-300"
-          >
-            <span class="af-2fa-step-number shrink-0 w-5 h-5 flex items-center justify-center rounded-full bg-lightPrimary dark:bg-darkPrimary text-white font-semibold text-xs">{{ i + 1 }}</span>
-            {{ step }}
-          </div>
-        </div>
-
-        <Button @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="af-2fa-passkey-btn w-full flex items-center justify-center gap-2 mt-2">
-          <IconShieldOutline class="w-4 h-4" />
-          {{$t('Use passkey to verify')}}
-        </Button>
-        <p class="af-2fa-passkey-footer text-center text-xs text-gray-500 dark:text-gray-400">
+        <p v-else-if="modalMode === 'passkey'" class="af-2fa-passkey-footer text-center text-xs text-gray-500 dark:text-gray-400">
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-totp text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'totp'">{{$t('Use TOTP instead')}}</button>
-        </p>
-        <p class="af-2fa-multiple-actions text-center text-red-500 text-xs" v-if="sessionsIdsToResolve.length > 1">
-          {{ $t('You are confirming {count} action | You are confirming {count} actions', sessionsIdsToResolve.length) }}
         </p>
       </div>
     </div>
@@ -102,7 +60,7 @@
   <script setup lang="ts">
 
   import VOtpInput from 'vue3-otp-input';
-  import { ref, nextTick, watch } from 'vue';
+  import { ref, computed, nextTick, watch } from 'vue';
   import { useUserStore } from '@/stores/user';
   import { useI18n } from 'vue-i18n';
   import { callAdminForthApi } from '@/utils';
@@ -113,7 +71,7 @@
   import websocket from '@/websocket';
   import { getAdminForthClientId } from '@/utils/clientId';
   import type { AdminUser } from '@/types/Common';
-  import { useTwoFactorsAuthApi, type TwoFaConfirmationResult } from './use2faApi.js';
+  import { useTwoFactorsAuthApi, type TwoFaConfirmationResult, type TwoFaDialogContent } from './use2faApi.js';
   const props = defineProps<{
     autoFinishLogin?: boolean
     adminUser?: AdminUser
@@ -122,10 +80,15 @@
   const { alert } = useAdminforth();
   const twoFactorsAuthApi = useTwoFactorsAuthApi();
 
+  type AutoVerifySession = { sessionId: string; actionDescription?: string };
+
   const isAwaiting2FAResult = ref(false);
   let allowAddNewSessions = true;
   const ALLOW_NEW_SESSIONS_PERIOD = 1000;
-  const sessionsIdsToResolve = ref<string[]>([]);
+  const MAX_ACTIONS_PER_CONFIRMATION = 20;
+  const sessionsToResolve = ref<AutoVerifySession[]>([]);
+  // Sessions over the limit of one confirmation wait for the next one, so the user never confirms an action they did not see.
+  let queuedSessions: AutoVerifySession[] = [];
 
   watch(isAwaiting2FAResult, (awaiting) => {
     if (awaiting) {
@@ -142,53 +105,62 @@
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       const user2FaTopic = `/user2fa/${props.adminUser.pk}/${getAdminForthClientId()}`;
-      websocket.subscribe(user2FaTopic, async (data: {sessionId: string; actionDescription?: string}) => {
+      websocket.subscribe(user2FaTopic, async (session: AutoVerifySession) => {
         if (!allowAddNewSessions) {
           alert({message: t('Some process or user tries to add new actions to confirm. Action was blocked'), variant: 'warning'});
           return;
         }
-        sessionsIdsToResolve.value.push(data.sessionId);
-        let confirmationResult;
+        if (sessionsToResolve.value.length < MAX_ACTIONS_PER_CONFIRMATION) {
+          sessionsToResolve.value.push(session);
+        } else {
+          queuedSessions.push(session);
+        }
         if (isAwaiting2FAResult.value) {
           return;
         }
-        try {
-          isAwaiting2FAResult.value = true;
-          confirmationResult = await twoFactorsAuthApi.get2FaConfirmationResult(data.actionDescription);
-        } catch (error) {
-          if (!isTwoFaCancel(error)) {
-            console.error('[AdminForth 2FA] Error during 2FA confirmation', error);
-          }
-        }
-        isAwaiting2FAResult.value = false;
-        try {
-          const response = await callAdminForthApi({
-            method: "POST",
-            path: "/plugin/passkeys/resolveVerifyAuto",
-            body: { confirmationResult, sessionsIds: sessionsIdsToResolve.value }
-          });
-          if (!response.ok && response.code === 'VERIFICATION_CANCELLED'){
-            alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
-          } else if (!response.ok) {
-            alert({message: response.error || t('Verification failed'), variant: 'danger'}); 
-          } else if (response.ok) {
-            // alert({message: 'Verification successful', variant: 'success'});
-          }
-          sessionsIdsToResolve.value = [];
-        } catch (error) {
-          console.error('Error resolving automatic 2FA verification:', error);
+        while (sessionsToResolve.value.length) {
+          await confirmSessions();
+          sessionsToResolve.value = queuedSessions.splice(0, MAX_ACTIONS_PER_CONFIRMATION);
         }
         allowAddNewSessions = true;
       });
       websocket.subscribe(`${user2FaTopic}/resolve`, async (data: {sessionId: string}) => {
-        if (sessionsIdsToResolve.value.includes(data.sessionId) && rejectFn && modelShow.value) {
+        queuedSessions = queuedSessions.filter((session) => session.sessionId !== data.sessionId);
+        if (sessionsToResolve.value.some((session) => session.sessionId === data.sessionId) && rejectFn && modelShow.value) {
           onCancel();
-          sessionsIdsToResolve.value = sessionsIdsToResolve.value.filter(id => id !== data.sessionId);
+          sessionsToResolve.value = sessionsToResolve.value.filter((session) => session.sessionId !== data.sessionId);
         }
       });
     }
   }, { immediate: true });
 
+
+  async function confirmSessions() {
+    let confirmationResult;
+    try {
+      isAwaiting2FAResult.value = true;
+      confirmationResult = await twoFactorsAuthApi.get2FaConfirmationResult(sessionsToResolve.value[0].actionDescription);
+    } catch (error) {
+      if (!isTwoFaCancel(error)) {
+        console.error('[AdminForth 2FA] Error during 2FA confirmation', error);
+      }
+    }
+    isAwaiting2FAResult.value = false;
+    try {
+      const response = await callAdminForthApi({
+        method: "POST",
+        path: "/plugin/passkeys/resolveVerifyAuto",
+        body: { confirmationResult, sessionsIds: sessionsToResolve.value.map((session) => session.sessionId) }
+      });
+      if (!response.ok && response.code === 'VERIFICATION_CANCELLED'){
+        alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
+      } else if (!response.ok) {
+        alert({message: response.error || t('Verification failed'), variant: 'danger'}); 
+      }
+    } catch (error) {
+      console.error('Error resolving automatic 2FA verification:', error);
+    }
+  }
 
   const emit = defineEmits<{
     (e: 'resolved', payload: any): void
@@ -226,22 +198,27 @@
 
   function get2FaConfirmationResult(
     title?: string,
-    verifyingCallback?: (confirmationResult: string) => Promise<boolean> | boolean
+    verifyingCallback?: (confirmationResult: string) => Promise<boolean> | boolean,
+    { details, items }: TwoFaDialogContent = {},
   ): Promise<TwoFaConfirmationResult> {
     return new Promise((resolve, reject) => {
       (async () => {
         if (modelShow.value) {
           throw new Error(t('Modal is already open'));
         }
-        const skipAllowModal = await checkIfSkipAllowModal();
-        if (skipAllowModal) {
+        const { skipAllowed, gracePeriod } = await checkIfSkipAllowModal();
+        if (skipAllowed) {
           resolve({});
           return;
         }
-        await checkIfUserHasPasskeys();
-        if (title) {
-          customDialogTitle.value = title;
+        if (gracePeriod) {
+          modalMode.value = 'grace';
+        } else {
+          await checkIfUserHasPasskeys();
         }
+        customDialogTitle.value = title ?? '';
+        dialogDetails.value = details ?? '';
+        dialogItems.value = items ?? [];
         resolveFn = resolve;
         rejectFn = reject;
         verifyFn = verifyingCallback ?? null;
@@ -268,11 +245,30 @@
   const otpRoot = ref<HTMLElement | null>(null);
   const bindValue = ref('');
   const doesUserHavePasskeys = ref(false);
-  const modalMode = ref<"totp" | "passkey">("totp");
+  const modalMode = ref<"totp" | "passkey" | "grace">("totp");
   const isLoading = ref(false);
   const isFetchingPasskey = ref(false);
   const customDialogTitle = ref("");
+  const dialogDetails = ref("");
+  const dialogItems = ref<string[]>([]);
+  // verifyAuto calls that arrive together are confirmed with one code.
+  const confirmItems = computed(() => sessionsToResolve.value.length > 1
+    ? sessionsToResolve.value.map((session) => session.actionDescription ?? t('Action without a description'))
+    : dialogItems.value);
+  const dialogTitle = computed(() => confirmItems.value.length > 1
+    ? t('Confirm {count} actions', { count: confirmItems.value.length })
+    : customDialogTitle.value || t("Confirm it's you"));
   const codeError = ref("");
+  const subtitles = computed(() => ({
+    totp: t('Please enter your authenticator code'),
+    passkey: t('Confirm with your passkey'),
+    grace: t('You verified recently, so no code is needed'),
+  }));
+
+  function approveInGracePeriod() {
+    modelShow.value = false;
+    resolveFn?.({});
+  }
 
   async function usePasskeyButtonClick() {
     isFetchingPasskey.value = true;
@@ -412,15 +408,8 @@
         path: '/plugin/passkeys/getPasskeys',
       });
       
-      if (response.ok) {
-        if (response.data.length >= 1) {
-          doesUserHavePasskeys.value = true;
-          modalMode.value = "passkey";
-        } else {
-          doesUserHavePasskeys.value = false;
-          modalMode.value = "totp";
-        }
-      }
+      doesUserHavePasskeys.value = Boolean(response.ok && response.data.length);
+      modalMode.value = doesUserHavePasskeys.value ? "passkey" : "totp";
     } catch (error) {
       console.error('Error checking passkeys:', error);
       // Fallback to TOTP if there's an error
@@ -472,20 +461,15 @@
   }
 
 
-  async function checkIfSkipAllowModal(){
+  async function checkIfSkipAllowModal(): Promise<{ skipAllowed: boolean; gracePeriod?: boolean }> {
     try {
-      const response = await callAdminForthApi({
+      return await callAdminForthApi({
         method: "GET",
         path: "/plugin/twofa/skip-allow-modal",
       });
-      if ( response.skipAllowed === true ) {
-        return true;
-      } else {
-        return false;
-      }
     } catch (error) {
       console.error('Error checking skip allow modal:', error);
-      return false;
+      return { skipAllowed: false };
     }
   }
 

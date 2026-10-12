@@ -7,10 +7,13 @@ export type TwoFaConfirmationResult =
   | { mode: 'passkey'; result: Record<string, any> }
   | { mode?: undefined };
 
+export type TwoFaDialogContent = { details?: string; items?: string[] };
+
 type VerifyFn = (confirmationResult: string) => Promise<boolean> | boolean;
 type Get2FaConfirmationResultHandler = (
   title?: string,
-  verifyingCallback?: VerifyFn
+  verifyingCallback?: VerifyFn,
+  content?: TwoFaDialogContent,
 ) => Promise<TwoFaConfirmationResult>;
 
 declare global {
@@ -30,12 +33,13 @@ export const useTwoFactorsAuthApi = defineStore('twoFactorsAuthApi', () => {
 
   async function get2FaConfirmationResult(
     title?: string,
-    verifyingCallback?: VerifyFn
+    verifyingCallback?: VerifyFn,
+    content?: TwoFaDialogContent,
   ): Promise<TwoFaConfirmationResult> {
     if (!get2FaConfirmationResultHandler.value) {
       throw new Error('Two factors auth modal API is not initialized');
     }
-    return get2FaConfirmationResultHandler.value(title, verifyingCallback);
+    return get2FaConfirmationResultHandler.value(title, verifyingCallback, content);
   }
 
   function initGlobalApi() {
