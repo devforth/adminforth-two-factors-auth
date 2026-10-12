@@ -142,7 +142,7 @@
     if (props.adminUser) {
       websocket.unsubscribeByPrefix(`/user2fa/`);
       const user2FaTopic = `/user2fa/${props.adminUser.pk}/${getAdminForthClientId()}`;
-      websocket.subscribe(user2FaTopic, async (data: {sessionId: string}) => {
+      websocket.subscribe(user2FaTopic, async (data: {sessionId: string; actionDescription?: string}) => {
         if (!allowAddNewSessions) {
           alert({message: t('Some process or user tries to add new actions to confirm. Action was blocked'), variant: 'warning'});
           return;
@@ -154,7 +154,7 @@
         }
         try {
           isAwaiting2FAResult.value = true;
-          confirmationResult = await twoFactorsAuthApi.get2FaConfirmationResult();
+          confirmationResult = await twoFactorsAuthApi.get2FaConfirmationResult(data.actionDescription);
         } catch (error) {
           if (!isTwoFaCancel(error)) {
             console.error('[AdminForth 2FA] Error during 2FA confirmation', error);

@@ -99,7 +99,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
-  public async verifyAuto(adminUser: AdminUser) {
+  public async verifyAuto(adminUser: AdminUser, actionDescription?: string) {
     const websocketClientId = getRequestWebsocketClientId?.();
     if (!websocketClientId) {
       return {
@@ -112,7 +112,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
     const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
 
-    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}/${websocketClientId}`, { sessionId: jwt });
+    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}/${websocketClientId}`, { sessionId: jwt, actionDescription });
 
     const result = await resultPromise;
 
