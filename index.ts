@@ -5,6 +5,7 @@ import  { PluginOptions } from "./types.js"
 import { PasskeyService } from "./services/passkeyService.js";
 import { TotpService } from "./services/totpService.js";
 import { verifyMfaConfirmation, type MfaConfirmationResult, type VerifyOptions } from "./services/verifyMfaConfirmation.js";
+import { MfaRequestContext } from './services/mfaRequestContext.js';
 import { CookieService } from "./services/cookieService.js";
 import { UserRepository } from "./repositories/userRepository.js";
 import { registerPasskeyEndpoints } from "./endpoints/registerPasskeyEndpoints.js";
@@ -34,6 +35,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   userRepository: UserRepository;
   passkeyLoginRateLimiters: RateLimiter[] = [];
   private ctx: any;
+  private readonly mfaRequestContext = new MfaRequestContext();
 
   constructor(options: PluginOptions) {
     super(options, import.meta.url);
@@ -99,7 +101,17 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     }
   }
 
+  public withVerificationContext<T>(confirmationResult: MfaConfirmationResult | undefined, extra: HttpExtra, callback: () => Promise<T>) {
+    return this.mfaRequestContext.run(confirmationResult, extra, callback);
+  }
+
   public async verifyAuto(adminUser: AdminUser, actionDescription?: string) {
+    const contextualResult = await this.mfaRequestContext.verify(adminUser, actionDescription, (confirmationResult, extra) => this.verify(confirmationResult, {
+      adminUser,
+      userPk: adminUser.pk!,
+      extra,
+    }));
+    if (contextualResult) return contextualResult;
     const websocketClientId = getRequestWebsocketClientId?.();
     if (!websocketClientId) {
       return {
@@ -122,7 +134,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   }
 
   public async verify(
-    confirmationResult: MfaConfirmationResult,
+    confirmationResult: MfaConfirmationResult | undefined,
     opts: VerifyOptions
   ): Promise<VerificationResult> {
     return verifyMfaConfirmation(this.ctx, confirmationResult, opts);

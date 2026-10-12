@@ -31,11 +31,10 @@ export type VerifyOptions = {
 
 export async function verifyMfaConfirmation(
   ctx: any,
-  confirmationResult: MfaConfirmationResult,
+  confirmationResult: MfaConfirmationResult | undefined,
   opts: VerifyOptions,
 ): Promise<VerificationResult> {
-  if (!confirmationResult) return { error: "Confirmation result is required", code: TwoFactorErrorCode.REQUIRED };
-
+  const mode = confirmationResult?.mode;
   const cookies = opts.extra?.cookies || opts.cookies;
   const response = opts.extra?.response || opts.response;
 
@@ -51,15 +50,14 @@ export async function verifyMfaConfirmation(
       return { ok: true };
     }
   }
-  if ( ctx.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !confirmationResult.mode) {
+  if ( ctx.options.stepUpMfaGracePeriodSeconds && opts.extra?.headers && !mode) {
     const verificationResult = await ctx.cookieService.isMfaGraceValid(opts.extra.headers, cookies);
     if ( verificationResult === true ) {
       return { ok: true };
     }
   }
-  const mode = confirmationResult.mode;
   if (!mode) {
-    return { error: "Unsupported confirmation mode", code: TwoFactorErrorCode.UNSUPPORTED_MODE };
+    return { error: "Confirmation result is required", code: TwoFactorErrorCode.REQUIRED };
   }
 
   if (mode === "totp") {
