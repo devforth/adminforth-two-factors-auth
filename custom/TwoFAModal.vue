@@ -324,35 +324,36 @@
   
   async function sendConfirmationResult(value: string) {
     if (!resolveFn) throw new Error(t('Modal is not initialized properly'));
+    let checked: { error: string } | { result: TwoFaConfirmationResult };
     try {
-      const error = await findCodeError(value);
-      if (error) {
-        codeError.value = error;
-        bindValue.value = '';
-        confirmationResult.value?.clearInput();
-        return;
-      }
+      checked = await checkCode(value);
     } catch (err) {
       rejectFn?.(err);
+      return;
+    }
+    if ('error' in checked) {
+      codeError.value = checked.error;
+      bindValue.value = '';
+      confirmationResult.value?.clearInput();
       return;
     }
 
     modelShow.value = false;
     codeError.value = "";
-    const dataToReturn = {
-      mode: "totp",
-      result: value
-    }
     customDialogTitle.value = "";
     removeEventListenerForOTPInput();
-    resolveFn(dataToReturn);
+    resolveFn(checked.result);
   }
   
   
-  async function findCodeError(code: string): Promise<string | null> {
-    if (verifyFn) return (await verifyFn(code)) ? null : t('Wrong or expired OTP code');
+  async function checkCode(code: string): Promise<{ error: string } | { result: TwoFaConfirmationResult }> {
+    if (verifyFn) {
+      return (await verifyFn(code)) ? { result: { mode: 'totp', result: code } } : { error: t('Wrong or expired OTP code') };
+    }
     const response = await callAdminForthApi({ method: 'POST', path: '/plugin/twofa/verify', body: { code } });
-    return response?.ok ? null : response?.error ?? t('Wrong or expired OTP code');
+    return response?.ok
+      ? { result: { mode: 'verifiedTotp', result: response.verifiedCodeToken } }
+      : { error: response?.error ?? t('Wrong or expired OTP code') };
   }
 
   function onCancel() {

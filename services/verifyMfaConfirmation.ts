@@ -7,6 +7,11 @@ type TotpConfirmationResult = {
   result: string;
 };
 
+type VerifiedTotpConfirmationResult = {
+  mode: "verifiedTotp";
+  result: string;
+};
+
 type PasskeyConfirmationResult = {
   mode: "passkey";
   result: {
@@ -19,7 +24,7 @@ type GraceConfirmationResult = {
   mode?: undefined;
 };
 
-export type MfaConfirmationResult = TotpConfirmationResult | PasskeyConfirmationResult | GraceConfirmationResult;
+export type MfaConfirmationResult = TotpConfirmationResult | VerifiedTotpConfirmationResult | PasskeyConfirmationResult | GraceConfirmationResult;
 
 export type VerifyOptions = {
   adminUser: AdminUser;
@@ -60,17 +65,22 @@ export async function verifyMfaConfirmation(
     return { error: "Confirmation result is required", code: TwoFactorErrorCode.REQUIRED };
   }
 
+  const confirmed = (): VerificationResult => {
+    if (ctx.options.stepUpMfaGracePeriodSeconds) {
+      ctx.cookieService.issueMfaGrace({ headers: opts.extra?.headers, response }, cookies);
+    }
+    return { ok: true };
+  };
+
   if (mode === "totp") {
     const { result: code } = confirmationResult as TotpConfirmationResult;
     const verificationResult = await ctx.totpService.verifyUserCode(opts.userPk, code);
-
-    if ( 'ok' in verificationResult && verificationResult.ok ) {
-      if (ctx.options.stepUpMfaGracePeriodSeconds) {
-        ctx.cookieService.issueMfaGrace({ headers: opts.extra?.headers, response }, cookies);
-      }
-      return { ok: true }
-    }
-    return verificationResult;
+    return 'error' in verificationResult ? verificationResult : confirmed();
+  } else if (mode === "verifiedTotp") {
+    const { result: token } = confirmationResult as VerifiedTotpConfirmationResult;
+    return await ctx.totpService.isVerifiedCodeToken(token, opts.userPk)
+      ? confirmed()
+      : { error: "The code confirmation expired. Enter the code again.", code: TwoFactorErrorCode.INVALID };
   } else if (mode === "passkey") {
     const { result } = confirmationResult as PasskeyConfirmationResult;
     const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
@@ -80,10 +90,7 @@ export async function verifyMfaConfirmation(
     const verificationResult = await ctx.passkeyService.verifyPasskeyResponse(result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
 
     if (verificationResult.ok && verificationResult.passkeyConfirmed) {
-      if (ctx.options.stepUpMfaGracePeriodSeconds) {
-        ctx.cookieService.issueMfaGrace({ headers: opts.extra?.headers, response }, cookies);
-      }
-      return  { ok: true }
+      return confirmed();
     }
     return { error: "Invalid passkey", code: TwoFactorErrorCode.INVALID }
   }

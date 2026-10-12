@@ -1,11 +1,13 @@
-import { RateLimiter, type AdminUser } from "adminforth";
+import { RateLimiter, type AdminUser, type IAdminForthAuth } from "adminforth";
 import twofactor from 'node-2fa';
 import type { PluginOptions } from "../types.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { TwoFactorErrorCode } from "../utils/errors.js";
-import type { VerificationResult } from "../utils/types.js";
+import type { VerificationFailure, VerificationResult } from "../utils/types.js";
 
 const CODE_ATTEMPT_RATE_LIMITS = ['30/1m', '300/1h', '1000/1d'];
+const VERIFIED_CODE_JWT_TYPE = 'verifiedTotpCode';
+const VERIFIED_CODE_TOKEN_TTL = '1m';
 
 export class TotpService {
   private readonly codeAttemptLimiters = CODE_ATTEMPT_RATE_LIMITS.map((rate) => new RateLimiter(rate));
@@ -13,6 +15,7 @@ export class TotpService {
   constructor(
     private readonly options: PluginOptions,
     private readonly userRepository: UserRepository,
+    private readonly auth: IAdminForthAuth,
   ) {}
 
   public generateSecret(issuerName: string, userName: string): string {
@@ -40,8 +43,15 @@ export class TotpService {
       : { error: "Wrong or expired OTP code", code: TwoFactorErrorCode.INVALID };
   }
 
-  public async verifyAdminUserCode(adminUser: AdminUser, code: string): Promise<VerificationResult> {
-    return this.verifyUserCode(this.userRepository.getUserPk(adminUser), code);
+  public async verifyAdminUserCode(adminUser: AdminUser, code: string): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {
+    const result = await this.verifyUserCode(this.userRepository.getUserPk(adminUser), code);
+    if ('error' in result) return result;
+    return { ok: true, verifiedCodeToken: this.auth.issueJWT({ pk: adminUser.pk }, VERIFIED_CODE_JWT_TYPE, VERIFIED_CODE_TOKEN_TTL) };
+  }
+
+  public async isVerifiedCodeToken(token: string, userPk: string): Promise<boolean> {
+    const payload = await this.auth.verify(token, VERIFIED_CODE_JWT_TYPE, false);
+    return payload?.pk === userPk;
   }
 
   public async saveSecret(userPk: string, secret: string): Promise<void> {

@@ -130,7 +130,7 @@
     import { Dialog, Tooltip, Spinner, Input } from '@/afcl';
     import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconInfoCircleOutline } from '@iconify-prerendered/vue-flowbite';
     import { useCoreStore } from '@/stores/core';
-    import { useTwoFactorsAuth } from './use2faApi';
+    import { useTwoFactorsAuth, type TwoFaConfirmationResult } from './use2faApi';
 
     const { t } = useI18n();
     const coreStore = useCoreStore();
@@ -215,9 +215,7 @@
         }
     }
 
-    type ConfirmationResult = { mode: 'totp'; result: string } | { mode: 'passkey'; result: Record<string, any> } | { mode?: undefined };
-
-    async function requestPasskeyChallenge(confirmationResult: ConfirmationResult) {
+    async function requestPasskeyChallenge(confirmationResult: TwoFaConfirmationResult) {
         try {
             const response = await callAdminForthApi({
                 path: '/plugin/passkeys/registrationOptions',

@@ -17,4 +17,5 @@ export type OkResponse<T extends AnyRecord = AnyRecord> = {
 
 export type PluginResponse<T extends AnyRecord = AnyRecord> = OkResponse<T> | ErrorResponse;
 
-export type VerificationResult = { ok: true } | { error: string; code: TwoFactorErrorCode };
+export type VerificationFailure = { error: string; code: TwoFactorErrorCode };
+export type VerificationResult = { ok: true } | VerificationFailure;

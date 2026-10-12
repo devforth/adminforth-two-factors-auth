@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { AdminUser, HttpExtra } from 'adminforth';
 import type { MfaConfirmationResult } from './verifyMfaConfirmation.js';
-import type { VerificationResult } from '../utils/types.js';
+import type { VerificationFailure, VerificationResult } from '../utils/types.js';
 
 type Context = {
   confirmationResult: MfaConfirmationResult | undefined;
@@ -9,7 +9,7 @@ type Context = {
   results: Map<string, Promise<VerificationResult>>;
 };
 
-type ContextualVerificationFailure = Extract<VerificationResult, { error: string }> & { actionDescription?: string };
+type ContextualVerificationFailure = VerificationFailure & { actionDescription?: string };
 
 class MfaVerificationError extends Error {
   constructor(readonly result: ContextualVerificationFailure) {

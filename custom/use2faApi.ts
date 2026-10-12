@@ -3,6 +3,7 @@ import { defineStore } from 'pinia';
 
 export type TwoFaConfirmationResult =
   | { mode: 'totp'; result: string }
+  | { mode: 'verifiedTotp'; result: string }
   | { mode: 'passkey'; result: Record<string, any> }
   | { mode?: undefined };
 
