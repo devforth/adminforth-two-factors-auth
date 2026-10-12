@@ -146,7 +146,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     this.adminForthAuth = adminforth.auth;
     this.userRepository = new UserRepository(this.adminforth, this.options);
     this.cookieService = new CookieService(this.adminforth, this.options);
-    this.totpService = new TotpService(this.options, this.userRepository, this.adminforth.auth);
+    this.totpService = new TotpService(this.options, this.userRepository, this.adminforth);
     this.passkeyService = new PasskeyService(this.options, this.adminforth, this.userRepository, undefined, this.cookieService);
     this.passkeyLoginRateLimiters = (adminforth.config.auth as any).rateLimit.map((rate) => new RateLimiter(rate));
     this.ctx = {

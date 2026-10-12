@@ -17,7 +17,7 @@ function createService() {
     },
     verify: async (token, type) => (jwts.get(token)?.type === type ? jwts.get(token) : null),
   };
-  return new TotpService({ timeStepWindow: 1 }, userRepository, auth);
+  return new TotpService({ timeStepWindow: 1 }, userRepository, { auth });
 }
 
 test('limits code attempts of each user to stop brute force of a stolen session', async () => {

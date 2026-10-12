@@ -1,4 +1,4 @@
-import { RateLimiter, type AdminUser, type IAdminForthAuth } from "adminforth";
+import { RateLimiter, type AdminUser, type IAdminForth } from "adminforth";
 import twofactor from 'node-2fa';
 import type { PluginOptions } from "../types.js";
 import { UserRepository } from "../repositories/userRepository.js";
@@ -15,7 +15,7 @@ export class TotpService {
   constructor(
     private readonly options: PluginOptions,
     private readonly userRepository: UserRepository,
-    private readonly auth: IAdminForthAuth,
+    private readonly adminforth: IAdminForth,
   ) {}
 
   public generateSecret(issuerName: string, userName: string): string {
@@ -46,11 +46,11 @@ export class TotpService {
   public async verifyAdminUserCode(adminUser: AdminUser, code: string): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {
     const result = await this.verifyUserCode(this.userRepository.getUserPk(adminUser), code);
     if ('error' in result) return result;
-    return { ok: true, verifiedCodeToken: this.auth.issueJWT({ pk: adminUser.pk }, VERIFIED_CODE_JWT_TYPE, VERIFIED_CODE_TOKEN_TTL) };
+    return { ok: true, verifiedCodeToken: this.adminforth.auth.issueJWT({ pk: adminUser.pk }, VERIFIED_CODE_JWT_TYPE, VERIFIED_CODE_TOKEN_TTL) };
   }
 
   public async isVerifiedCodeToken(token: string, userPk: string): Promise<boolean> {
-    const payload = await this.auth.verify(token, VERIFIED_CODE_JWT_TYPE, false);
+    const payload = await this.adminforth.auth.verify(token, VERIFIED_CODE_JWT_TYPE, false);
     return payload?.pk === userPk;
   }
 
