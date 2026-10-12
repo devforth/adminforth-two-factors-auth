@@ -37,6 +37,7 @@
             @on-complete="handleOnComplete"
           />
         </div>
+        <p v-if="codeError" class="af-2fa-code-error text-center text-xs text-red-600 dark:text-red-400">{{ codeError }}</p>
         <p v-if="doesUserHavePasskeys" class="af-2fa-totp-footer text-center text-xs text-gray-500 dark:text-gray-400">
           {{$t('Having trouble?')}}
           <button type="button" class="af-2fa-switch-to-passkey text-lightPrimary dark:text-white hover:underline cursor-pointer" @click="modalMode = 'passkey'">{{$t('Use passkey instead')}}</button>
@@ -271,7 +272,8 @@
   const isLoading = ref(false);
   const isFetchingPasskey = ref(false);
   const customDialogTitle = ref("");
-  
+  const codeError = ref("");
+
   async function usePasskeyButtonClick() {
     isFetchingPasskey.value = true;
     let passkeyData;
@@ -322,20 +324,21 @@
   
   async function sendConfirmationResult(value: string) {
     if (!resolveFn) throw new Error(t('Modal is not initialized properly'));
-    if (verifyFn) {
-      try {
-        const ok = await verifyFn(value);
-        if (!ok) {
-          rejectFn?.(new Error(t('Invalid code')));
-          return;
-        }
-      } catch (err) {
-        rejectFn?.(err);
+    try {
+      const error = await findCodeError(value);
+      if (error) {
+        codeError.value = error;
+        bindValue.value = '';
+        confirmationResult.value?.clearInput();
         return;
       }
+    } catch (err) {
+      rejectFn?.(err);
+      return;
     }
 
     modelShow.value = false;
+    codeError.value = "";
     const dataToReturn = {
       mode: "totp",
       result: value
@@ -346,8 +349,15 @@
   }
   
   
+  async function findCodeError(code: string): Promise<string | null> {
+    if (verifyFn) return (await verifyFn(code)) ? null : t('Wrong or expired OTP code');
+    const response = await callAdminForthApi({ method: 'POST', path: '/plugin/twofa/verify', body: { code } });
+    return response?.ok ? null : response?.error ?? t('Wrong or expired OTP code');
+  }
+
   function onCancel() {
     modelShow.value = false;
+    codeError.value = "";
     bindValue.value = '';
     confirmationResult.value?.clearInput();
     removeEventListenerForOTPInput();
