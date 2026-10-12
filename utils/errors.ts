@@ -9,6 +9,19 @@ export enum HttpStatus {
   INTERNAL_SERVER_ERROR = 500,
 }
 
+export enum TwoFactorErrorCode {
+  REQUIRED = 'TWO_FACTOR_REQUIRED',
+  INVALID = 'TWO_FACTOR_INVALID',
+  NOT_SET_UP = 'TWO_FACTOR_NOT_SET_UP',
+  USER_NOT_FOUND = 'USER_NOT_FOUND',
+  UNSUPPORTED_MODE = 'UNSUPPORTED_CONFIRMATION_MODE',
+  BROWSER_CONTEXT_REQUIRED = 'BROWSER_CONTEXT_REQUIRED',
+  CANCELLED = 'VERIFICATION_CANCELLED',
+  TIMEOUT = 'VERIFICATION_TIMEOUT',
+  INVALID_SESSION = 'INVALID_VERIFICATION_SESSION',
+  INTERNAL_ERROR = 'INTERNAL_ERROR',
+}
+
 export function respondWithStatus<T>(body: T, response: IAdminForthHttpResponse, status: HttpStatus): T {
   response.setStatus(status);
   return body;

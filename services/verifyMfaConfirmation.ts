@@ -1,5 +1,6 @@
 import type { AdminUser, HttpExtra, IAdminForthHttpResponse } from "adminforth";
-import type { CookieList } from "../utils/types.js";
+import { TwoFactorErrorCode } from "../utils/errors.js";
+import type { CookieList, VerificationResult } from "../utils/types.js";
 
 type TotpConfirmationResult = {
   mode: "totp";
@@ -32,8 +33,8 @@ export async function verifyMfaConfirmation(
   ctx: any,
   confirmationResult: MfaConfirmationResult,
   opts: VerifyOptions,
-): Promise<{ ok: true } | { error: string }> {
-  if (!confirmationResult) return { error: "Confirmation result is required" };
+): Promise<VerificationResult> {
+  if (!confirmationResult) return { error: "Confirmation result is required", code: TwoFactorErrorCode.REQUIRED };
 
   const cookies = opts.extra?.cookies || opts.cookies;
   const response = opts.extra?.response || opts.response;
@@ -58,7 +59,7 @@ export async function verifyMfaConfirmation(
   }
   const mode = confirmationResult.mode;
   if (!mode) {
-    return { error: "Unsupported confirmation mode" };
+    return { error: "Unsupported confirmation mode", code: TwoFactorErrorCode.UNSUPPORTED_MODE };
   }
 
   if (mode === "totp") {
@@ -76,7 +77,7 @@ export async function verifyMfaConfirmation(
     const { result } = confirmationResult as PasskeyConfirmationResult;
     const cookiesValidationResult = await ctx.passkeyService.validateLoginChallengeCookie(cookies);
     if (!cookiesValidationResult.ok) {
-      return { error: cookiesValidationResult.error };
+      return { error: cookiesValidationResult.error, code: TwoFactorErrorCode.INVALID };
     }
     const verificationResult = await ctx.passkeyService.verifyPasskeyResponse(result, opts.userPk, cookiesValidationResult.decodedPasskeysCookies );
 
@@ -86,7 +87,7 @@ export async function verifyMfaConfirmation(
       }
       return  { ok: true }
     }
-    return { error: "Invalid passkey" }
+    return { error: "Invalid passkey", code: TwoFactorErrorCode.INVALID }
   }
-  return { error: "Unsupported confirmation mode" };
+  return { error: "Unsupported confirmation mode", code: TwoFactorErrorCode.UNSUPPORTED_MODE };
 }

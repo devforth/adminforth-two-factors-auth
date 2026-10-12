@@ -1,4 +1,5 @@
 import type { HttpExtra } from "adminforth";
+import type { TwoFactorErrorCode } from "./errors.js";
 
 export type AnyRecord = Record<string, any>;
 export type CookieList = HttpExtra["cookies"];
@@ -15,3 +16,5 @@ export type OkResponse<T extends AnyRecord = AnyRecord> = {
 } & T;
 
 export type PluginResponse<T extends AnyRecord = AnyRecord> = OkResponse<T> | ErrorResponse;
+
+export type VerificationResult = { ok: true } | { error: string; code: TwoFactorErrorCode };

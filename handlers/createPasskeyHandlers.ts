@@ -1,5 +1,6 @@
 import type { HttpExtra } from "adminforth";
-import { HttpStatus, errorMessage, respondWithStatus } from "../utils/errors.js";
+import { HttpStatus, TwoFactorErrorCode, errorMessage, respondWithStatus } from "../utils/errors.js";
+import type { VerificationResult } from "../utils/types.js";
 
 export function createPasskeyHandlers(ctx: any) {
   return {
@@ -83,8 +84,8 @@ export function createPasskeyHandlers(ctx: any) {
       const confirmationResult = body?.confirmationResult;
       const idsToResolve = Array.isArray(sessionsIds) ? sessionsIds : [];
 
-      const resolveAllIdsAsFailed = (message, code?: string) => {
-        const payload = code ? { ok: false, code, error: message } : { ok: false, error: message };
+      const resolveAllIdsAsFailed = (message: string, code: TwoFactorErrorCode) => {
+        const payload = { ok: false, code, error: message };
         for (const id of idsToResolve) {
           ctx.autoVerify.resolveResponse(id, payload);
         }
@@ -94,7 +95,7 @@ export function createPasskeyHandlers(ctx: any) {
       try {
         if (!idsToResolve.length || !confirmationResult) {
           return respondWithStatus(
-            resolveAllIdsAsFailed('Confirmation window was closed', 'VERIFICATION_CANCELLED'),
+            resolveAllIdsAsFailed('Confirmation window was closed', TwoFactorErrorCode.CANCELLED),
             response,
             HttpStatus.BAD_REQUEST,
           );
@@ -103,14 +104,22 @@ export function createPasskeyHandlers(ctx: any) {
         for (const id of idsToResolve) {
           const validationResult = await ctx.adminforth.auth.verify(id, 'auto2FA', false);
           if (!validationResult) {
-            return respondWithStatus(resolveAllIdsAsFailed('Invalid session ID or confirmation result'), response, HttpStatus.FORBIDDEN);
+            return respondWithStatus(
+              resolveAllIdsAsFailed('Invalid session ID or confirmation result', TwoFactorErrorCode.INVALID_SESSION),
+              response,
+              HttpStatus.FORBIDDEN,
+            );
           }
           if (validationResult.adminUserPk !== adminUser.pk) {
-            return respondWithStatus(resolveAllIdsAsFailed('Session does not belong to the authenticated user'), response, HttpStatus.FORBIDDEN);
+            return respondWithStatus(
+              resolveAllIdsAsFailed('Session does not belong to the authenticated user', TwoFactorErrorCode.INVALID_SESSION),
+              response,
+              HttpStatus.FORBIDDEN,
+            );
           }
         }
 
-        const verificationResult = await ctx.verifyMfaConfirmation(confirmationResult, {
+        const verificationResult: VerificationResult = await ctx.verifyMfaConfirmation(confirmationResult, {
           adminUser: adminUser,
           userPk: adminUser.pk,
           cookies: cookies,
@@ -119,19 +128,24 @@ export function createPasskeyHandlers(ctx: any) {
             headers: headers,
           } as HttpExtra
         });
-        if ( !verificationResult || !('ok' in verificationResult) ) {
-          return respondWithStatus(resolveAllIdsAsFailed(verificationResult?.error ?? 'Verification failed'), response, HttpStatus.FORBIDDEN);
+        if ('error' in verificationResult) {
+          return respondWithStatus(
+            resolveAllIdsAsFailed(verificationResult.error, verificationResult.code),
+            response,
+            HttpStatus.FORBIDDEN,
+          );
         }
-        if ('ok' in verificationResult && verificationResult.ok){
-          for (const id of idsToResolve) {
-            ctx.autoVerify.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
-          }
-          return { ok: true };
+        for (const id of idsToResolve) {
+          ctx.autoVerify.resolveResponse(id, { ok: true, passkeyConfirmed: verificationResult });
         }
-        return respondWithStatus(resolveAllIdsAsFailed('Verification failed'), response, HttpStatus.FORBIDDEN);
+        return { ok: true };
       } catch (error) {
         console.error('[AdminForth 2FA] Error resolving automatic 2FA verification', error);
-        return respondWithStatus(resolveAllIdsAsFailed(errorMessage(error)), response, HttpStatus.INTERNAL_SERVER_ERROR);
+        return respondWithStatus(
+          resolveAllIdsAsFailed(errorMessage(error), TwoFactorErrorCode.INTERNAL_ERROR),
+          response,
+          HttpStatus.INTERNAL_SERVER_ERROR,
+        );
       }
     },
   };

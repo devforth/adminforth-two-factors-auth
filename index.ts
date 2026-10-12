@@ -12,7 +12,12 @@ import { registerTwoFaEndpoints } from "./endpoints/registerTwoFaEndpoints.js";
 import { createPasskeyHandlers } from "./handlers/createPasskeyHandlers.js";
 import { createTwoFaHandlers } from "./handlers/createTwoFaHandlers.js";
 import { parsePeriod } from "./utils/parsePeriod.js";
+import { TwoFactorErrorCode } from "./utils/errors.js";
+import type { VerificationResult } from "./utils/types.js";
 import crypto from 'crypto';
+
+export { TwoFactorErrorCode };
+export type { VerificationResult };
 
 const getRequestWebsocketClientId = (AdminForthRuntime as typeof AdminForthRuntime & {
   getRequestWebsocketClientId?: () => string | undefined;
@@ -78,7 +83,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       };
       timeout = setTimeout(() => {
         cleanup();
-        resolve({ ok: false, error: 'Verification timed out' });
+        resolve({ ok: false, error: 'Verification timed out', code: TwoFactorErrorCode.TIMEOUT });
       }, timeoutMs);
       this.pending.set(id, (value: any) => {
         cleanup();
@@ -97,7 +102,11 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   public async verifyAuto(adminUser: AdminUser) {
     const websocketClientId = getRequestWebsocketClientId?.();
     if (!websocketClientId) {
-      return { ok: false, error: '2FA auto verification requires an active browser request context' };
+      return {
+        ok: false,
+        error: '2FA auto verification requires an active browser request context',
+        code: TwoFactorErrorCode.BROWSER_CONTEXT_REQUIRED,
+      };
     }
     const sessionId = crypto.randomUUID();
     const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
@@ -115,7 +124,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
   public async verify(
     confirmationResult: MfaConfirmationResult,
     opts: VerifyOptions
-  ): Promise<{ ok: true } | { error: string }> {
+  ): Promise<VerificationResult> {
     return verifyMfaConfirmation(this.ctx, confirmationResult, opts);
   }
 
