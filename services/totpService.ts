@@ -8,9 +8,11 @@ import type { VerificationFailure, VerificationResult } from "../utils/types.js"
 const CODE_ATTEMPT_RATE_LIMITS = ['30/1m', '300/1h', '1000/1d'];
 const VERIFIED_CODE_JWT_TYPE = 'verifiedTotpCode';
 const VERIFIED_CODE_TOKEN_TTL = '1m';
+const TOTP_STEP_SECONDS = 30;
 
 export class TotpService {
   private readonly codeAttemptLimiters = CODE_ATTEMPT_RATE_LIMITS.map((rate) => new RateLimiter(rate));
+  private readonly lastUsedCodeSteps = new Map<string, number>();
 
   constructor(
     private readonly options: PluginOptions,
@@ -23,7 +25,12 @@ export class TotpService {
   }
 
   public verifySecret(secret: string, code: string): boolean {
-    return Boolean(twofactor.verifyToken(secret, code, this.options.timeStepWindow));
+    return this.findCodeStep(secret, code) !== null;
+  }
+
+  private findCodeStep(secret: string, code: string): number | null {
+    const match = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
+    return match && Math.floor(Date.now() / 1000 / TOTP_STEP_SECONDS) + match.delta;
   }
 
   public async verifyUserCode(userPk: string, code: string): Promise<VerificationResult> {
@@ -38,9 +45,14 @@ export class TotpService {
     const secret = this.userRepository.getSecret(user);
     if (!secret) return { error: "2FA is not set up for this user", code: TwoFactorErrorCode.NOT_SET_UP };
 
-    return this.verifySecret(secret, code)
-      ? { ok: true }
-      : { error: "Wrong or expired OTP code", code: TwoFactorErrorCode.INVALID };
+    const step = this.findCodeStep(secret, code);
+    if (step === null) return { error: "Wrong or expired OTP code", code: TwoFactorErrorCode.INVALID };
+
+    if (step <= (this.lastUsedCodeSteps.get(userPk) ?? -Infinity)) {
+      return { error: "This code has already been used. Wait for the next one.", code: TwoFactorErrorCode.INVALID };
+    }
+    this.lastUsedCodeSteps.set(userPk, step);
+    return { ok: true };
   }
 
   public async verifyAdminUserCode(adminUser: AdminUser, code: string): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {

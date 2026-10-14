@@ -36,3 +36,30 @@ test('a correct code gives a token that confirms the code only for its user', as
   assert.equal(await service.isVerifiedCodeToken(verifiedCodeToken, 'user-2'), false);
   assert.equal(await service.isVerifiedCodeToken('forged', 'user-1'), false);
 });
+
+const STEP_MS = 30_000;
+const codeAt = (t, time) => {
+  t.mock.timers.setTime(time);
+  return twofactor.generateToken(SECRET).token;
+};
+
+test('a code confirms only one request, so a phished code can not be replayed', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 * STEP_MS });
+  const service = createService();
+  const code = codeAt(t, 1_000 * STEP_MS);
+  const results = await Promise.all([service.verifyUserCode('user-1', code), service.verifyUserCode('user-1', code)]);
+  assert.equal(results.filter((result) => result.ok).length, 1);
+  assert.equal((await service.verifyUserCode('user-1', code)).code, TwoFactorErrorCode.INVALID);
+  assert.equal((await service.verifyAdminUserCode({ pk: 'user-1' }, code)).code, TwoFactorErrorCode.INVALID);
+  assert.deepEqual(await service.verifyUserCode('user-2', code), { ok: true });
+});
+
+test('after a code is used, older codes from the window are rejected and the next code is accepted', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 * STEP_MS });
+  const service = createService();
+  const olderCode = codeAt(t, 1_000 * STEP_MS);
+  const code = codeAt(t, 1_001 * STEP_MS);
+  assert.deepEqual(await service.verifyUserCode('user-1', code), { ok: true });
+  assert.equal((await service.verifyUserCode('user-1', olderCode)).code, TwoFactorErrorCode.INVALID);
+  assert.deepEqual(await service.verifyUserCode('user-1', codeAt(t, 1_002 * STEP_MS)), { ok: true });
+});
