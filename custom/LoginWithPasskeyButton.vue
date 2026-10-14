@@ -1,13 +1,12 @@
 <template>
 
     <Button
-        class="w-full !py-2"
+        variant="secondary"
+        class="af-login-with-passkey-btn w-full gap-2"
         @click="handleLoginWithPasskey"
     >
-      <div class="flex items-center justify-center">
-        <IconShieldOutline class="w-6 h-6 mr-1" />
-        <span>{{ $t('Continue with Passkey') }}</span>
-      </div>
+      <IconFingerprintOutline class="w-5 h-5 text-lightPrimary dark:text-darkPrimary" />
+      {{ $t('Continue with Passkey') }}
     </Button>
 
 </template>
@@ -15,7 +14,7 @@
 
 
 <script setup lang="ts">
-    import { IconShieldOutline } from '@iconify-prerendered/vue-flowbite';
+    import { IconFingerprintOutline } from '@iconify-prerendered/vue-flowbite';
     import { getPasskey } from "./utils.js";
     import { callAdminForthApi } from '@/utils';
     import { useUserStore } from '@/stores/user';
@@ -44,7 +43,7 @@
           return;
         }
 
-        if ( resp.allowedLogin === true ) { 
+        if ( resp.allowedLogin === true ) {
             await userStore.finishLogin();
         } else if (resp.redirectTo) {
           router.push(resp.redirectTo);
@@ -54,6 +53,6 @@
         }
       } catch (error) {
         console.error("Error during passkey login:", error);
-      } 
+      }
     }
 </script>

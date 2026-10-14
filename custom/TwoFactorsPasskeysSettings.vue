@@ -1,29 +1,29 @@
 <template>
     <div class="af-passkeys flex flex-col justify-center mr-6 md:mr-12">
         <h2 class="af-passkeys-title flex items-start justify-start leading-none text-gray-800 dark:text-gray-50 text-3xl font-semibold">{{$t('Passkeys')}}</h2>
-        <p class="af-passkeys-subtitle text-sm mt-3"> {{$t('Manage your passwordless authentication methods')}} </p>
+        <p class="af-passkeys-subtitle text-sm mt-3 text-gray-500 dark:text-gray-400"> {{$t('Manage your passwordless authentication methods')}} </p>
 
         <div class="af-passkeys-grid mt-6 flex flex-wrap gap-4">
             <div
                 v-for="item in passkeys"
                 :key="item.id"
-                class="af-passkey-card flex flex-col w-full h-42 lg:w-72 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 shadow-sm"
+                class="af-passkey-card flex flex-col w-full h-42 lg:w-72 rounded-xl border border-lightDialogBreakLine bg-lightDialogBackgorund p-4 shadow-sm dark:border-darkDialogBreakLine dark:bg-darkDialogBackgorund"
             >
                 <div class="af-passkey-card-header flex items-center gap-3 mb-3">
-                    <div class="af-passkey-card-icon w-10 h-10 flex items-center justify-center bg-gray-100 dark:bg-gray-700 rounded-lg shrink-0">
+                    <div class="af-passkey-card-icon flex w-10 h-10 shrink-0 items-center justify-center rounded-[10px] bg-gray-100 dark:bg-gray-800">
                         <img class="max-h-6 max-w-6" :src="coreStore.theme === 'light' ? item.light_icon : item.dark_icon" />
                     </div>
                     <div class="af-passkey-card-info flex-1 min-w-0">
-                        <p class="af-passkey-card-name font-semibold text-gray-900 dark:text-white truncate" :title="item.name">{{ item.name }}</p>
+                        <p class="af-passkey-card-name font-semibold text-lightDialogHeaderText dark:text-darkDialogHeaderText truncate" :title="item.name">{{ item.name }}</p>
                         <p class="af-passkey-card-type text-xs text-gray-500 dark:text-gray-400">{{$t('Synced passkey')}}</p>
                     </div>
-                    <span class="af-passkey-card-badge shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                    <span class="af-passkey-card-badge shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-50 text-green-800 dark:bg-green-500/10 dark:text-green-300">
                         {{$t('Active')}}
                     </span>
                 </div>
 
                 <div class="af-passkey-card-last-used text-xs text-gray-500 dark:text-gray-400 mb-4">
-                    <span class="af-passkey-card-last-used-label font-medium">{{$t('Last used')}}:</span>
+                    <span class="af-passkey-card-last-used-label font-medium text-gray-700 dark:text-gray-300">{{$t('Last used')}}:</span>
                     <span v-if="item.last_used_at" class="af-passkey-card-last-used-date ml-1">{{ formatDateTime(item.last_used_at) }}</span>
                     <span v-else class="af-passkey-card-last-used-never ml-1 italic">{{$t('Never')}}</span>
                 </div>
@@ -38,13 +38,16 @@
                         header="Edit Passkey"
                     >
                         <template #trigger>
-                            <button
+                            <Button
+                                type="button"
+                                variant="secondary"
+                                :shadow="false"
                                 @click="passkeysNewName = ''"
-                                class="af-passkey-btn-rename w-full flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer"
+                                class="af-passkey-btn-rename w-full gap-1.5 px-3 py-2 text-[13px]"
                             >
-                                <IconPenSolid class="w-3.5 h-3.5" />
+                                <IconPenOutline class="w-4 h-4" />
                                 {{$t('Rename')}}
-                            </button>
+                            </Button>
                         </template>
                         <div class="flex flex-col gap-2">
                             <label class="text-sm font-medium">{{$t('Current name:')}}</label>
@@ -60,10 +63,11 @@
                     </Dialog>
 
                     <button
+                        type="button"
                         @click="confirmAndDelete(item.id)"
-                        class="af-passkey-btn-remove flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors cursor-pointer"
+                        class="af-passkey-btn-remove flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-default border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
-                        <IconTrashBinSolid class="w-3.5 h-3.5" />
+                        <IconTrashBinOutline class="w-4 h-4" />
                         {{$t('Remove')}}
                     </button>
                 </div>
@@ -72,8 +76,8 @@
             <template v-if="isInitialFinished">
                 <Tooltip v-if="!isPasskeySupported && (authenticatorAttachment === 'platform' || authenticatorAttachment === 'both')">
                     <div class="af-passkey-add-card af-passkey-add-local flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 w-full lg:w-72 min-h-36 opacity-50 pointer-events-none">
-                        <div class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
-                            <IconPlusOutline class="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                        <div class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-lightPrimary/10 text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">
+                            <IconPlusOutline class="w-5 h-5" />
                         </div>
                         <p class="af-passkey-add-card-title font-medium text-gray-700 dark:text-gray-300 text-sm">{{$t('Add local passkey')}}</p>
                         <p class="af-passkey-add-card-subtitle text-xs text-gray-400 dark:text-gray-500 text-center">{{$t('Register this device')}}</p>
@@ -84,40 +88,44 @@
                     </template>
                 </Tooltip>
 
-                <div
+                <button
                     v-else-if="authenticatorAttachment === 'platform' || authenticatorAttachment === 'both'"
+                    type="button"
+                    :disabled="isFetchingPasskey"
                     @click="addLocalPasskey"
-                    class="af-passkey-add-card af-passkey-add-local flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors w-full lg:w-72 min-h-36"
+                    class="af-passkey-add-card af-passkey-add-local flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-lightPrimary hover:bg-lightPrimary/5 dark:hover:border-darkPrimary dark:hover:bg-darkPrimary/10 transition-colors w-full lg:w-72 min-h-36"
                     :class="isFetchingPasskey ? 'opacity-50 pointer-events-none' : 'cursor-pointer'"
                 >
-                    <div class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+                    <span class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-lightPrimary/10 text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">
                         <Spinner v-if="isFetchingPasskey && addPasskeyMode === 'platform'" class="w-5 h-5" />
-                        <IconPlusOutline v-else class="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    </div>
-                    <p class="af-passkey-add-card-title font-medium text-gray-700 dark:text-gray-300 text-sm">{{$t('Add local passkey')}}</p>
-                    <p class="af-passkey-add-card-subtitle text-xs text-gray-400 dark:text-gray-500 text-center">{{$t('Register this device')}}</p>
-                </div>
+                        <IconPlusOutline v-else class="w-5 h-5" />
+                    </span>
+                    <span class="af-passkey-add-card-title font-medium text-gray-700 dark:text-gray-300 text-sm">{{$t('Add local passkey')}}</span>
+                    <span class="af-passkey-add-card-subtitle text-xs text-gray-500 dark:text-gray-400 text-center">{{$t('Register this device')}}</span>
+                </button>
 
-                <div
+                <button
                     v-if="authenticatorAttachment === 'cross-platform' || authenticatorAttachment === 'both'"
+                    type="button"
+                    :disabled="isFetchingPasskey"
                     @click="addCrossDevicePasskey"
-                    class="af-passkey-add-card af-passkey-add-cross flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 transition-colors w-full lg:w-72 min-h-36"
+                    class="af-passkey-add-card af-passkey-add-cross flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-lightPrimary hover:bg-lightPrimary/5 dark:hover:border-darkPrimary dark:hover:bg-darkPrimary/10 transition-colors w-full lg:w-72 min-h-36"
                     :class="isFetchingPasskey ? 'opacity-50 pointer-events-none' : 'cursor-pointer'"
                 >
-                    <div class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-gray-100 dark:bg-gray-700">
+                    <span class="af-passkey-add-card-icon w-10 h-10 flex items-center justify-center rounded-full bg-lightPrimary/10 text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">
                         <Spinner v-if="isFetchingPasskey && addPasskeyMode === 'cross-platform'" class="w-5 h-5" />
-                        <IconPlusOutline v-else class="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                    </div>
-                    <p class="af-passkey-add-card-title font-medium text-gray-700 dark:text-gray-300 text-sm">{{$t('Add cross-device')}}</p>
-                    <p class="af-passkey-add-card-subtitle text-xs text-gray-400 dark:text-gray-500 text-center">{{$t('Use phone or security key')}}</p>
-                </div>
+                        <IconPlusOutline v-else class="w-5 h-5" />
+                    </span>
+                    <span class="af-passkey-add-card-title font-medium text-gray-700 dark:text-gray-300 text-sm">{{$t('Add cross-device')}}</span>
+                    <span class="af-passkey-add-card-subtitle text-xs text-gray-500 dark:text-gray-400 text-center">{{$t('Use phone or security key')}}</span>
+                </button>
             </template>
         </div>
 
-        <div class="af-passkeys-info mt-6 flex items-center gap-2 px-4 py-3 bg-blue-50 w-full md:w-fit dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-xl text-sm text-blue-700 dark:text-blue-300">
-            <IconInfoCircleOutline class="af-passkeys-info-icon w-4 h-4 shrink-0" />
-            <span class="af-passkeys-info-text">{{$t('Passkeys are a more secure alternative to passwords. They use your device\'s biometrics or PIN and are resistant to phishing attacks.')}}</span>
-        </div>
+        <TwoFaHint class="af-passkeys-info mt-6 w-full md:w-fit">
+            <template #icon><IconInfoCircleOutline class="af-passkeys-info-icon w-5 h-5" /></template>
+            {{$t('Passkeys are a more secure alternative to passwords. They use your device\'s biometrics or PIN and are resistant to phishing attacks.')}}
+        </TwoFaHint>
 
     </div>
 </template>
@@ -127,8 +135,9 @@
     import adminforth, { useAdminforth } from '@/adminforth';
     import { onMounted, ref, Ref } from 'vue';
     import { useI18n } from 'vue-i18n';
-    import { Dialog, Tooltip, Spinner, Input } from '@/afcl';
-    import { IconTrashBinSolid, IconPenSolid, IconPlusOutline, IconInfoCircleOutline } from '@iconify-prerendered/vue-flowbite';
+    import { Button, Dialog, Tooltip, Spinner, Input } from '@/afcl';
+    import { IconTrashBinOutline, IconPenOutline, IconPlusOutline, IconInfoCircleOutline } from '@iconify-prerendered/vue-flowbite';
+    import TwoFaHint from './TwoFaHint.vue';
     import { useCoreStore } from '@/stores/core';
     import { useTwoFactorsAuth, type TwoFaConfirmationResult } from './use2faApi';
 

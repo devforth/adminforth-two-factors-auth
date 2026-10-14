@@ -8,85 +8,77 @@
     }: {}"
     >
 
-    <div id="authentication-modal" tabindex="-1" class="af-two-factors-setup overflow-y-auto overflow-x-hidden z-50 min-w-[00px] justify-center items-center md:inset-0 h-[calc(100%-1rem)] max-h-full">
-      <div class="relative p-4 w-full max-w-md max-h-full">
-          <!-- Modal content -->
-          <div class="af-login-popup relative bg-white rounded-lg shadow dark:bg-gray-700 dark:shadow-black text-gray-500" :class="codeError ? 'rounded-b-none' : ''">
-              <div class="p-10 w-full max-w-md max-h-full custom-auth-wrapper" >
-                  <div>{{$t('Scan this QR code with your authenticator app or open by')}} <a class="text-blue-600" :href="totpUri">{{$t('click')}}</a></div>
-                  <div class="flex justify-center m-3" >
-                      <img v-if="totpQrCode" :src="totpQrCode" class="af-qr-code min-w-[200px] min-h-[200px]" alt="QR code" />
-                      <div v-else class="af-qr-code min-w-[200px] min-h-[200px]"></div>
-                  </div>
-                    <div class="my-1">{{$t('Or copy this code to app manually:')}}</div>
-                    <div class="w-full">
-                        <div class="relative">
-                            <label for="npm-install-copy-text" class="sr-only">{{$t('Label')}}</label>
-                            <input id="npm-install-copy-text" type="text" class="col-span-10 bg-gray-50 border border-gray-300 text-gray-500 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full px-2.5 py-4 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-gray-400 dark:focus:ring-blue-500 dark:focus:border-blue-500 pr-12" :value="totp.newSecret" readonly>
-                            <button @click="onCopyClick" data-copy-to-clipboard-target="npm-install-copy-text" class="absolute end-2.5 top-1/2 -translate-y-1/2 text-gray-900 dark:text-gray-400 hover:bg-gray-100 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 rounded-lg py-2 px-2.5 inline-flex items-center justify-center bg-white border-gray-200 border">
-                                <span id="default-message" class="inline-flex items-center">
-                                    <svg class="w-3 h-4" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 18 20">
-                                        <path d="M16 1h-3.278A1.992 1.992 0 0 0 11 0H7a1.993 1.993 0 0 0-1.722 1H2a2 2 0 0 0-2 2v15a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2Zm-3 14H5a1 1 0 0 1 0-2h8a1 1 0 0 1 0 2Zm0-4H5a1 1 0 0 1 0-2h8a1 1 0 1 1 0 2Zm0-5H5a1 1 0 0 1 0-2h2V2h4v2h2a1 1 0 1 1 0 2Z"/>
-                                    </svg>
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                  <div class="my-4 w-full flex justify-center" ref="otpRoot">
-                    <v-otp-input
-                      ref="code"
-                      container-class="grid grid-cols-6 gap-3 w-full"
-                      input-classes="otp-input bg-gray-50 text-center border leading-none border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block h-11 w-full dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                      :num-inputs="6"
-                      inputType="number" 
-                      inputmode="numeric"
-                      :should-auto-focus="true"
-                      :should-focus-order="true"
-                      v-model:value="bindValue"
-                      @on-complete="handleOnComplete"
-                    />
-                  </div>
-                  <!-- <Vue2FACodeInput v-model="code" autofocus /> -->
-                   <div class="flex flex-row gap-2.5 h-12">
-                  <LinkButton to="/login" class="w-full">
-                    {{$t('Back to login')}}
-                  </LinkButton>
-                  <Button v-if="skipAllowed" @click="handleSkip" class="w-full">
-                    {{$t('Skip for now')}}
-                  </Button>
-                </div>
-              </div>
+    <div id="authentication-modal" class="af-two-factors-setup flex items-center justify-center w-full p-4">
+      <TwoFaCard
+        class="af-login-popup"
+        :title="$t('Set up two-factor authentication')"
+        :subtitle="$t('Add this account to your authenticator app')"
+        :error="codeError"
+      >
+        <div>
+          <p class="mb-3 flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-white">
+            <span class="flex w-[22px] h-[22px] shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">1</span>
+            {{ $t('Scan the QR code with your authenticator app') }}
+          </p>
+          <div class="flex items-center gap-4 rounded-[10px] border border-lightDialogBreakLine bg-gray-50 p-3.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
+            <div class="w-[132px] h-[132px] shrink-0 rounded-lg bg-white p-2">
+              <img v-if="totpQrCode" :src="totpQrCode" class="af-qr-code w-full h-full" alt="QR code" />
+            </div>
+            <div class="flex min-w-0 flex-col gap-2">
+              <p class="text-[13px] leading-[19px] text-gray-500 dark:text-gray-400">{{ $t('Setting up on this device?') }}</p>
+              <a :href="totpUri" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-lightPrimary hover:underline dark:text-darkPrimary">
+                {{ $t('Open in authenticator app') }}
+                <IconArrowUpRightFromSquareOutline class="w-4 h-4" />
+              </a>
+            </div>
           </div>
-          <div
-            v-if="codeError"
-            class="af-two-factors-confirmation-error relative top-full left-0 bg-red-100 text-red-700 text-sm px-2 py-2 rounded-b-lg shadow"
-          >
-            <p class="pl-6">{{ codeError }} </p>
-          </div>
-          <div v-else class="h-[36px] opacity-0">
-            
-          </div>  
-      </div>
-  </div>
-</div>
-     
+        </div>
 
+        <div>
+          <p class="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ $t('Or enter the key manually') }}</p>
+          <div class="flex items-center gap-2 rounded-[10px] border border-lightDialogBreakLine bg-gray-50 py-1.5 pl-3.5 pr-1.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
+            <span class="af-2fa-secret flex-1 min-w-0 select-all break-all font-mono text-sm tracking-wider text-gray-800 dark:text-gray-100">{{ totp.newSecret }}</span>
+            <button type="button" :aria-label="$t('Copy key')" class="af-2fa-copy-btn inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover dark:text-gray-400 dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover" @click="onCopyClick">
+              <IconFileCopyOutline class="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <TwoFaCodeInput ref="codeInput" :invalid="Boolean(codeError)" @complete="handleOnComplete">
+          <template #label>
+            <p class="mb-3 flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-white">
+              <span class="flex w-[22px] h-[22px] shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">2</span>
+              {{ $t('Enter the 6-digit code from the app') }}
+            </p>
+          </template>
+        </TwoFaCodeInput>
+
+        <template #footer>
+          <button v-if="skipAllowed" type="button" class="af-2fa-skip-btn inline-flex h-11 items-center whitespace-nowrap text-[13px] font-medium text-gray-600 hover:underline dark:text-gray-300" @click="handleSkip">
+            {{ $t('Skip for now') }}
+          </button>
+          <LinkButton to="/login" variant="secondary" class="af-2fa-back-to-login ms-auto whitespace-nowrap">{{ $t('Back to login') }}</LinkButton>
+        </template>
+      </TwoFaCard>
+    </div>
+  </div>
 </template>
 
 
 <script setup lang="ts">
 
-import { onMounted, onBeforeUnmount, nextTick, ref, computed, onBeforeMount } from 'vue';
+import { onMounted, ref, computed, onBeforeMount } from 'vue';
 import { useCoreStore } from '@/stores/core';
 import { useUserStore } from '@/stores/user';
-import { IconEyeSolid, IconEyeSlashSolid } from '@iconify-prerendered/vue-flowbite';
+import { IconArrowUpRightFromSquareOutline, IconEyeSolid, IconEyeSlashSolid, IconFileCopyOutline } from '@iconify-prerendered/vue-flowbite';
 import { callAdminForthApi, loadFile } from '@/utils';
 import { useRouter } from 'vue-router';
 import { showErrorTost } from '@/composables/useFrontendApi';
-import { Button, LinkButton } from '@/afcl';
+import { LinkButton } from '@/afcl';
 import Vue2FACodeInput from '@loltech/vue3-2fa-code-input';
-import VOtpInput from "vue3-otp-input";
 import adminforth from '@/adminforth';
+import TwoFaCard from './TwoFaCard.vue';
+import TwoFaCodeInput from './TwoFaCodeInput.vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import { handlePasskeyAlert } from './utils.js';
@@ -107,16 +99,14 @@ onBeforeMount(() => {
   }
 })
 
-const code = ref(null);
+const codeInput = ref<InstanceType<typeof TwoFaCodeInput> | null>(null);
 const codeError = ref(null);
-const bindValue = ref('');
 const handleOnComplete = (value) => {
   sendCode(value);
 };
 
 const router = useRouter();
 const inProgress = ref(false);
-const otpRoot = ref<HTMLElement | null>(null);
 
 const coreStore = useCoreStore();
 const user = useUserStore();
@@ -179,71 +169,7 @@ onMounted(async () => {
   if (allowSkipResp?.skipAllowed){
     skipAllowed.value = true;
   }
-
-  window.addEventListener('paste', handlePaste);
-  document.addEventListener('focusin', handleGlobalFocusIn, true);
-  await nextTick();
-  tagOtpInputs();
-  focusFirstAvailableOtpInput();
-  const rootEl = otpRoot.value;
-  rootEl && rootEl.addEventListener('focusout', handleFocusOut, true);
 });
-
-onBeforeUnmount(() => {
-  window.removeEventListener('paste', handlePaste);
-  document.removeEventListener('focusin', handleGlobalFocusIn, true);
-  const rootEl = otpRoot.value;
-  rootEl && rootEl.removeEventListener('focusout', handleFocusOut, true);
-});
-
-function tagOtpInputs() {
-    const root = otpRoot.value;
-    if (!root) return;
-    const inputs = root.querySelectorAll('input.otp-input');
-    inputs.forEach((el, idx) => {
-      el.setAttribute('name', 'mfaCode');
-      el.setAttribute('id', `mfaCode-${idx + 1}`);
-      el.setAttribute('autocomplete', 'one-time-code');
-      el.setAttribute('inputmode', 'numeric');
-      el.setAttribute('aria-labelledby', 'mfaCode-label');
-    });
-  }
-
-function getOtpInputs(): HTMLInputElement[] {
-  const root = otpRoot.value;
-  if (!root) return [];
-  return Array.from(root.querySelectorAll('input.otp-input')) as HTMLInputElement[];
-}
-
-function focusFirstAvailableOtpInput(): void {
-  const inputs = getOtpInputs();
-  if (!inputs.length) return;
-  const firstEmpty = inputs.find((i) => !i.value);
-  (firstEmpty || inputs[0]).focus();
-}
-
-function handleGlobalFocusIn(event: FocusEvent): void {
-  const inputs = getOtpInputs();
-  if (!inputs.length) return;
-  const target = event.target as HTMLElement | null;
-  if (!target) return;
-  if (!inputs.includes(target as HTMLInputElement)) {
-    requestAnimationFrame(() => {
-      focusFirstAvailableOtpInput();
-    });
-  }
-}
-
-function handleFocusOut(): void {
-  requestAnimationFrame(() => {
-    const inputs = getOtpInputs();
-    if (!inputs.length) return;
-    const active = document.activeElement as HTMLElement | null;
-    if (!active || !inputs.includes(active as HTMLInputElement)) {
-      focusFirstAvailableOtpInput();
-    }
-  });
-}
 
 async function sendCode (value) {
   inProgress.value = true;
@@ -264,18 +190,7 @@ async function sendCode (value) {
       await user.finishLogin();
   } else {
     codeError.value = resp.error || t('Invalid code');
-  }
-}
-
-
-function handlePaste(event) {
-  event.preventDefault();
-  if (event.target.classList.contains('otp-input')) {
-    return;
-  }
-  const pastedText = event.clipboardData?.getData('text') || '';
-  if (pastedText.length === 6) { 
-    code.value?.fillInput(pastedText);
+    codeInput.value!.clear();
   }
 }
 
@@ -300,9 +215,3 @@ const handleSkip = async () => {
   }
 }
 </script>
-<style scoped>
-:deep(.otp-input-container) {
-  display: flex;
-  gap: 0.75rem;
-}
-</style>
