@@ -2,7 +2,7 @@
   <div class="af-2fa-code">
     <div :id="LABEL_ID">
       <slot name="label">
-        <p class="mb-2 text-[13px] font-medium text-gray-700 dark:text-gray-300">{{ $t('Authenticator code') }}</p>
+        <p class="mb-2 text-sm font-medium text-gray-700 dark:text-gray-300">{{ $t('Authenticator code') }}</p>
       </slot>
     </div>
     <div ref="otpRoot" class="af-2fa-otp-root text-gray-300 dark:text-gray-500">
@@ -40,7 +40,7 @@ const otpRoot = ref<HTMLElement | null>(null);
 const otpInput = ref<{ clearInput(): void; fillInput(value: string): void } | null>(null);
 
 const inputClasses = computed(() => [
-  `${INPUT_CLASS} w-12 h-14 p-0 rounded-[10px] border-[1.5px] bg-gray-50 text-center text-2xl font-medium leading-none tabular-nums text-gray-900 outline-none focus:ring-4 dark:bg-gray-800 dark:text-white`,
+  `${INPUT_CLASS} w-12 h-14 p-0 rounded-lg border-2 bg-gray-50 text-center text-2xl font-medium leading-none tabular-nums text-gray-900 outline-none focus:ring-4 dark:bg-gray-800 dark:text-white`,
   props.invalid
     ? 'border-red-500 focus:border-red-500 focus:ring-red-500/25 dark:border-red-400 dark:focus:border-red-400'
     : 'border-gray-300 focus:border-lightPrimary focus:ring-lightPrimary/25 dark:border-gray-600 dark:focus:border-darkPrimary dark:focus:ring-darkPrimary/25',

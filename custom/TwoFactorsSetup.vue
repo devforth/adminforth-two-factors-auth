@@ -17,16 +17,16 @@
       >
         <div>
           <p class="mb-3 flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-white">
-            <span class="flex w-[22px] h-[22px] shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">1</span>
+            <span class="flex w-6 h-6 shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">1</span>
             {{ $t('Scan the QR code with your authenticator app') }}
           </p>
-          <div class="flex items-center gap-4 rounded-[10px] border border-lightDialogBreakLine bg-gray-50 p-3.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
-            <div class="w-[132px] h-[132px] shrink-0 rounded-lg bg-white p-2">
+          <div class="flex items-center gap-4 rounded-lg border border-lightDialogBreakLine bg-gray-50 p-3.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
+            <div class="w-32 h-32 shrink-0 rounded-lg bg-white p-2">
               <img v-if="totpQrCode" :src="totpQrCode" class="af-qr-code w-full h-full" alt="QR code" />
             </div>
             <div class="flex min-w-0 flex-col gap-2">
-              <p class="text-[13px] leading-[19px] text-gray-500 dark:text-gray-400">{{ $t('Setting up on this device?') }}</p>
-              <a :href="totpUri" class="inline-flex items-center gap-1.5 text-[13px] font-medium text-lightPrimary hover:underline dark:text-darkPrimary">
+              <p class="text-sm leading-5 text-gray-500 dark:text-gray-400">{{ $t('Setting up on this device?') }}</p>
+              <a :href="totpUri" class="inline-flex items-center gap-1.5 text-sm font-medium text-lightPrimary hover:underline dark:text-darkPrimary">
                 {{ $t('Open in authenticator app') }}
                 <IconArrowUpRightFromSquareOutline class="w-4 h-4" />
               </a>
@@ -36,7 +36,7 @@
 
         <div>
           <p class="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ $t('Or enter the key manually') }}</p>
-          <div class="flex items-center gap-2 rounded-[10px] border border-lightDialogBreakLine bg-gray-50 py-1.5 pl-3.5 pr-1.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
+          <div class="flex items-center gap-2 rounded-lg border border-lightDialogBreakLine bg-gray-50 py-1.5 pl-3.5 pr-1.5 dark:border-darkDialogBreakLine dark:bg-gray-800">
             <span class="af-2fa-secret flex-1 min-w-0 select-all break-all font-mono text-sm tracking-wider text-gray-800 dark:text-gray-100">{{ totp.newSecret }}</span>
             <button type="button" :aria-label="$t('Copy key')" class="af-2fa-copy-btn inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-lg text-gray-500 hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover dark:text-gray-400 dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover" @click="onCopyClick">
               <IconFileCopyOutline class="w-5 h-5" />
@@ -47,14 +47,14 @@
         <TwoFaCodeInput ref="codeInput" :invalid="Boolean(codeError)" @complete="handleOnComplete">
           <template #label>
             <p class="mb-3 flex items-center gap-2.5 text-sm font-medium text-gray-900 dark:text-white">
-              <span class="flex w-[22px] h-[22px] shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">2</span>
+              <span class="flex w-6 h-6 shrink-0 items-center justify-center rounded-full bg-lightPrimary/10 text-xs font-semibold text-lightPrimary dark:bg-darkPrimary/20 dark:text-darkPrimary">2</span>
               {{ $t('Enter the 6-digit code from the app') }}
             </p>
           </template>
         </TwoFaCodeInput>
 
         <template #footer>
-          <button v-if="skipAllowed" type="button" class="af-2fa-skip-btn inline-flex h-11 items-center whitespace-nowrap text-[13px] font-medium text-gray-600 hover:underline dark:text-gray-300" @click="handleSkip">
+          <button v-if="skipAllowed" type="button" class="af-2fa-skip-btn inline-flex h-11 items-center whitespace-nowrap text-sm font-medium text-gray-600 hover:underline dark:text-gray-300" @click="handleSkip">
             {{ $t('Skip for now') }}
           </button>
           <LinkButton to="/login" variant="secondary" class="af-2fa-back-to-login ms-auto whitespace-nowrap">{{ $t('Back to login') }}</LinkButton>

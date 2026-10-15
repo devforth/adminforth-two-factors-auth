@@ -9,14 +9,14 @@
         closable
         @close="onCancel"
       >
-        <pre v-if="dialogDetails" class="af-2fa-details max-h-60 overflow-auto rounded-[10px] border border-lightDialogBreakLine bg-gray-50 p-3 text-xs text-gray-800 dark:border-darkDialogBreakLine dark:bg-gray-800 dark:text-gray-100">{{ dialogDetails }}</pre>
+        <pre v-if="dialogDetails" class="af-2fa-details max-h-60 overflow-auto rounded-lg border border-lightDialogBreakLine bg-gray-50 p-3 text-xs text-gray-800 dark:border-darkDialogBreakLine dark:bg-gray-800 dark:text-gray-100">{{ dialogDetails }}</pre>
 
         <div v-if="confirmItems.length" class="af-2fa-actions">
           <p class="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ $t('You are approving') }}</p>
-          <ul class="af-2fa-actions-list max-h-60 overflow-auto divide-y divide-lightDialogBreakLine rounded-[10px] border border-lightDialogBreakLine bg-gray-50 dark:divide-darkDialogBreakLine dark:border-darkDialogBreakLine dark:bg-gray-800">
+          <ul class="af-2fa-actions-list max-h-60 overflow-auto divide-y divide-lightDialogBreakLine rounded-lg border border-lightDialogBreakLine bg-gray-50 dark:divide-darkDialogBreakLine dark:border-darkDialogBreakLine dark:bg-gray-800">
             <li v-for="(item, i) in confirmItems" :key="i" class="flex gap-3 px-3.5 py-3">
               <span aria-hidden="true" class="mt-2 w-1.5 h-1.5 shrink-0 rounded-full bg-lightPrimary dark:bg-darkPrimary"></span>
-              <span class="min-w-0 text-[15px] leading-[22px] break-words text-gray-800 dark:text-gray-100">{{ item }}</span>
+              <span class="min-w-0 text-base leading-6 break-words text-gray-800 dark:text-gray-100">{{ item }}</span>
             </li>
           </ul>
         </div>
@@ -26,8 +26,8 @@
           <template #icon><IconFingerprintOutline class="w-6 h-6" /></template>
           {{ $t('Your browser will ask for Touch ID, Windows Hello or a security key.') }}
         </TwoFaHint>
-        <p v-else role="status" class="af-2fa-grace-notice flex items-start gap-2.5 rounded-[10px] border border-green-200 bg-green-50 px-3.5 py-3 text-[13px] leading-[19px] text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
-          <IconCheckCircleOutline class="w-[18px] h-[18px] shrink-0" />
+        <p v-else role="status" class="af-2fa-grace-notice flex items-start gap-2.5 rounded-lg border border-green-200 bg-green-50 px-3.5 py-3 text-sm leading-5 text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
+          <IconCheckCircleOutline class="w-5 h-5 shrink-0" />
           {{ $t('You verified recently, so no code is needed.') }}
         </p>
 

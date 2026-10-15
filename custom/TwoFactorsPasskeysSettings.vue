@@ -10,7 +10,7 @@
                 class="af-passkey-card flex flex-col w-full h-42 lg:w-72 rounded-xl border border-lightDialogBreakLine bg-lightDialogBackgorund p-4 shadow-sm dark:border-darkDialogBreakLine dark:bg-darkDialogBackgorund"
             >
                 <div class="af-passkey-card-header flex items-center gap-3 mb-3">
-                    <div class="af-passkey-card-icon flex w-10 h-10 shrink-0 items-center justify-center rounded-[10px] bg-gray-100 dark:bg-gray-800">
+                    <div class="af-passkey-card-icon flex w-10 h-10 shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-800">
                         <img class="max-h-6 max-w-6" :src="coreStore.theme === 'light' ? item.light_icon : item.dark_icon" />
                     </div>
                     <div class="af-passkey-card-info flex-1 min-w-0">
@@ -43,7 +43,7 @@
                                 variant="secondary"
                                 :shadow="false"
                                 @click="passkeysNewName = ''"
-                                class="af-passkey-btn-rename w-full gap-1.5 px-3 py-2 text-[13px]"
+                                class="af-passkey-btn-rename w-full gap-1.5 px-3 py-2 text-sm"
                             >
                                 <IconPenOutline class="w-4 h-4" />
                                 {{$t('Rename')}}
@@ -65,7 +65,7 @@
                     <button
                         type="button"
                         @click="confirmAndDelete(item.id)"
-                        class="af-passkey-btn-remove flex items-center justify-center gap-1.5 px-3 py-2 text-[13px] font-medium rounded-default border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
+                        class="af-passkey-btn-remove flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium rounded-default border border-red-200 dark:border-red-500/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors cursor-pointer"
                     >
                         <IconTrashBinOutline class="w-4 h-4" />
                         {{$t('Remove')}}
