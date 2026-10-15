@@ -16,7 +16,7 @@
           <ul class="af-2fa-actions-list max-h-60 overflow-auto divide-y divide-lightDialogBreakLine rounded-[10px] border border-lightDialogBreakLine bg-gray-50 dark:divide-darkDialogBreakLine dark:border-darkDialogBreakLine dark:bg-gray-800">
             <li v-for="(item, i) in confirmItems" :key="i" class="flex gap-3 px-3.5 py-3">
               <span aria-hidden="true" class="mt-2 w-1.5 h-1.5 shrink-0 rounded-full bg-lightPrimary dark:bg-darkPrimary"></span>
-              <span class="text-[15px] leading-[22px] break-words text-gray-800 dark:text-gray-100">{{ item }}</span>
+              <span class="min-w-0 text-[15px] leading-[22px] break-words text-gray-800 dark:text-gray-100">{{ item }}</span>
             </li>
           </ul>
         </div>

@@ -5,7 +5,7 @@
         <IconShieldCheckOutline class="af-2fa-shield-icon w-6 h-6" />
       </div>
       <div class="af-2fa-title-wrap flex-1 min-w-0">
-        <p class="af-2fa-title text-[17px] leading-6 font-semibold text-lightDialogHeaderText dark:text-darkDialogHeaderText">{{ title }}</p>
+        <p class="af-2fa-title break-words text-[17px] leading-6 font-semibold text-lightDialogHeaderText dark:text-darkDialogHeaderText">{{ title }}</p>
         <p class="af-2fa-subtitle mt-0.5 text-[13px] leading-[18px] text-gray-500 dark:text-gray-400">{{ subtitle }}</p>
       </div>
       <button v-if="closable" type="button" :aria-label="$t('Cancel')" class="af-2fa-close-btn -mt-1 inline-flex w-9 h-9 shrink-0 items-center justify-center rounded-lg text-lightDialogCloseButton hover:bg-lightDialogCloseButtonHoverBackground hover:text-lightDialogCloseButtonHover dark:text-darkDialogCloseButton dark:hover:bg-darkDialogCloseButtonHoverBackground dark:hover:text-darkDialogCloseButtonHover" @click="emit('close')">
