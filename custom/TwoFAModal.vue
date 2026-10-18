@@ -1,5 +1,5 @@
 <template>
-    <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 top-0 bottom-0 left-0 right-0 px-4"
+    <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-lightScrim dark:bg-darkScrim top-0 bottom-0 left-0 right-0 px-4"
     v-if="modelShow && (isLoading === false)">
       <TwoFaCard
         :class="`af-two-factor-modal-${modalMode}`"
