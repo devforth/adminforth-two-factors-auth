@@ -5,7 +5,7 @@
         class="af-login-with-passkey-btn w-full gap-2"
         @click="handleLoginWithPasskey"
     >
-      <IconFingerprintOutline class="w-5 h-5 text-lightPrimary dark:text-darkPrimary" />
+      <IconFingerprint class="w-5 h-5 text-lightPrimary dark:text-darkPrimary" />
       {{ $t('Continue with Passkey') }}
     </Button>
 
@@ -14,7 +14,7 @@
 
 
 <script setup lang="ts">
-    import { IconFingerprintOutline } from '@iconify-prerendered/vue-flowbite';
+    import { IconFingerprint } from '@iconify-prerendered/vue-lucide';
     import { getPasskey } from "./utils.js";
     import { callAdminForthApi } from '@/utils';
     import { useUserStore } from '@/stores/user';

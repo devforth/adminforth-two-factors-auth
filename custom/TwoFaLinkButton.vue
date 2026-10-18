@@ -1,5 +1,10 @@
 <template>
-  <button type="button" class="af-2fa-link-btn inline-flex h-11 items-center gap-1.5 whitespace-nowrap text-sm font-medium text-lightPrimary hover:underline dark:text-darkPrimary">
+  <!-- the negative margin lines the label up with the card content -->
+  <Button type="button" variant="ghost" class="af-2fa-link-btn -ms-3.5">
     <slot />
-  </button>
+  </Button>
 </template>
+
+<script setup lang="ts">
+import { Button } from '@/afcl';
+</script>

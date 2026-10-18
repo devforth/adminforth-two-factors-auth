@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@loltech/vue3-2fa-code-input':
-        specifier: ^1.1.0
-        version: 1.1.0
       '@vueuse/core':
         specifier: ^14.3.0
         version: 14.4.0(vue@3.5.29)
@@ -23,9 +20,6 @@ importers:
       qrcode:
         specifier: ^1.5.4
         version: 1.5.4
-      vue3-otp-input:
-        specifier: ^0.5.21
-        version: 0.5.40(vue@3.5.29)
 
 packages:
 
@@ -48,9 +42,6 @@ packages:
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
-
-  '@loltech/vue3-2fa-code-input@1.1.0':
-    resolution: {integrity: sha512-styyoQjsARSeVf6E5qMvYIVkLRrwYtfL8xDl5W+g9wKF8qlr2XGU2gi9maEg0X4Us41kJryXBzfRMUcv5tKIBA==}
 
   '@types/web-bluetooth@0.0.21':
     resolution: {integrity: sha512-oIQLCGWtcFZy2JW77j9k8nHzAOpqMHLQejDA48XXMWH6tjCQHz5RCFz1bzsmROyL6PUm+LLnUiI4BCn221inxA==}
@@ -262,11 +253,6 @@ packages:
     resolution: {integrity: sha512-Y38VPSHcqkFrCpFnQ9vuSXmquuv5oXOKpGeT6aGrr3o3Gc9AlVa6JBfUSOCnbxGGZF+/0ooI7KrPuUSztUdU5A==}
     engines: {node: '>=8'}
 
-  vue3-otp-input@0.5.40:
-    resolution: {integrity: sha512-3AMYHqNz9ZDa9y7ICwcEcsJG7XdZGaLAr6IRLIl3whvseFE95F5Duc9q963HcqEbu8CeMWilkmbAt/0eZOZxow==}
-    peerDependencies:
-      vue: ^3.0.*
-
   vue@3.5.29:
     resolution: {integrity: sha512-BZqN4Ze6mDQVNAni0IHeMJ5mwr8VAJ3MQC9FmprRhcBYENw+wOAAjRj8jfmN6FLl0j96OXbR+CjWhmAmM+QGnA==}
     peerDependencies:
@@ -309,8 +295,6 @@ snapshots:
       '@babel/helper-validator-identifier': 7.28.5
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
-
-  '@loltech/vue3-2fa-code-input@1.1.0': {}
 
   '@types/web-bluetooth@0.0.21': {}
 
@@ -487,10 +471,6 @@ snapshots:
   strip-ansi@6.0.1:
     dependencies:
       ansi-regex: 5.0.1
-
-  vue3-otp-input@0.5.40(vue@3.5.29):
-    dependencies:
-      vue: 3.5.29
 
   vue@3.5.29:
     dependencies:

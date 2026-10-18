@@ -1,5 +1,5 @@
 <template>
-  <div class="relative flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-800"
+  <div class="relative flex items-center justify-center min-h-screen bg-lightHtml dark:bg-darkHtml"
     :style="(coreStore.config?.loginBackgroundImage && coreStore.config?.loginBackgroundPosition === 'over') ? {
       'background-image': 'url(' + loadFile(coreStore.config?.loginBackgroundImage) + ')',
       'background-size': 'cover',
@@ -16,23 +16,23 @@
       >
         <TwoFaCodeInput v-if="confirmationMode === 'code'" ref="codeInput" :invalid="Boolean(codeError)" @complete="handleOnComplete" />
         <TwoFaHint v-else class="af-2fa-passkey-hint">
-          <template #icon><IconFingerprintOutline class="w-6 h-6" /></template>
+          <template #icon><IconFingerprint class="w-5 h-5" /></template>
           {{ $t('Your browser will ask for Touch ID, Windows Hello or a security key.') }}
         </TwoFaHint>
 
         <template #footer>
           <TwoFaLinkButton v-if="confirmationMode === 'code' && doesUserHavePasskeys" class="af-2fa-switch-to-passkey" @click="router.push({ hash: '#passkey' })">
-            <IconFingerprintOutline class="w-4 h-4" />
+            <IconFingerprint class="w-4 h-4" />
             {{ $t('Use passkey instead') }}
           </TwoFaLinkButton>
           <TwoFaLinkButton v-else-if="confirmationMode === 'passkey'" class="af-2fa-switch-to-totp" @click="router.push({ hash: '#code' })">
-            <IconMobilePhoneOutline class="w-4 h-4" />
+            <IconSmartphone class="w-4 h-4" />
             {{ $t('Use code instead') }}
           </TwoFaLinkButton>
           <div class="af-2fa-buttons ms-auto flex gap-2 whitespace-nowrap">
             <LinkButton to="/login" variant="secondary" class="af-2fa-back-to-login">{{ $t('Back to login') }}</LinkButton>
             <Button v-if="confirmationMode === 'passkey'" @click="usePasskeyButton" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="af-2fa-passkey-btn gap-2">
-              <IconFingerprintOutline class="w-4 h-4" />
+              <IconFingerprint class="w-4 h-4" />
               {{ $t('Use passkey') }}
             </Button>
           </div>
@@ -57,8 +57,7 @@
   import { useI18n } from 'vue-i18n';
   import { useRoute } from 'vue-router'
   import { useRouter } from 'vue-router';
-  import { IconFingerprintOutline, IconMobilePhoneOutline } from '@iconify-prerendered/vue-flowbite';
-  import ErrorMessage from '@/components/ErrorMessage.vue';
+  import { IconFingerprint, IconSmartphone } from '@iconify-prerendered/vue-lucide';
   import { handlePasskeyAlert } from './utils.js';
   import TwoFaCard from './TwoFaCard.vue';
   import TwoFaCodeInput from './TwoFaCodeInput.vue';

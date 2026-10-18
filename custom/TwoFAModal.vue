@@ -9,45 +9,45 @@
         closable
         @close="onCancel"
       >
-        <pre v-if="dialogDetails" class="af-2fa-details max-h-60 overflow-auto rounded-lg border border-lightDialogBreakLine bg-gray-50 p-3 text-xs text-gray-800 dark:border-darkDialogBreakLine dark:bg-gray-800 dark:text-gray-100">{{ dialogDetails }}</pre>
+        <pre v-if="dialogDetails" class="af-2fa-details max-h-60 overflow-auto rounded-lg border border-lightDialogBreakLine bg-lightSecondaryDarken p-3 text-xs text-lightInputText dark:border-darkDialogBreakLine dark:bg-darkSecondaryLighten dark:text-darkInputText">{{ dialogDetails }}</pre>
 
         <div v-if="confirmItems.length" class="af-2fa-actions">
-          <p class="mb-2 text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ $t('You are approving') }}</p>
-          <ul class="af-2fa-actions-list max-h-60 overflow-auto divide-y divide-lightDialogBreakLine rounded-lg border border-lightDialogBreakLine bg-gray-50 dark:divide-darkDialogBreakLine dark:border-darkDialogBreakLine dark:bg-gray-800">
+          <p class="mb-2 text-xs font-medium uppercase tracking-wider text-lightInputIconColor dark:text-darkInputIconColor">{{ $t('You are approving') }}</p>
+          <ul class="af-2fa-actions-list max-h-60 overflow-auto divide-y divide-lightDialogBreakLine rounded-lg border border-lightDialogBreakLine bg-lightSecondaryDarken dark:divide-darkDialogBreakLine dark:border-darkDialogBreakLine dark:bg-darkSecondaryLighten">
             <li v-for="(item, i) in confirmItems" :key="i" class="flex gap-3 px-3.5 py-3">
               <span aria-hidden="true" class="mt-2 w-1.5 h-1.5 shrink-0 rounded-full bg-lightPrimary dark:bg-darkPrimary"></span>
-              <span class="min-w-0 text-base leading-6 break-words text-gray-800 dark:text-gray-100">{{ item }}</span>
+              <span class="min-w-0 text-base leading-6 break-words text-lightInputText dark:text-darkInputText">{{ item }}</span>
             </li>
           </ul>
         </div>
 
         <TwoFaCodeInput v-if="modalMode === 'totp'" ref="codeInput" :invalid="Boolean(codeError)" @complete="sendConfirmationResult" />
         <TwoFaHint v-else-if="modalMode === 'passkey'" class="af-2fa-passkey-hint">
-          <template #icon><IconFingerprintOutline class="w-6 h-6" /></template>
+          <template #icon><IconFingerprint class="w-5 h-5" /></template>
           {{ $t('Your browser will ask for Touch ID, Windows Hello or a security key.') }}
         </TwoFaHint>
-        <p v-else role="status" class="af-2fa-grace-notice flex items-start gap-2.5 rounded-lg border border-green-200 bg-green-50 px-3.5 py-3 text-sm leading-5 text-green-800 dark:border-green-500/30 dark:bg-green-500/10 dark:text-green-300">
-          <IconCheckCircleOutline class="w-5 h-5 shrink-0" />
+        <p v-else role="status" class="af-2fa-grace-notice flex items-start gap-2.5 rounded-lg border border-lightSuccessBorder bg-lightSuccessSoft px-3.5 py-3 text-sm leading-5 text-lightSuccess dark:border-darkSuccessBorder dark:bg-darkSuccessSoft dark:text-darkSuccess">
+          <IconCircleCheck class="w-5 h-5 shrink-0" />
           {{ $t('You verified recently, so no code is needed.') }}
         </p>
 
         <template #footer>
           <TwoFaLinkButton v-if="modalMode === 'totp' && doesUserHavePasskeys" class="af-2fa-switch-to-passkey" @click="modalMode = 'passkey'">
-            <IconFingerprintOutline class="w-4 h-4" />
+            <IconFingerprint class="w-4 h-4" />
             {{ $t('Use passkey instead') }}
           </TwoFaLinkButton>
           <TwoFaLinkButton v-else-if="modalMode === 'passkey'" class="af-2fa-switch-to-totp" @click="modalMode = 'totp'">
-            <IconMobilePhoneOutline class="w-4 h-4" />
+            <IconSmartphone class="w-4 h-4" />
             {{ $t('Use code instead') }}
           </TwoFaLinkButton>
           <div class="af-2fa-buttons ms-auto flex gap-2 whitespace-nowrap">
             <Button variant="secondary" class="af-2fa-cancel-btn" @click="onCancel">{{ $t('Cancel') }}</Button>
             <Button v-if="modalMode === 'passkey'" @click="usePasskeyButtonClick" :disabled="isFetchingPasskey" :loader="isFetchingPasskey" class="af-2fa-passkey-btn gap-2">
-              <IconFingerprintOutline class="w-4 h-4" />
+              <IconFingerprint class="w-4 h-4" />
               {{ $t('Use passkey') }}
             </Button>
             <Button v-else-if="modalMode === 'grace'" class="af-2fa-approve-btn gap-2" @click="approveInGracePeriod">
-              <IconCheckOutline class="w-4 h-4" />
+              <IconCheck class="w-4 h-4" />
               {{ approveLabel }}
             </Button>
           </div>
@@ -63,12 +63,7 @@
   import { useI18n } from 'vue-i18n';
   import { callAdminForthApi } from '@/utils';
   import { Link, Button } from '@/afcl';
-  import {
-    IconCheckCircleOutline,
-    IconCheckOutline,
-    IconFingerprintOutline,
-    IconMobilePhoneOutline,
-  } from '@iconify-prerendered/vue-flowbite';
+  import { IconCheck, IconCircleCheck, IconFingerprint, IconSmartphone } from '@iconify-prerendered/vue-lucide';
   import { getPasskey } from './utils.js'
   import TwoFaCard from './TwoFaCard.vue';
   import TwoFaCodeInput from './TwoFaCodeInput.vue';
