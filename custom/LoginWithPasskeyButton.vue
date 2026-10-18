@@ -1,11 +1,12 @@
 <template>
 
+    <!-- right after the OAuth buttons it joins them with their 8px gap instead of the 16px between login page injections -->
     <Button
         variant="secondary"
-        class="af-login-with-passkey-btn w-full gap-2"
+        class="af-login-with-passkey-btn w-full gap-2 [.af-oauth-login+&]:!mt-2"
         @click="handleLoginWithPasskey"
     >
-      <IconFingerprint class="w-5 h-5 text-lightPrimary dark:text-darkPrimary" />
+      <IconFingerprint class="w-4 h-4 text-lightPrimary dark:text-darkPrimary" />
       {{ $t('Continue with Passkey') }}
     </Button>
 

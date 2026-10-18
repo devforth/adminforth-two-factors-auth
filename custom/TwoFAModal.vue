@@ -1,7 +1,9 @@
 <template>
     <div class="af-two-factors-modal fixed inset-0 z-[9999] flex items-center justify-center bg-lightScrim dark:bg-darkScrim top-0 bottom-0 left-0 right-0 px-4"
     v-if="modelShow && (isLoading === false)">
+      <!-- the card floats over the page here, so it takes the shadow of floating layers -->
       <TwoFaCard
+        class="shadow-popover dark:shadow-darkPopover"
         :class="`af-two-factor-modal-${modalMode}`"
         :title="dialogTitle"
         :subtitle="subtitles[modalMode]"
