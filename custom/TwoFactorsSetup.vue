@@ -146,7 +146,7 @@ function onCopyClick(){
 }
 
 onMounted(async () => {
-  coreStore.getPublicConfig()
+  coreStore.fetchConfig({ redirectToLoginIfNotLoggedIn: false })
   const resp = await callAdminForthApi({
     path: '/plugin/twofa/initSetup',
     method: 'POST',});

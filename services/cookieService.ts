@@ -62,7 +62,7 @@ export class CookieService {
     const value = this.adminforth.auth.issueJWT(payload, 'temp2FA', period);
     this.adminforth.auth.setCustomCookie({
       response,
-      payload: { name: TOTP_TEMP_COOKIE, value, expiry: undefined, expirySeconds: convertPeriodToSeconds(period), httpOnly: true },
+      payload: { name: TOTP_TEMP_COOKIE, value, expirySeconds: convertPeriodToSeconds(period), httpOnly: true },
     });
   }
 
@@ -84,7 +84,7 @@ export class CookieService {
     const value = this.adminforth.auth.issueJWT({ challenge }, 'tempLoginPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
     this.adminforth.auth.setCustomCookie({
       response,
-      payload: { name: PASSKEY_LOGIN_TEMP_COOKIE, value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true },
+      payload: { name: PASSKEY_LOGIN_TEMP_COOKIE, value, expirySeconds: 10 * 60, httpOnly: true },
     });
   }
 
@@ -102,7 +102,7 @@ export class CookieService {
     const value = this.adminforth.auth.issueJWT(payload, 'registerTempPasskeyChallenge', this.options.passkeys?.challengeValidityPeriod || '1m');
     this.adminforth.auth.setCustomCookie({
       response,
-      payload: { name: REGISTER_PASSKEY_TEMP_COOKIE, value, expiry: undefined, expirySeconds: 10 * 60, httpOnly: true },
+      payload: { name: REGISTER_PASSKEY_TEMP_COOKIE, value, expirySeconds: 10 * 60, httpOnly: true },
     });
   }
 

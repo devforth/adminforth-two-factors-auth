@@ -62,7 +62,7 @@ export class PasskeyRepository {
       resource: this.getCredentialResource(),
       recordId: passkeyRecord[this.getCredentialResourcePkField()],
       oldRecord: passkeyRecord,
-      record: newRecord,
+      updates: newRecord,
       adminUser,
     });
   }

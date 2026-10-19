@@ -1,6 +1,6 @@
 import {  AdminForthPlugin, suggestIfTypo, HttpExtra, RateLimiter } from "adminforth";
 import * as AdminForthRuntime from "adminforth";
-import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth, IAdminForthHttpResponse } from "adminforth";
+import type { AdminForthResource, AdminUser, IAdminForth, IHttpServer, IAdminForthAuth } from "adminforth";
 import  { PluginOptions } from "./types.js"
 import { PasskeyService } from "./services/passkeyService.js";
 import { TotpService } from "./services/totpService.js";
@@ -331,7 +331,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const beforeLoginConfirmation = this.adminforth.config.auth.beforeLoginConfirmation;
     const beforeLoginConfirmationArray = Array.isArray(beforeLoginConfirmation) ? beforeLoginConfirmation : [beforeLoginConfirmation];
     beforeLoginConfirmationArray.push(
-      async({ adminUser, response, adminforth, extra, sessionDuration }: { adminUser: AdminUser, response: IAdminForthHttpResponse, adminforth: IAdminForth, extra?: HttpExtra,  sessionDuration?: string} )=> {
+      async({ adminUser, adminforth, extra, sessionDuration }: { adminUser: AdminUser, adminforth: IAdminForth, extra?: HttpExtra,  sessionDuration?: string} )=> {
         if ( extra?.meta?.loginAllowedByPasskeyDirectSignIn === true) {
           return { body: { loginAllowed: true }, ok: true };
         }
@@ -353,7 +353,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
 
         if (!secret){
           newSecret = this.totpService.generateSecret(issuerName, userName);
-          this.cookieService.setTotpTemporary(response, {userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration });
+          this.cookieService.setTotpTemporary(extra.response, {userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration });
 
           return {
             body:{
@@ -364,7 +364,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
           }
 
         } else {
-          this.cookieService.setTotpTemporary(response, {userName, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration });
+          this.cookieService.setTotpTemporary(extra.response, {userName, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration });
 
           return {
             body:{
