@@ -190,7 +190,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         this.adminforth.config.auth.userMenuSettingsPages = [];
       }
       this.adminforth.config.auth.userMenuSettingsPages.push({
-        icon: 'flowbite:lock-solid',
+        icon: 'lucide:key-round',
         pageLabel: 'Passkeys',
         slug: 'passkeys',
         component: this.componentPath('TwoFactorsPasskeysSettings.vue'),
