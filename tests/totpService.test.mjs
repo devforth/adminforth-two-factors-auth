@@ -42,7 +42,7 @@ test('calls onOtpFailed for a wrong code and onOtpSucceeded for a correct one, b
   const calls = [];
   const extra = { headers: { 'x-forwarded-for': '1.2.3.4' } };
   const service = createService({
-    totpRateLimit: ['3/1m'],
+    totpRateLimit: ['2/1m'],
     onOtpFailed: async (params) => { calls.push(['failed', params]); },
     onOtpSucceeded: async (params) => { calls.push(['succeeded', params]); },
   });
@@ -56,6 +56,32 @@ test('calls onOtpFailed for a wrong code and onOtpSucceeded for a correct one, b
   assert.deepEqual(calls.map(([event]) => event), ['failed', 'succeeded']);
   assert.equal(calls[0][1].pk, 'user-1');
   assert.deepEqual(calls[0][1].dbUser, { pk: 'user-1' });
+  assert.equal(calls[0][1].extra, extra);
+});
+
+test('beforeOtpCheck rejects an attempt without checking the code and without using up the user limit', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 * 30_000 });
+  const calls = [];
+  const extra = { headers: { 'x-forwarded-for': '1.2.3.4' } };
+  let allowed = false;
+  const service = createService({
+    totpRateLimit: ['1/1m'],
+    beforeOtpCheck: async (params) => {
+      calls.push(['before', params]);
+      return allowed ? { allowed } : { allowed, error: 'Too many wrong codes from your IP' };
+    },
+    onOtpFailed: async (params) => { calls.push(['failed', params]); },
+  });
+  const rejected = { error: 'Too many wrong codes from your IP', code: TwoFactorErrorCode.RATE_LIMITED };
+
+  assert.deepEqual(await service.verifyUserCode('user-1', twofactor.generateToken(SECRET).token, extra), rejected);
+  assert.deepEqual(await service.verifyUserCode('user-1', 'wrong', extra), rejected);
+  allowed = true;
+  assert.equal((await service.verifyUserCode('user-1', 'wrong', extra)).code, TwoFactorErrorCode.INVALID);
+  assert.equal((await service.verifyUserCode('user-1', 'wrong', extra)).code, TwoFactorErrorCode.RATE_LIMITED);
+
+  assert.deepEqual(calls.map(([event]) => event), ['before', 'before', 'before', 'failed']);
+  assert.equal(calls[0][1].pk, 'user-1');
   assert.equal(calls[0][1].extra, extra);
 });
 

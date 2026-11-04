@@ -59,8 +59,17 @@ export interface PluginOptions extends PluginsCommonOptions {
     totpRateLimit?: RateLimitString[];
 
     /**
+     * Called before a TOTP code is checked, at login and for step-up verification.
+     * Return `{ allowed: false }` to reject the attempt without checking the code, e.g. to limit attempts by IP.
+     * A rejected attempt fails with the `TWO_FACTOR_RATE_LIMITED` code and the returned `error`,
+     * does not call {@link PluginOptions.onOtpFailed} and does not count towards {@link PluginOptions.totpRateLimit}.
+     * Not called for attempts rejected by {@link PluginOptions.totpRateLimit}.
+     */
+    beforeOtpCheck?: (params: OtpHookParams) => Promise<{ allowed: boolean; error?: string }>;
+
+    /**
      * Called after a user entered a wrong TOTP code, at login or for step-up verification.
-     * Not called for attempts rejected by {@link PluginOptions.totpRateLimit} and for a reused code.
+     * Not called for attempts rejected by {@link PluginOptions.totpRateLimit} or {@link PluginOptions.beforeOtpCheck}, and for a reused code.
      * Use it to count failed attempts, e.g. to block the user after several failures in a row.
      */
     onOtpFailed?: (params: OtpHookParams) => Promise<void>;

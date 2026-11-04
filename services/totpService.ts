@@ -9,6 +9,7 @@ const DEFAULT_TOTP_RATE_LIMIT: RateLimitString[] = ['30/1m', '300/1h', '1000/1d'
 const VERIFIED_CODE_JWT_TYPE = 'verifiedTotpCode';
 const VERIFIED_CODE_TOKEN_TTL = '1m';
 const TOTP_STEP_SECONDS = 30;
+const RATE_LIMITED_ERROR = "Too many attempts to enter the code. Try again later.";
 
 export class TotpService {
   private readonly codeAttemptLimiters = (this.options.totpRateLimit ?? DEFAULT_TOTP_RATE_LIMIT).map((rate) => new RateLimiter(rate));
@@ -36,7 +37,7 @@ export class TotpService {
   public async verifyUserCode(userPk: string, code: string, extra?: HttpExtra): Promise<VerificationResult> {
     const attemptsAllowed = await Promise.all(this.codeAttemptLimiters.map((limiter) => limiter.consume(userPk)));
     if (!attemptsAllowed.every(Boolean)) {
-      return { error: "Too many attempts to enter the code. Try again later.", code: TwoFactorErrorCode.RATE_LIMITED };
+      return { error: RATE_LIMITED_ERROR, code: TwoFactorErrorCode.RATE_LIMITED };
     }
 
     const user = await this.userRepository.getAuthUser(userPk);
@@ -46,6 +47,12 @@ export class TotpService {
     if (!secret) return { error: "2FA is not set up for this user", code: TwoFactorErrorCode.NOT_SET_UP };
 
     const hookParams = { pk: userPk, dbUser: user, adminforth: this.adminforth, extra };
+    const otpCheck = await this.options.beforeOtpCheck?.(hookParams);
+    if (otpCheck && !otpCheck.allowed) {
+      await this.refundCodeAttempt(userPk);
+      return { error: otpCheck.error ?? RATE_LIMITED_ERROR, code: TwoFactorErrorCode.RATE_LIMITED };
+    }
+
     const step = this.findCodeStep(secret, code);
     if (step === null) {
       await this.options.onOtpFailed?.(hookParams);
@@ -62,6 +69,7 @@ export class TotpService {
   }
 
   // attempt is consumed before the check so parallel requests can't bypass the limit, and given back when the code is correct
+  // or rejected by beforeOtpCheck, so an attacker whose IP the app blocked can't use up the user's limit and lock the user out
   private async refundCodeAttempt(userPk: string): Promise<void> {
     await Promise.all(this.codeAttemptLimiters.map((limiter) => limiter.rateLimiter.reward(userPk, 1)));
   }
