@@ -54,7 +54,7 @@ export function createTwoFaHandlers(ctx: any) {
           verificationError = res.error ?? 'Invalid passkey';
         }
       } else {
-        const verificationResult = await ctx.totpService.verifyUserCode(decoded.pk, body.code);
+        const verificationResult = await ctx.totpService.verifyUserCode(decoded.pk, body.code, extra);
         verified = 'ok' in verificationResult && verificationResult.ok;
         if (!verified) {
           verificationError = verificationResult.error ?? verificationError;
@@ -173,10 +173,11 @@ export function createTwoFaHandlers(ctx: any) {
       return { skipAllowed: false, gracePeriod };
     },
 
-    verifyTotp: async ({ adminUser, body, response }) => {
+    verifyTotp: async ({ adminUser, body, response, cookies, headers, requestUrl, query }) => {
       if (!body?.code) return respondWithStatus({ error: 'Code is required' }, response, HttpStatus.BAD_REQUEST);
 
-      const verificationResult = await ctx.totpService.verifyAdminUserCode(adminUser, body.code);
+      const extra = { body, headers, cookies, query, requestUrl, response };
+      const verificationResult = await ctx.totpService.verifyAdminUserCode(adminUser, body.code, extra);
       if (!verificationResult.ok) {
         return respondWithStatus(verificationResult, response, HttpStatus.FORBIDDEN);
       }

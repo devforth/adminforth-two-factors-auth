@@ -69,8 +69,8 @@ export function registerTwoFaEndpoints(server: IHttpServer, handlers: any): void
     },
     noAuth: false,
     request_schema: verifyTotpBodySchema,
-    handler: async ({ adminUser, body, response }) => {
-      return handlers.verifyTotp({ adminUser, body, response });
+    handler: async ({ adminUser, body, response, cookies, headers, requestUrl, query }) => {
+      return handlers.verifyTotp({ adminUser, body, response, cookies, headers, requestUrl, query });
     },
   });
 }

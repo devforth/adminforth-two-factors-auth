@@ -1,4 +1,4 @@
-import { RateLimiter, type AdminUser, type IAdminForth, type RateLimitString } from "adminforth";
+import { RateLimiter, type AdminUser, type HttpExtra, type IAdminForth, type RateLimitString } from "adminforth";
 import twofactor from 'node-2fa';
 import type { PluginOptions } from "../types.js";
 import { UserRepository } from "../repositories/userRepository.js";
@@ -33,7 +33,7 @@ export class TotpService {
     return match && Math.floor(Date.now() / 1000 / TOTP_STEP_SECONDS) + match.delta;
   }
 
-  public async verifyUserCode(userPk: string, code: string): Promise<VerificationResult> {
+  public async verifyUserCode(userPk: string, code: string, extra?: HttpExtra): Promise<VerificationResult> {
     const attemptsAllowed = await Promise.all(this.codeAttemptLimiters.map((limiter) => limiter.consume(userPk)));
     if (!attemptsAllowed.every(Boolean)) {
       return { error: "Too many attempts to enter the code. Try again later.", code: TwoFactorErrorCode.RATE_LIMITED };
@@ -45,18 +45,23 @@ export class TotpService {
     const secret = this.userRepository.getSecret(user);
     if (!secret) return { error: "2FA is not set up for this user", code: TwoFactorErrorCode.NOT_SET_UP };
 
+    const hookParams = { pk: userPk, dbUser: user, adminforth: this.adminforth, extra };
     const step = this.findCodeStep(secret, code);
-    if (step === null) return { error: "Wrong or expired OTP code", code: TwoFactorErrorCode.INVALID };
+    if (step === null) {
+      await this.options.onOtpFailed?.(hookParams);
+      return { error: "Wrong or expired OTP code", code: TwoFactorErrorCode.INVALID };
+    }
 
     if (step <= (this.lastUsedCodeSteps.get(userPk) ?? -Infinity)) {
       return { error: "This code has already been used. Wait for the next one.", code: TwoFactorErrorCode.INVALID };
     }
     this.lastUsedCodeSteps.set(userPk, step);
+    await this.options.onOtpSucceeded?.(hookParams);
     return { ok: true };
   }
 
-  public async verifyAdminUserCode(adminUser: AdminUser, code: string): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {
-    const result = await this.verifyUserCode(this.userRepository.getUserPk(adminUser), code);
+  public async verifyAdminUserCode(adminUser: AdminUser, code: string, extra: HttpExtra): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {
+    const result = await this.verifyUserCode(this.userRepository.getUserPk(adminUser), code, extra);
     if ('error' in result) return result;
     return { ok: true, verifiedCodeToken: this.adminforth.auth.issueJWT({ pk: adminUser.pk }, VERIFIED_CODE_JWT_TYPE, VERIFIED_CODE_TOKEN_TTL) };
   }

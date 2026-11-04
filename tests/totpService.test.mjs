@@ -37,6 +37,28 @@ test('uses totpRateLimit from plugin options instead of the default limits', asy
   assert.equal((await service.verifyUserCode('user-1', 'wrong')).code, TwoFactorErrorCode.RATE_LIMITED);
 });
 
+test('calls onOtpFailed for a wrong code and onOtpSucceeded for a correct one, but not for rate limited or reused codes', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 * 30_000 });
+  const calls = [];
+  const extra = { headers: { 'x-forwarded-for': '1.2.3.4' } };
+  const service = createService({
+    totpRateLimit: ['3/1m'],
+    onOtpFailed: async (params) => { calls.push(['failed', params]); },
+    onOtpSucceeded: async (params) => { calls.push(['succeeded', params]); },
+  });
+  const code = twofactor.generateToken(SECRET).token;
+
+  await service.verifyUserCode('user-1', 'wrong', extra);
+  await service.verifyUserCode('user-1', code, extra);
+  await service.verifyUserCode('user-1', code, extra);
+  await service.verifyUserCode('user-1', 'wrong', extra);
+
+  assert.deepEqual(calls.map(([event]) => event), ['failed', 'succeeded']);
+  assert.equal(calls[0][1].pk, 'user-1');
+  assert.deepEqual(calls[0][1].dbUser, { pk: 'user-1' });
+  assert.equal(calls[0][1].extra, extra);
+});
+
 test('a correct code gives a token that confirms the code only for its user', async () => {
   const service = createService();
   const { verifiedCodeToken } = await service.verifyAdminUserCode({ pk: 'user-1' }, twofactor.generateToken(SECRET).token);

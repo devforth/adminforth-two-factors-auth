@@ -1,5 +1,25 @@
-import { AdminUser, KeyValueAdapter } from "adminforth";
+import { AdminUser, KeyValueAdapter, HttpExtra, IAdminForth } from "adminforth";
 import  {type PluginsCommonOptions, PeriodString, RateLimitString } from "adminforth";
+
+export type OtpHookParams = {
+    /**
+     * Primary key of the user who entered the TOTP code.
+     */
+    pk: string;
+    /**
+     * Record of the user from the users resource.
+     */
+    dbUser: Record<string, any>;
+    /**
+     * Adminforth instance.
+     */
+    adminforth: IAdminForth;
+    /**
+     * Extra HTTP information of the request which checked the code, e.g. to get client IP.
+     * Not passed when `verify` is called without `extra`.
+     */
+    extra?: HttpExtra;
+};
 
 export interface PluginOptions extends PluginsCommonOptions {
 
@@ -37,6 +57,19 @@ export interface PluginOptions extends PluginsCommonOptions {
      * Default: ['30/1m', '300/1h', '1000/1d']
      */
     totpRateLimit?: RateLimitString[];
+
+    /**
+     * Called after a user entered a wrong TOTP code, at login or for step-up verification.
+     * Not called for attempts rejected by {@link PluginOptions.totpRateLimit} and for a reused code.
+     * Use it to count failed attempts, e.g. to block the user after several failures in a row.
+     */
+    onOtpFailed?: (params: OtpHookParams) => Promise<void>;
+
+    /**
+     * Called after a user entered a correct TOTP code, at login or for step-up verification.
+     * Use it e.g. to reset the counter of failed attempts.
+     */
+    onOtpSucceeded?: (params: OtpHookParams) => Promise<void>;
 
     customBrandPrefix?: string;
 

@@ -74,7 +74,7 @@ export async function verifyMfaConfirmation(
 
   if (mode === "totp") {
     const { result: code } = confirmationResult as TotpConfirmationResult;
-    const verificationResult = await ctx.totpService.verifyUserCode(opts.userPk, code);
+    const verificationResult = await ctx.totpService.verifyUserCode(opts.userPk, code, opts.extra);
     return 'error' in verificationResult ? verificationResult : confirmed();
   } else if (mode === "verifiedTotp") {
     const { result: token } = confirmationResult as VerifiedTotpConfirmationResult;
