@@ -52,7 +52,7 @@ export interface PluginOptions extends PluginsCommonOptions {
 
     /**
      * Rate limits for TOTP code attempts of each user, counted by user (not by IP).
-     * Every TOTP check counts as an attempt: at login and for step-up verification.
+     * Only unsuccessful TOTP checks count as attempts (wrong or reused code), at login and for step-up verification.
      * Format: "attempts/period", where period is "1s", "1m", "1h", or "1d".
      * Default: ['30/1m', '300/1h', '1000/1d']
      */

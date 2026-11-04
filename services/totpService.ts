@@ -56,8 +56,14 @@ export class TotpService {
       return { error: "This code has already been used. Wait for the next one.", code: TwoFactorErrorCode.INVALID };
     }
     this.lastUsedCodeSteps.set(userPk, step);
+    await this.refundCodeAttempt(userPk);
     await this.options.onOtpSucceeded?.(hookParams);
     return { ok: true };
+  }
+
+  // attempt is consumed before the check so parallel requests can't bypass the limit, and given back when the code is correct
+  private async refundCodeAttempt(userPk: string): Promise<void> {
+    await Promise.all(this.codeAttemptLimiters.map((limiter) => limiter.rateLimiter.reward(userPk, 1)));
   }
 
   public async verifyAdminUserCode(adminUser: AdminUser, code: string, extra: HttpExtra): Promise<{ ok: true; verifiedCodeToken: string } | VerificationFailure> {
