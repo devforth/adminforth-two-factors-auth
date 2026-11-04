@@ -1,5 +1,5 @@
 import { AdminUser, KeyValueAdapter } from "adminforth";
-import  {type PluginsCommonOptions, PeriodString } from "adminforth";
+import  {type PluginsCommonOptions, PeriodString, RateLimitString } from "adminforth";
 
 export interface PluginOptions extends PluginsCommonOptions {
 
@@ -29,6 +29,14 @@ export interface PluginOptions extends PluginsCommonOptions {
      * code and enter the code. Default is '5m'.
      */
     totpSetupValidityPeriod?: PeriodString; // e.g. '5m', '10m', '15m'. Default is '1m'
+
+    /**
+     * Rate limits for TOTP code attempts of each user, counted by user (not by IP).
+     * Every TOTP check counts as an attempt: at login and for step-up verification.
+     * Format: "attempts/period", where period is "1s", "1m", "1h", or "1d".
+     * Default: ['30/1m', '300/1h', '1000/1d']
+     */
+    totpRateLimit?: RateLimitString[];
 
     customBrandPrefix?: string;
 

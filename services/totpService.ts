@@ -1,17 +1,17 @@
-import { RateLimiter, type AdminUser, type IAdminForth } from "adminforth";
+import { RateLimiter, type AdminUser, type IAdminForth, type RateLimitString } from "adminforth";
 import twofactor from 'node-2fa';
 import type { PluginOptions } from "../types.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { TwoFactorErrorCode } from "../utils/errors.js";
 import type { VerificationFailure, VerificationResult } from "../utils/types.js";
 
-const CODE_ATTEMPT_RATE_LIMITS = ['30/1m', '300/1h', '1000/1d'];
+const DEFAULT_TOTP_RATE_LIMIT: RateLimitString[] = ['30/1m', '300/1h', '1000/1d'];
 const VERIFIED_CODE_JWT_TYPE = 'verifiedTotpCode';
 const VERIFIED_CODE_TOKEN_TTL = '1m';
 const TOTP_STEP_SECONDS = 30;
 
 export class TotpService {
-  private readonly codeAttemptLimiters = CODE_ATTEMPT_RATE_LIMITS.map((rate) => new RateLimiter(rate));
+  private readonly codeAttemptLimiters = (this.options.totpRateLimit ?? DEFAULT_TOTP_RATE_LIMIT).map((rate) => new RateLimiter(rate));
   private readonly lastUsedCodeSteps = new Map<string, number>();
 
   constructor(

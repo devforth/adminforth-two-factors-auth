@@ -7,7 +7,7 @@ import { TwoFactorErrorCode } from '../dist/utils/errors.js';
 const SECRET = 'JBSWY3DPEHPK3PXP';
 const userRepository = { getAuthUser: async (pk) => ({ pk }), getSecret: () => SECRET, getUserPk: (adminUser) => adminUser.pk };
 
-function createService() {
+function createService(options = {}) {
   const jwts = new Map();
   const auth = {
     issueJWT: (payload, type) => {
@@ -17,7 +17,7 @@ function createService() {
     },
     verify: async (token, type) => (jwts.get(token)?.type === type ? jwts.get(token) : null),
   };
-  return new TotpService({ timeStepWindow: 1 }, userRepository, { auth });
+  return new TotpService({ timeStepWindow: 1, ...options }, userRepository, { auth });
 }
 
 test('limits code attempts of each user to stop brute force of a stolen session', async () => {
@@ -27,6 +27,14 @@ test('limits code attempts of each user to stop brute force of a stolen session'
   }
   assert.equal((await service.verifyUserCode('user-1', 'wrong')).code, TwoFactorErrorCode.RATE_LIMITED);
   assert.equal((await service.verifyUserCode('user-2', 'wrong')).code, TwoFactorErrorCode.INVALID);
+});
+
+test('uses totpRateLimit from plugin options instead of the default limits', async () => {
+  const service = createService({ totpRateLimit: ['3/1m'] });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    assert.equal((await service.verifyUserCode('user-1', 'wrong')).code, TwoFactorErrorCode.INVALID);
+  }
+  assert.equal((await service.verifyUserCode('user-1', 'wrong')).code, TwoFactorErrorCode.RATE_LIMITED);
 });
 
 test('a correct code gives a token that confirms the code only for its user', async () => {
