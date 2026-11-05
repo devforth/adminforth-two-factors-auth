@@ -12,14 +12,16 @@ const TOTP_STEP_SECONDS = 30;
 const RATE_LIMITED_ERROR = "Too many attempts to enter the code. Try again later.";
 
 export class TotpService {
-  private readonly codeAttemptLimiters = (this.options.totpRateLimit ?? DEFAULT_TOTP_RATE_LIMIT).map((rate) => new RateLimiter(rate));
+  private readonly codeAttemptLimiters: RateLimiter[];
   private readonly lastUsedCodeSteps = new Map<string, number>();
 
   constructor(
     private readonly options: PluginOptions,
     private readonly userRepository: UserRepository,
     private readonly adminforth: IAdminForth,
-  ) {}
+  ) {
+    this.codeAttemptLimiters = (options.totpRateLimit ?? DEFAULT_TOTP_RATE_LIMIT).map((rate) => new RateLimiter(rate));
+  }
 
   public generateSecret(issuerName: string, userName: string): string {
     return twofactor.generateSecret({ name: issuerName, account: userName }).secret;
