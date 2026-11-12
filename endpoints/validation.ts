@@ -39,5 +39,6 @@ export const renamePasskeyBodySchema = z.object({
 
 export const resolveVerifyAutoBodySchema = z.object({
   sessionsIds: z.array(z.string()).nullish(),
-  confirmationResult: z.record(z.string(), z.any()),
+  // missing on Cancel in TwoFAModal; the handler then resolves the waiting sessions as cancelled
+  confirmationResult: z.record(z.string(), z.any()).nullish(),
 }).strict();
