@@ -37,3 +37,13 @@ test('verifyAuto does not prompt users who do not need 2FA', async () => {
   assert.deepEqual(await inTab(() => plugin.verifyAuto(user)), { ok: true });
   assert.deepEqual(published, []);
 });
+
+test('verifyAuto keeps waiting for the tab on an older core whose publish resolves nothing', { timeout: 1000 }, async () => {
+  const { plugin } = fakePlugin({ verifyResult: { error: 'Required', code: 'TWO_FACTOR_REQUIRED' }, delivered: undefined });
+
+  const pending = inTab(() => plugin.verifyAuto(user));
+  await new Promise(setImmediate);
+  plugin.resolveResponse('jwt', { ok: true });
+
+  assert.deepEqual(await pending, { ok: true });
+});

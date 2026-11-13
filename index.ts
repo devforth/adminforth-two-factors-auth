@@ -128,7 +128,8 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
 
     const delivered = await this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}/${websocketClientId}`, { sessionId: jwt, actionDescription });
-    if (!delivered) {
+    // older cores resolve publish with nothing, then keep waiting for the tab as before
+    if (delivered === 0) {
       this.resolveResponse(jwt, {
         ok: false,
         error: 'Could not show the 2FA prompt in this browser tab. Reload the page and try again.',
