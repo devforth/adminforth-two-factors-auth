@@ -354,15 +354,11 @@
   }
 
   async function checkIfSkipAllowModal(): Promise<{ skipAllowed: boolean; gracePeriod?: boolean }> {
-    try {
-      return await callAdminForthApi({
-        method: "GET",
-        path: "/plugin/twofa/skip-allow-modal",
-      });
-    } catch (error) {
-      console.error('Error checking skip allow modal:', error);
-      return { skipAllowed: false };
-    }
+    // the API helper resolves null instead of throwing when the request fails, show the modal then
+    return (await callAdminForthApi({
+      method: "GET",
+      path: "/plugin/twofa/skip-allow-modal",
+    })) ?? { skipAllowed: false };
   }
 
 </script>
