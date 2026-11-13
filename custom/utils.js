@@ -72,7 +72,6 @@
     }
     const credential = await authenticate(options);
     if (!credential) {
-      isFetchingPasskey.value = false;
       return;
     }
     const result = JSON.stringify(credential);
@@ -99,7 +98,6 @@
     } else {
       const message = response.error || 'Error creating sign-in request.';
       adminforth.alert({message, variant: 'warning'});
-      codeError.value = message;
     }
   }
 
@@ -125,13 +123,11 @@
         // User cancelled or ignored the browser passkey prompt.
         return null;
       } else if (name === 'InvalidStateError' || name === 'OperationError' || /pending/i.test(message)) {
-        adminforth.alert({ message: t('Another security prompt is already open. Please try again.'), variant: 'warning' });
-        codeError.value = t('A previous passkey attempt was still pending. Please try again.');
+        adminforth.alert({ message: 'Another security prompt is already open. Please try again.', variant: 'warning' });
         return null;
       } else {
         console.error('Error during authentication:', error);
         adminforth.alert({message: `Error during authentication: ${error}`, variant: 'warning'});
-        codeError.value = 'Error during authentication.';
         return null;
       }
     }

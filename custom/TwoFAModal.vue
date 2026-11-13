@@ -88,6 +88,8 @@
 
   const isAwaiting2FAResult = ref(false);
   let allowAddNewSessions = true;
+  // the modal is open or its answer is being sent, a new prompt joins this loop instead of starting another one
+  let isConfirmingSessions = false;
   const ALLOW_NEW_SESSIONS_PERIOD = 1000;
   const MAX_ACTIONS_PER_CONFIRMATION = 20;
   const sessionsToResolve = ref<AutoVerifySession[]>([]);
@@ -112,6 +114,12 @@
       websocket.subscribe(user2FaTopic, async (session: AutoVerifySession) => {
         if (!allowAddNewSessions) {
           alert({message: t('Some process or user tries to add new actions to confirm. Action was blocked'), variant: 'warning'});
+          // without a confirmationResult the server fails the blocked request at once, not after its timeout
+          callAdminForthApi({
+            method: "POST",
+            path: "/plugin/passkeys/resolveVerifyAuto",
+            body: { sessionsIds: [session.sessionId] },
+          });
           return;
         }
         if (sessionsToResolve.value.length < MAX_ACTIONS_PER_CONFIRMATION) {
@@ -119,13 +127,15 @@
         } else {
           queuedSessions.push(session);
         }
-        if (isAwaiting2FAResult.value) {
+        if (isConfirmingSessions) {
           return;
         }
+        isConfirmingSessions = true;
         while (sessionsToResolve.value.length) {
           await confirmSessions();
-          sessionsToResolve.value = queuedSessions.splice(0, MAX_ACTIONS_PER_CONFIRMATION);
+          sessionsToResolve.value.push(...queuedSessions.splice(0, MAX_ACTIONS_PER_CONFIRMATION - sessionsToResolve.value.length));
         }
+        isConfirmingSessions = false;
         allowAddNewSessions = true;
       });
       websocket.subscribe(`${user2FaTopic}/resolve`, async (data: {sessionId: string}) => {
@@ -150,11 +160,12 @@
       }
     }
     isAwaiting2FAResult.value = false;
+    const sessionsIds = sessionsToResolve.value.map((session) => session.sessionId);
     try {
       const response = await callAdminForthApi({
         method: "POST",
         path: "/plugin/passkeys/resolveVerifyAuto",
-        body: { confirmationResult, sessionsIds: sessionsToResolve.value.map((session) => session.sessionId) }
+        body: { confirmationResult, sessionsIds }
       });
       if (!response.ok && response.code === 'VERIFICATION_CANCELLED'){
         alert({message: t('Verification session finished or cancelled.'), variant: 'warning'});
@@ -164,6 +175,8 @@
     } catch (error) {
       console.error('Error resolving automatic 2FA verification:', error);
     }
+    // prompts that came while the answer was being sent were not in it, they get their own confirmation
+    sessionsToResolve.value = sessionsToResolve.value.filter((session) => !sessionsIds.includes(session.sessionId));
   }
 
   const emit = defineEmits<{
@@ -278,6 +291,10 @@
       return null;
     } finally {
       isFetchingPasskey.value = false;
+    }
+    // the browser prompt was dismissed or failed with an alert, the modal stays open for a retry
+    if (!passkeyData) {
+      return null;
     }
     modelShow.value = false;
     const dataToReturn = {

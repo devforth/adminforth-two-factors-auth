@@ -30,6 +30,9 @@
 
     async function handleLoginWithPasskey() {
       const passkeyOptions = await getPasskey();
+      if (!passkeyOptions) {
+        return;
+      }
       try {
         const resp = await callAdminForthApi({
         method: 'POST',
