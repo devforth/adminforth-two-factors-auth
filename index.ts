@@ -112,6 +112,9 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
       extra,
     }));
     if (contextualResult) return contextualResult;
+    // users who do not need 2FA pass without a modal, so they never wait for a browser tab
+    const skipResult = await this.verify(undefined, { adminUser, userPk: adminUser.pk! });
+    if (!('error' in skipResult)) return skipResult;
     const websocketClientId = getRequestWebsocketClientId?.();
     if (!websocketClientId) {
       return {
@@ -124,7 +127,14 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     const jwt = this.adminforth.auth.issueJWT({sessionId, adminUserPk: adminUser.pk}, 'auto2FA', '5m');
     const resultPromise = this.waitForResponse(jwt, 5 * 60 * 1000);
 
-    this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}/${websocketClientId}`, { sessionId: jwt, actionDescription });
+    const delivered = await this.adminforth.websocket.publish(`/user2fa/${adminUser.pk}/${websocketClientId}`, { sessionId: jwt, actionDescription });
+    if (!delivered) {
+      this.resolveResponse(jwt, {
+        ok: false,
+        error: 'Could not show the 2FA prompt in this browser tab. Reload the page and try again.',
+        code: TwoFactorErrorCode.DELIVERY_FAILED,
+      });
+    }
 
     const result = await resultPromise;
 
