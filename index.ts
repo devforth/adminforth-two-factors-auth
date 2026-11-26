@@ -327,9 +327,10 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
     if (typeof this.options.twoFaSecretFieldName !=='string'){
       throw new Error('twoFaSecretFieldName must be a string')
     }
+    // otpauth searches an infinite window until any code matches
     if (
       this.options.timeStepWindow === undefined
-      || typeof this.options.timeStepWindow !== 'number'
+      || !Number.isInteger(this.options.timeStepWindow)
       || this.options.timeStepWindow < 0
     )
       this.options.timeStepWindow = 1;
@@ -363,7 +364,7 @@ export default class TwoFactorsAuthPlugin extends AdminForthPlugin {
         const userCanSkipSetup = this.options.usersFilterToAllowSkipSetup ? this.options.usersFilterToAllowSkipSetup(adminUser) : false;
 
         if (!secret){
-          newSecret = this.totpService.generateSecret(issuerName, userName);
+          newSecret = this.totpService.generateSecret();
           this.cookieService.setTotpTemporary(extra.response, {userName, newSecret, issuer:issuerName, pk:userPk, userCanSkipSetup, sessionDuration });
 
           return {

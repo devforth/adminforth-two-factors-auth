@@ -1,5 +1,5 @@
 import { RateLimiter, type AdminUser, type HttpExtra, type IAdminForth, type RateLimitString } from "adminforth";
-import twofactor from 'node-2fa';
+import { Secret, TOTP } from "otpauth";
 import type { PluginOptions } from "../types.js";
 import { UserRepository } from "../repositories/userRepository.js";
 import { TwoFactorErrorCode } from "../utils/errors.js";
@@ -8,8 +8,9 @@ import type { VerificationFailure, VerificationResult } from "../utils/types.js"
 const DEFAULT_TOTP_RATE_LIMIT: RateLimitString[] = ['30/1m', '300/1h', '1000/1d'];
 const VERIFIED_CODE_JWT_TYPE = 'verifiedTotpCode';
 const VERIFIED_CODE_TOKEN_TTL = '1m';
-const TOTP_STEP_SECONDS = 30;
 const RATE_LIMITED_ERROR = "Too many attempts to enter the code. Try again later.";
+// codes and secrets are shown in groups, "123 456" or "ABCD-EFGH"; node-2fa stripped them from both
+const SEPARATORS = /\W+/g;
 
 export class TotpService {
   private readonly codeAttemptLimiters: RateLimiter[];
@@ -23,8 +24,8 @@ export class TotpService {
     this.codeAttemptLimiters = (options.totpRateLimit ?? DEFAULT_TOTP_RATE_LIMIT).map((rate) => new RateLimiter(rate));
   }
 
-  public generateSecret(issuerName: string, userName: string): string {
-    return twofactor.generateSecret({ name: issuerName, account: userName }).secret;
+  public generateSecret(): string {
+    return new Secret().base32;
   }
 
   public verifySecret(secret: string, code: string): boolean {
@@ -32,8 +33,19 @@ export class TotpService {
   }
 
   private findCodeStep(secret: string, code: string): number | null {
-    const match = twofactor.verifyToken(secret, code, this.options.timeStepWindow);
-    return match && Math.floor(Date.now() / 1000 / TOTP_STEP_SECONDS) + match.delta;
+    // the code comes from a request body, where it can be missing or not a string
+    if (typeof code !== 'string') {
+      return null;
+    }
+    // one clock reading for the check and the step, so they agree at a step boundary
+    const timestamp = Date.now();
+    const delta = TOTP.validate({
+      token: code.replace(SEPARATORS, ''),
+      secret: Secret.fromBase32(secret.replace(SEPARATORS, '')),
+      window: this.options.timeStepWindow,
+      timestamp,
+    });
+    return delta === null ? null : TOTP.counter({ timestamp }) + delta;
   }
 
   public async verifyUserCode(userPk: string, code: string, extra?: HttpExtra): Promise<VerificationResult> {

@@ -1,10 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import twofactor from 'node-2fa';
 import { TotpService } from '../dist/services/totpService.js';
 import { TwoFactorErrorCode } from '../dist/utils/errors.js';
 
 const SECRET = 'JBSWY3DPEHPK3PXP';
+const STEP_MS = 30_000;
+// codes of SECRET at the steps 1000-1002, computed with an independent RFC 4226 implementation
+const CODES = { 1000: '120699', 1001: '082801', 1002: '676083' };
 const userRepository = { getAuthUser: async (pk) => ({ pk }), getSecret: () => SECRET, getUserPk: (adminUser) => adminUser.pk };
 
 function createService(options = {}) {
@@ -46,7 +48,7 @@ test('calls onOtpFailed for a wrong code and onOtpSucceeded for a correct one, b
     onOtpFailed: async (params) => { calls.push(['failed', params]); },
     onOtpSucceeded: async (params) => { calls.push(['succeeded', params]); },
   });
-  const code = twofactor.generateToken(SECRET).token;
+  const code = CODES[1000];
 
   await service.verifyUserCode('user-1', 'wrong', extra);
   await service.verifyUserCode('user-1', code, extra);
@@ -74,7 +76,7 @@ test('beforeOtpCheck rejects an attempt without checking the code and without us
   });
   const rejected = { error: 'Too many wrong codes from your IP', code: TwoFactorErrorCode.RATE_LIMITED };
 
-  assert.deepEqual(await service.verifyUserCode('user-1', twofactor.generateToken(SECRET).token, extra), rejected);
+  assert.deepEqual(await service.verifyUserCode('user-1', CODES[1000], extra), rejected);
   assert.deepEqual(await service.verifyUserCode('user-1', 'wrong', extra), rejected);
   allowed = true;
   assert.equal((await service.verifyUserCode('user-1', 'wrong', extra)).code, TwoFactorErrorCode.INVALID);
@@ -85,18 +87,18 @@ test('beforeOtpCheck rejects an attempt without checking the code and without us
   assert.equal(calls[0][1].extra, extra);
 });
 
-test('a correct code gives a token that confirms the code only for its user', async () => {
+test('a correct code gives a token that confirms the code only for its user', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_000 * STEP_MS });
   const service = createService();
-  const { verifiedCodeToken } = await service.verifyAdminUserCode({ pk: 'user-1' }, twofactor.generateToken(SECRET).token);
+  const { verifiedCodeToken } = await service.verifyAdminUserCode({ pk: 'user-1' }, CODES[1000]);
   assert.equal(await service.isVerifiedCodeToken(verifiedCodeToken, 'user-1'), true);
   assert.equal(await service.isVerifiedCodeToken(verifiedCodeToken, 'user-2'), false);
   assert.equal(await service.isVerifiedCodeToken('forged', 'user-1'), false);
 });
 
-const STEP_MS = 30_000;
 const codeAt = (t, time) => {
   t.mock.timers.setTime(time);
-  return twofactor.generateToken(SECRET).token;
+  return CODES[time / STEP_MS];
 };
 
 test('a code confirms only one request, so a phished code can not be replayed', async (t) => {
@@ -118,4 +120,59 @@ test('after a code is used, older codes from the window are rejected and the nex
   assert.deepEqual(await service.verifyUserCode('user-1', code), { ok: true });
   assert.equal((await service.verifyUserCode('user-1', olderCode)).code, TwoFactorErrorCode.INVALID);
   assert.deepEqual(await service.verifyUserCode('user-1', codeAt(t, 1_002 * STEP_MS)), { ok: true });
+});
+
+// the key of the RFC 4226 and RFC 6238 test vectors, "12345678901234567890" in base32
+const RFC_SECRET = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+test('RFC 6238 SHA-1 codes are accepted at their times, including the ones with leading zeros', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 0 });
+  const service = createService({ timeStepWindow: 0 });
+  const vectors = [[59, '287082'], [1111111109, '081804'], [1111111111, '050471'], [1234567890, '005924'], [2000000000, '279037'], [20000000000, '353130']];
+  for (const [seconds, code] of vectors) {
+    t.mock.timers.setTime(seconds * 1000);
+    assert.equal(service.verifySecret(RFC_SECRET, code), true);
+  }
+});
+
+// node-2fa cut the code to its last characters when the truncated 31-bit value had fewer than 6 digits
+// (it gave "5" instead of "092555"), so the code of an authenticator app never matched: 1 step in 21474
+test('a code whose truncated value is below 100000 is zero padded and accepted', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 0 });
+  const service = createService({ timeStepWindow: 0 });
+  for (const [step, code] of [[10281, '092555'], [732066, '007261'], [2011430, '000835']]) {
+    t.mock.timers.setTime(step * STEP_MS);
+    assert.equal(service.verifySecret(RFC_SECRET, code), true);
+    assert.equal(service.verifySecret(RFC_SECRET, String(Number(code))), false);
+  }
+});
+
+test('timeStepWindow is the number of steps before and after the current one which are accepted', (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_001 * STEP_MS });
+  const exact = createService({ timeStepWindow: 0 });
+  const lenient = createService({ timeStepWindow: 1 });
+
+  assert.deepEqual([CODES[1000], CODES[1001], CODES[1002]].map((code) => exact.verifySecret(SECRET, code)), [false, true, false]);
+  assert.deepEqual([CODES[1000], CODES[1001], CODES[1002]].map((code) => lenient.verifySecret(SECRET, code)), [true, true, true]);
+  assert.equal(lenient.verifySecret(SECRET, '000000'), false);
+});
+
+test('a code or a secret written in groups is accepted, a missing or malformed code is a wrong code', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: 1_001 * STEP_MS });
+  const service = createService({ timeStepWindow: 0 });
+  assert.equal(service.verifySecret(SECRET, '082 801'), true);
+  assert.equal(service.verifySecret(SECRET, '082-801'), true);
+  assert.equal(service.verifySecret('jbsw-y3dp ehpk-3pxp\n', '082801'), true);
+  for (const code of [undefined, null, 82801, '', '08280', '0828011', 'abcdef']) {
+    assert.equal((await service.verifyUserCode(`user-${code}`, code)).code, TwoFactorErrorCode.INVALID);
+  }
+});
+
+test('generated secrets are random base32 keys of 160 bits which authenticator apps accept', () => {
+  const service = createService();
+  const secrets = new Set(Array.from({ length: 50 }, () => service.generateSecret()));
+  assert.equal(secrets.size, 50);
+  for (const secret of secrets) {
+    assert.match(secret, /^[A-Z2-7]{32}$/);
+  }
 });
